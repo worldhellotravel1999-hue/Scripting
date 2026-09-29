@@ -1,0 +1,244 @@
+import {
+  Button,
+  HStack,
+  Image,
+  Menu,
+  RoundedRectangle,
+  Spacer,
+  Text,
+  VStack,
+} from "scripting"
+import { AUTO_LANGUAGE, LANGUAGE_OPTIONS } from "../core/constants"
+import type { LanguageOption } from "../core/types"
+
+export function languageDisplayLabel(code: string) {
+  if (code === AUTO_LANGUAGE.code) return "自动检测"
+  if (code === "en") return "英语（美国）"
+  if (code === "zh-Hans") return "中文（普通话，简体）"
+  if (code === "zh-Hant") return "中文（繁体）"
+  const item = LANGUAGE_OPTIONS.find((option) => option.code === code)
+  return item ? item.label : code
+}
+
+export function languageLabel(code: string) {
+  if (code === AUTO_LANGUAGE.code) return "自动检测"
+  const item = LANGUAGE_OPTIONS.find((option) => option.code === code)
+  return item ? item.label : code
+}
+
+export function languageShortLabel(code: string) {
+  if (code === AUTO_LANGUAGE.code) return "自动检测"
+  if (code === "en") return "英语"
+  if (code === "zh-Hans") return "中文（简体）"
+  if (code === "zh-Hant") return "中文（繁体）"
+  return languageLabel(code)
+}
+
+export function LanguageMenu(props: {
+  title: string
+  value: string
+  options: LanguageOption[]
+  onChanged: (value: string) => void
+  prominent?: boolean
+  alignment?: "leading" | "trailing"
+}) {
+  return (
+    <Menu
+      label={
+        <Text
+          foregroundStyle={props.prominent ? "label" : "accentColor"}
+          font={props.prominent ? "title3" : "subheadline"}
+          fontWeight={props.prominent ? "semibold" : undefined}
+          lineLimit={1}
+          truncationMode="tail"
+          allowsTightening
+          frame={{
+            maxWidth: props.prominent ? 160 : 170,
+            alignment: (props.alignment || "trailing") as any,
+          }}
+          multilineTextAlignment={props.alignment || "trailing"}
+        >
+          {props.prominent ? languageShortLabel(props.value) : languageLabel(props.value)}
+        </Text>
+      }
+    >
+      {props.options.map((option) => (
+        <Button
+          key={option.code}
+          buttonStyle="plain"
+          action={() => props.onChanged(option.code)}
+        >
+          <HStack spacing={8} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
+            {option.code === props.value ? (
+              <Image systemName="checkmark" foregroundStyle="accentColor" font="subheadline" />
+            ) : null}
+            <Text>{languageDisplayLabel(option.code)}</Text>
+          </HStack>
+        </Button>
+      ))}
+    </Menu>
+  )
+}
+
+export function targetMenuSummary(targetLanguages: string[]) {
+  const targets = targetLanguages.length ? targetLanguages.slice(0, 3) : ["zh-Hans"]
+  return targets.length === 1
+    ? languageShortLabel(targets[0])
+    : `${languageShortLabel(targets[0])} +${targets.length - 1}`
+}
+
+export function toggleTargetSelection(values: string[], code: string) {
+  if (values.includes(code)) {
+    return values.length > 1 ? values.filter((item) => item !== code) : values
+  }
+  if (values.length >= 3) return values
+  return [...values, code]
+}
+
+export function TargetLanguageMenu(props: {
+  targetLanguages: string[]
+  onToggle: (code: string) => void
+}) {
+  const targets = props.targetLanguages.length ? props.targetLanguages.slice(0, 3) : ["zh-Hans"]
+  return (
+    <Menu
+      label={
+        <Text
+          foregroundStyle="label"
+          font="title3"
+          fontWeight="semibold"
+          lineLimit={1}
+          truncationMode="tail"
+          allowsTightening
+          frame={{ maxWidth: 160, alignment: "trailing" as any }}
+          multilineTextAlignment="trailing"
+        >
+          {targetMenuSummary(props.targetLanguages)}
+        </Text>
+      }
+    >
+      {LANGUAGE_OPTIONS.map((option) => {
+        const selected = targets.includes(option.code)
+        return (
+          <Button
+            key={option.code}
+            buttonStyle="plain"
+            action={() => props.onToggle(option.code)}
+          >
+            <HStack spacing={8} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
+              {selected ? (
+                <Image systemName="checkmark" foregroundStyle="accentColor" font="subheadline" />
+              ) : null}
+              <Text>{languageDisplayLabel(option.code)}</Text>
+            </HStack>
+          </Button>
+        )
+      })}
+    </Menu>
+  )
+}
+
+export function CopyButton(props: { title?: string; text: string }) {
+  const value = String(props.text || "")
+  return (
+    <Button
+      title={props.title ?? "复制"}
+      systemImage="doc.on.doc"
+      disabled={!value.trim()}
+      action={async () => {
+        if (!value.trim()) return
+        await Pasteboard.setString(value)
+        try { HapticFeedback.lightImpact() } catch {}
+      }}
+    />
+  )
+}
+
+export function LanguageBar(props: {
+  sourceLanguage: string
+  targetLanguages: string[]
+  onSourceChanged: (value: string) => void
+  onToggleTarget: (code: string) => void
+  /** 中间的交换按钮：互换原文语言与译文语言。 */
+  onSwap?: () => void
+}) {
+  const sourceOptions = [AUTO_LANGUAGE, ...LANGUAGE_OPTIONS]
+
+  return (
+    <HStack
+      spacing={0}
+      padding={{ horizontal: 16, vertical: 10 }}
+      frame={{ maxWidth: "infinity", alignment: "center" as any }}
+      background={<RoundedRectangle fill={{ light: "#FFFFFF", dark: "#1C1C1E" }} cornerRadius={18} />}
+      clipShape={{ type: "rect", cornerRadius: 18, style: "continuous" }}
+    >
+      <LanguageMenu
+        title="源语言"
+        value={props.sourceLanguage}
+        options={sourceOptions}
+        prominent
+        alignment="leading"
+        onChanged={props.onSourceChanged}
+      />
+      <Spacer />
+      {props.onSwap ? (
+        <Button action={props.onSwap} buttonStyle="plain">
+          <Image
+            systemName="arrow.left.arrow.right"
+            font={16}
+            foregroundStyle={{ light: "#000000", dark: "#FFFFFF" }}
+            frame={{ width: 32, height: 32 }}
+            background={{ style: { light: "rgba(142, 142, 147, 0.22)", dark: "rgba(142, 142, 147, 0.28)" }, shape: "circle" }}
+          />
+        </Button>
+      ) : null}
+      <Spacer />
+      <TargetLanguageMenu
+        targetLanguages={props.targetLanguages}
+        onToggle={props.onToggleTarget}
+      />
+    </HStack>
+  )
+}
+
+export function SectionHeader(props: {
+  symbol: string
+  title: string
+  subtitle?: string
+}) {
+  return (
+    <HStack spacing={8} padding={{ bottom: 2 }}>
+      <Image
+        systemName={props.symbol}
+        foregroundStyle="systemBlue"
+        font="subheadline"
+        frame={{ width: 24, alignment: "center" as any }}
+      />
+      <VStack alignment="leading" spacing={1}>
+        <Text font="subheadline" fontWeight="semibold">{props.title}</Text>
+        {props.subtitle ? (
+          <Text font="caption" foregroundStyle="secondaryLabel" lineLimit={1} truncationMode="tail">
+            {props.subtitle}
+          </Text>
+        ) : null}
+      </VStack>
+      <Spacer />
+    </HStack>
+  )
+}
+
+export function EmptyState(props: {
+  symbol: string
+  title: string
+  message: string
+}) {
+  return (
+    <VStack alignment="center" spacing={8} padding={{ vertical: 12 }}>
+      <Image systemName={props.symbol} imageScale="large" foregroundStyle="secondaryLabel" />
+      <Text fontWeight="semibold">{props.title}</Text>
+      <Text foregroundStyle="secondaryLabel" multilineTextAlignment="center">
+        {props.message}
+      </Text>
+    </VStack>
+  )
+}
