@@ -246,6 +246,9 @@ function CardDivider() {
  *  旧值 0.36 分数在分享宿主里折算高度远小于此，把 Cookie 行往下全部裁掉且无处滚动；
  *  固定 420pt 装得下表单本体 + 2 个账号，更多账号/长 Cookie 由登录表单内部 ScrollView 滚动兜底。 */
 const LOGIN_SHEET_DETENT = 420
+/** 搜索页 Reset 行星星按钮双层嵌套填充（与合集页顶部方框钮同款）：外层浅灰方框 + 内层灰白圆底。 */
+const STAR_BOX_FILL = { light: "rgba(120,120,128,0.18)", dark: "rgba(120,120,128,0.24)" } as const
+const STAR_INNER_FILL = { light: "rgba(248,248,251,0.75)", dark: "rgba(240,240,245,0.70)" } as const
 
 /**
  * 分享页头部评分星星合集入口：无背景无圆点的原生排版，点击星星弹跳后弹出合集窗口。
@@ -264,6 +267,25 @@ function RatingCollectionsButton(props: {
   const [tick, setTick] = useState(0)
   const [isPresented, setIsPresented] = useState(false)
   const [fullscreen, setFullscreen] = useState(false)
+  // 紧凑星星呼吸灯：0/1 往复，1100ms 一跳（与合集页顶部钮同节奏）
+  const [starPulse, setStarPulse] = useState(0)
+  useEffect(() => {
+    if (!props.compact) return
+    let stopped = false
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const schedule = () => {
+      timer = setTimeout(() => {
+        if (stopped) return
+        setStarPulse((value) => 1 - value)
+        schedule()
+      }, 1100)
+    }
+    schedule()
+    return () => {
+      stopped = true
+      if (timer) clearTimeout(timer)
+    }
+  }, [props.compact])
   const [loggedIn, setLoggedIn] = useState(() => {
     try { return !isAppRavenLoggedOut() } catch { return false }
   })
@@ -304,22 +326,24 @@ function RatingCollectionsButton(props: {
       }}
     >
       {props.compact ? (
-        <ZStack frame={{ width: 24, height: 24 }}>
-          <Circle
-            stroke={{
-              shapeStyle: { light: "rgba(142,142,147,0.55)", dark: "rgba(142,142,147,0.65)" } as any,
-              strokeStyle: { lineWidth: 1.5 },
-            }}
-            frame={{ width: 24, height: 24 }}
-          />
-          <Image
-            systemName="star.fill"
-            font="caption2"
-            foregroundStyle={{ light: "rgba(142,142,147,1)", dark: "rgba(142,142,147,1)" }}
-            contentTransition="symbolEffect"
-            symbolEffect={{ effect: "bounce", value: tick }}
-          />
-        </ZStack>
+        <HStack
+          padding={{ horizontal: 4, vertical: 4 }}
+          background={<RoundedRectangle fill={STAR_BOX_FILL} cornerRadius={10} />}
+          clipShape={{ type: "rect", cornerRadius: 10, style: "continuous" }}
+          opacity={starPulse === 0 ? 1 : 0.45}
+          animation={{ animation: Animation.easeOut(1.05), value: starPulse }}
+        >
+          <ZStack frame={{ width: 32, height: 32 }}>
+            <RoundedRectangle fill={STAR_INNER_FILL} cornerRadius={8} />
+            <Image
+              systemName="star.fill"
+              font={15}
+              foregroundStyle={{ light: "rgba(142,142,147,1)", dark: "rgba(142,142,147,1)" }}
+              contentTransition="symbolEffect"
+              symbolEffect={{ effect: "bounce", value: tick }}
+            />
+          </ZStack>
+        </HStack>
       ) : (
         <HStack spacing={4}>
           <Image
@@ -923,18 +947,8 @@ function AppSearchSection(props: {
                   foregroundStyle={props.foregroundStyle}
                 />
               </HStack>
-              {/* AppRaven 星星入口（紧凑形态：小星星 + 灰色圆环）在 Reset 左侧；
-                  向右偏移到上排 v 版本徽章与 Link 徽章中间的位置 */}
-              <HStack padding={{ leading: 24 }} spacing={8}>
-                <RatingCollectionsButton
-                  compact
-                  rating={app.detail && typeof app.detail.averageUserRating === "number" ? app.detail.averageUserRating : 0}
-                  ratingCount={app.detail && typeof app.detail.userRatingCount === "number" ? app.detail.userRatingCount.toLocaleString() : ""}
-                  foregroundStyle={props.foregroundStyle}
-                  appid={app.appid}
-                  appTitle={app.trackName || app.detail?.trackName || "未知应用"}
-                  artworkUrl={app.detail?.artworkUrl512 || app.detail?.artworkUrl100 || app.artworkUrl}
-                />
+              {/* 一键重置 */}
+              <HStack padding={{ leading: 16 }} spacing={8}>
                 <ResetBadgeButton
                   hasExpanded={app.priceExpanded === true
                     || app.releaseNotesExpanded === true
@@ -1043,13 +1057,14 @@ function AppSearchSection(props: {
             ) : null}
           </VStack>
           )}
-          {/* 折叠控制胶囊：更新和应用说明均默认折叠；三个按钮包在整体淡黑色胶囊里 */}
-          <HStack
-            spacing={6}
-            padding={{ horizontal: 6, vertical: 5 }}
-            background={{ style: { light: "rgba(0,0,0,0.05)", dark: "rgba(0,0,0,0.22)" }, shape: "capsule" }}
-            clipShape="capsule"
-          >
+          {/* 折叠控制：更新/说明/图标胶囊 + 右侧独立星星（方形双层嵌套呼吸灯，大小不变） */}
+          <HStack spacing={8} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
+            <HStack
+              spacing={6}
+              padding={{ horizontal: 6, vertical: 5 }}
+              background={{ style: { light: "rgba(0,0,0,0.05)", dark: "rgba(0,0,0,0.22)" }, shape: "capsule" }}
+              clipShape="capsule"
+            >
             <Button
               buttonStyle="plain"
               action={() => {
@@ -1106,6 +1121,17 @@ function AppSearchSection(props: {
                   : item))
                 if (wasExpanded) settleAfterCollapse(app)
               }}
+            />
+          </HStack>
+            <Spacer frame={{ width: 50 }} />
+            <RatingCollectionsButton
+              compact
+              rating={app.detail && typeof app.detail.averageUserRating === "number" ? app.detail.averageUserRating : 0}
+              ratingCount={app.detail && typeof app.detail.userRatingCount === "number" ? app.detail.userRatingCount.toLocaleString() : ""}
+              foregroundStyle={props.foregroundStyle}
+              appid={app.appid}
+              appTitle={app.trackName || app.detail?.trackName || "未知应用"}
+              artworkUrl={app.detail?.artworkUrl512 || app.detail?.artworkUrl100 || app.artworkUrl}
             />
           </HStack>
           {/* 图标下载面板（点「图标」胶囊展开，仅保存到相册） */}

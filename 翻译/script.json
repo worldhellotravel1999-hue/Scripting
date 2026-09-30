@@ -1,47 +1,47 @@
 {
-  "remoteResource" : {
-    "hash" : "c067ed24c9723c8ab2902fec474f4250",
-    "url" : "https:\/\/github.com\/worldhellotravel1999-hue\/Scripting\/raw\/refs\/heads\/main\/翻译.scripting",
-    "autoUpdateInterval" : 3600
-  },
-  "localizedDescriptions" : {
-    "it" : "Uno spazio di traduzione che usa solo System Translate integrato.",
-    "ko" : "내장 System Translate만 사용하는 간결한 번역 작업 공간입니다.",
-    "fr" : "Un espace de traduction simple utilisant uniquement System Translate.",
-    "en" : "Search and translate App Store apps, with icon save and link copy.",
-    "ru" : "Простое рабочее пространство перевода только со встроенным System Translate.",
-    "de" : "Ein fokussierter Übersetzungsbereich, der nur System Translate verwendet.",
-    "zh" : "搜索 App Store 应用并翻译说明，支持保存图标和复制链接。",
-    "ja" : "内蔵の System Translate のみを使う、シンプルな翻訳ワークスペース。",
-    "es" : "Un espacio de traducción que utiliza solo System Translate integrado.",
-    "pt" : "Um espaço de tradução que usa apenas o System Translate integrado."
-  },
+  "version" : "2.4.38",
   "iconImage" : null,
   "icon" : "network",
-  "description" : "App Store 应用翻译工具：翻译说明、下载图标、复制链接。",
-  "entry" : "index.tsx",
-  "intentInputTypes" : [
-    "URLs"
-  ],
-  "author" : null,
-  "version" : "2.4.38",
-  "permissions" : null,
-  "color" : "rgba(28, 140, 255, 1)",
+  "localizedDescriptions" : {
+    "zh" : "搜索 App Store 应用并翻译说明，支持保存图标和复制链接。",
+    "ko" : "내장 System Translate만 사용하는 간결한 번역 작업 공간입니다.",
+    "de" : "Ein fokussierter Übersetzungsbereich, der nur System Translate verwendet.",
+    "en" : "Search and translate App Store apps, with icon save and link copy.",
+    "ru" : "Простое рабочее пространство перевода только со встроенным System Translate.",
+    "es" : "Un espacio de traducción que utiliza solo System Translate integrado.",
+    "fr" : "Un espace de traduction simple utilisant uniquement System Translate.",
+    "pt" : "Um espaço de tradução que usa apenas o System Translate integrado.",
+    "it" : "Uno spazio di traduzione che usa solo System Translate integrato.",
+    "ja" : "内蔵の System Translate のみを使う、シンプルな翻訳ワークスペース。"
+  },
   "localizedNames" : {
-    "de" : "Adult",
-    "it" : "Adult",
     "zh" : "Adult",
-    "ko" : "Adult",
-    "fr" : "Adult",
+    "it" : "Adult",
     "ru" : "Adult",
-    "es" : "Adult",
-    "pt" : "Adult",
     "en" : "Adult",
-    "ja" : "Adult"
+    "fr" : "Adult",
+    "de" : "Adult",
+    "pt" : "Adult",
+    "ko" : "Adult",
+    "ja" : "Adult",
+    "es" : "Adult"
   },
   "name" : "翻译",
   "contributors" : [
 
   ],
-  "runInApp" : false
+  "author" : null,
+  "intentInputTypes" : [
+    "URLs"
+  ],
+  "description" : "App Store 应用翻译工具：翻译说明、下载图标、复制链接。",
+  "remoteResource" : {
+    "hash" : "7fa22c907bd01dacbdb0e8f223676d1c",
+    "autoUpdateInterval" : 3600,
+    "url" : "https:\/\/github.com\/worldhellotravel1999-hue\/Scripting\/tree\/main\/翻译"
+  },
+  "color" : "rgba(28, 140, 255, 1)",
+  "runInApp" : false,
+  "permissions" : null,
+  "entry" : "index.tsx"
 }
