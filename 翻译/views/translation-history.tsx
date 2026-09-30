@@ -21,24 +21,89 @@ import { AppStoreIcon } from "./app-store"
 /** 翻译记录面板：列出最近翻译过的应用（最新在前）。
  *  点击记录 → 通过 onPick 重新定位/重选该应用进行翻译；
  *  点「删除」单条移除；底部胶囊工具条：清空（trash）+ 完成（checkmark）。 */
+/** 记录不超过该条数时不套内滚容器：列表按内容收缩，底部工具条紧跟最后一条记录，避免卡片下部大片留白割裂（5×56+4×2=288 ≤ 300，行为与旧内滚一致）。 */
+const HISTORY_INLINE_MAX = 5
+
+/** 单条记录行：图标 + 名称/开发者·时间 + 删除按钮。 */
+function HistoryRow(props: {
+  item: TranslationHistoryItem
+  index: number
+  foregroundStyle: any
+  onPick: (item: TranslationHistoryItem) => void
+  onRemove: (item: TranslationHistoryItem) => void
+}) {
+  const item = props.item
+  return (
+    <AnimatedSection index={props.index}>
+      <HStack
+        spacing={12}
+        padding={{ horizontal: 10, vertical: 8 }}
+        frame={{ maxWidth: "infinity" }}
+        contentShape="rect"
+        background={<RoundedRectangle fill={{ light: "rgba(120,120,128,0.07)", dark: "rgba(120,120,128,0.12)" }} cornerRadius={16} />}
+        clipShape={{ type: "rect", cornerRadius: 16, style: "continuous" }}
+        onTapGesture={() => props.onPick(item)}
+      >
+        <AppStoreIcon
+          imageUrl={item.artworkUrl}
+          size={40}
+          foregroundStyle={props.foregroundStyle}
+        />
+        <VStack alignment="leading" spacing={2} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
+          <Text font="body" fontWeight="semibold" lineLimit={1}>{item.trackName || "未知应用"}</Text>
+          <Text font="caption" foregroundStyle="tertiaryLabel" lineLimit={1}>
+            {item.artistName || "—"}{` · ${formatTime(item.recordedAt)}`}
+          </Text>
+        </VStack>
+        <Button
+          buttonStyle="borderless"
+          action={() => props.onRemove(item)}
+        >
+          <Image
+            systemName="xmark.circle.fill"
+            foregroundStyle={{ light: "rgba(255,59,48,0.55)", dark: "rgba(255,69,58,0.60)" }}
+            font="title3"
+          />
+        </Button>
+      </HStack>
+    </AnimatedSection>
+  )
+}
+
 export function TranslationHistoryPanel(props: {
   foregroundStyle: any
   /** 点击一条记录：由页面把该应用重新加入已选列表并滚动定位。 */
   onPick: (item: TranslationHistoryItem) => void
   /** 关闭面板（点空白/完成时由页面处理，这里只负责记录操作）。 */
   onRequestClose?: () => void
+  /** 记录数变化（删除/清空）时回传最新条数，供页面隐藏记录按钮/收起面板。 */
+  onCountChanged?: (count: number) => void
 }) {
   const [items, setItems] = useState<TranslationHistoryItem[]>(() => getTranslationHistory())
 
   function removeItem(item: TranslationHistoryItem) {
     removeTranslationHistoryItem(item.appid)
-    setItems(getTranslationHistory())
+    const next = getTranslationHistory()
+    setItems(next)
+    props.onCountChanged?.(next.length)
   }
 
   function clearAll() {
     clearTranslationHistory()
     setItems([])
+    props.onCountChanged?.(0)
   }
+
+  const renderRow = (item: TranslationHistoryItem, index: number) => (
+    <HistoryRow
+      key={item.appid}
+      item={item}
+      index={index}
+      foregroundStyle={props.foregroundStyle}
+      onPick={props.onPick}
+      onRemove={removeItem}
+    />
+  )
 
   return (
     <VStack
@@ -49,51 +114,17 @@ export function TranslationHistoryPanel(props: {
       background={<RoundedRectangle fill={{ light: "#FFFFFF", dark: "#1C1C1E" }} cornerRadius={24} />}
       clipShape={{ type: "rect", cornerRadius: 24, style: "continuous" }}
     >
-      {items.length === 0 ? (
-        <HStack spacing={8} padding={{ vertical: 8 }}>
-          <Text font="caption" foregroundStyle="tertiaryLabel">暂无翻译记录，搜索并选择应用后会自动记录在这里。</Text>
-        </HStack>
+      {items.length === 0 ? null : items.length <= HISTORY_INLINE_MAX ? (
+        <VStack alignment="leading" spacing={2} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
+          {items.map(renderRow)}
+        </VStack>
       ) : (
         <ScrollView
           axes="vertical"
           frame={{ maxWidth: "infinity", height: 300 }}
         >
           <VStack alignment="leading" spacing={2} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
-            {items.map((item, index) => (
-              <AnimatedSection key={item.appid} index={index}>
-                <HStack
-                  spacing={12}
-                  padding={{ horizontal: 10, vertical: 8 }}
-                  frame={{ maxWidth: "infinity" }}
-                  contentShape="rect"
-                  background={<RoundedRectangle fill={{ light: "rgba(120,120,128,0.07)", dark: "rgba(120,120,128,0.12)" }} cornerRadius={16} />}
-                  clipShape={{ type: "rect", cornerRadius: 16, style: "continuous" }}
-                  onTapGesture={() => props.onPick(item)}
-                >
-                  <AppStoreIcon
-                    imageUrl={item.artworkUrl}
-                    size={40}
-                    foregroundStyle={props.foregroundStyle}
-                  />
-                  <VStack alignment="leading" spacing={2} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
-                    <Text font="body" fontWeight="semibold" lineLimit={1}>{item.trackName || "未知应用"}</Text>
-                    <Text font="caption" foregroundStyle="tertiaryLabel" lineLimit={1}>
-                      {item.artistName || "—"}{` · ${formatTime(item.recordedAt)}`}
-                    </Text>
-                  </VStack>
-                  <Button
-                    buttonStyle="borderless"
-                    action={() => removeItem(item)}
-                  >
-                    <Image
-                      systemName="xmark.circle.fill"
-                      foregroundStyle={{ light: "rgba(255,59,48,0.55)", dark: "rgba(255,69,58,0.60)" }}
-                      font="title3"
-                    />
-                  </Button>
-                </HStack>
-              </AnimatedSection>
-            ))}
+            {items.map(renderRow)}
           </VStack>
         </ScrollView>
       )}

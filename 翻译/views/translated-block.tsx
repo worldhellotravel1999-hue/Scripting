@@ -52,7 +52,7 @@ export function TranslatedBlock(props: {
       translationHost={props.translationHost}
       priority={props.priority}
       preferSequential={props.preferSequential}
-      translationEnabled={props.translationEnabled}
+            translationEnabled={props.translationEnabled}
       translationDelayMs={props.translationDelayMs}
       isCancelled={props.isCancelled}
       foregroundStyle={props.foregroundStyle}

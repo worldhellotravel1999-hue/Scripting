@@ -31,6 +31,7 @@ import {
 } from "../core/appstore"
 import {
   addTranslationHistory,
+  getTranslationHistory,
   type TranslationHistoryItem,
 } from "../core/search-history"
 import { EmptyState } from "./common"
@@ -43,6 +44,8 @@ import { AnimatedSection } from "./animated-section"
 import { AnimTextGlassBadge, GlassBadge, getGlassBadgeTokens } from "./glass-badge"
 import { IconPill, IconDownloadPanel, LinkBadgeButton } from "./icon-download"
 import { TranslationHistoryPanel } from "./translation-history"
+import { AppRavenCollectionsPage } from "./appraven-collections"
+import { isAppRavenLoggedOut } from "../core/appraven"
 
 
 const TEXT_GRADIENT_STORAGE_KEY = "lingo_appstore_text_gradient_v1"
@@ -236,6 +239,110 @@ function CardDivider() {
   )
 }
 
+/** 合集弹窗默认高度（pt，>1 的数字 = 固定点数，不随宿主容器比例缩放）：
+ *  登录表单本体实测 ~357pt（头图 67 + 已保存账号行 + 三行输入框 + 页内距），
+ *  每多一个已保存账号再 +~55pt。Cookie 行默认隐藏（轻点登录页左上角老鹰图标显示、再点隐藏、长按登录），
+ *  隐藏时下方多出的空白是透明背景不影响观感；显示后内容仍在 420pt 内。
+ *  旧值 0.36 分数在分享宿主里折算高度远小于此，把 Cookie 行往下全部裁掉且无处滚动；
+ *  固定 420pt 装得下表单本体 + 2 个账号，更多账号/长 Cookie 由登录表单内部 ScrollView 滚动兜底。 */
+const LOGIN_SHEET_DETENT = 420
+
+/**
+ * 分享页头部评分星星合集入口：无背景无圆点的原生排版，点击星星弹跳后弹出合集窗口。
+ * 默认固定 420pt（贴合登录表单，表单内部超出可滚动）；合集页顶部全屏按钮点一次全屏、再点缩回。
+ */
+function RatingCollectionsButton(props: {
+  rating: number
+  ratingCount: string
+  foregroundStyle: any
+  appid: string
+  appTitle: string
+  artworkUrl?: string
+  /** 搜索页 Reset 行用的紧凑形态：只渲染小星星 + 灰色圆环（不显示评分/评价数）。 */
+  compact?: boolean
+}) {
+  const [tick, setTick] = useState(0)
+  const [isPresented, setIsPresented] = useState(false)
+  const [fullscreen, setFullscreen] = useState(false)
+  const [loggedIn, setLoggedIn] = useState(() => {
+    try { return !isAppRavenLoggedOut() } catch { return false }
+  })
+  return (
+    <Button
+      buttonStyle="plain"
+      action={() => {
+        setTick(value => value + 1)
+        setFullscreen(false)
+        setIsPresented(true)
+      }}
+      sheet={{
+        isPresented,
+        onChanged: presented => setIsPresented(presented),
+        content: (
+          <VStack
+            spacing={0}
+            frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
+            presentationBackground="clear"
+            presentationDetents={fullscreen && loggedIn ? ["large"] : [LOGIN_SHEET_DETENT]}
+            presentationDragIndicator="visible"
+          >
+            <AppRavenCollectionsPage
+              appid={props.appid}
+              appTitle={props.appTitle}
+              artworkUrl={props.artworkUrl}
+              foregroundStyle={props.foregroundStyle}
+              onClose={() => setIsPresented(false)}
+              onLoginStateChange={state => {
+                setLoggedIn(state)
+                if (!state) setFullscreen(false)
+              }}
+              fullscreen={fullscreen}
+              onToggleFullscreen={() => setFullscreen(value => !value)}
+            />
+          </VStack>
+        ),
+      }}
+    >
+      {props.compact ? (
+        <ZStack frame={{ width: 24, height: 24 }}>
+          <Circle
+            stroke={{
+              shapeStyle: { light: "rgba(142,142,147,0.55)", dark: "rgba(142,142,147,0.65)" } as any,
+              strokeStyle: { lineWidth: 1.5 },
+            }}
+            frame={{ width: 24, height: 24 }}
+          />
+          <Image
+            systemName="star.fill"
+            font="caption2"
+            foregroundStyle={{ light: "rgba(142,142,147,1)", dark: "rgba(142,142,147,1)" }}
+            contentTransition="symbolEffect"
+            symbolEffect={{ effect: "bounce", value: tick }}
+          />
+        </ZStack>
+      ) : (
+        <HStack spacing={4}>
+          <Image
+            systemName="star.fill"
+            font="caption2"
+            foregroundStyle="systemYellow"
+            contentTransition="symbolEffect"
+            symbolEffect={{ effect: "bounce", value: tick }}
+          />
+          <AnimText font="caption" fontWeight="semibold" anim="numericText" foregroundStyle={props.foregroundStyle}>
+            {props.rating.toFixed(1)}
+          </AnimText>
+          {props.ratingCount ? (
+            <AnimText font="caption" foregroundStyle="tertiaryLabel" anim="numericText">
+              {`(${props.ratingCount})`}
+            </AnimText>
+          ) : null}
+        </HStack>
+      )}
+    </Button>
+  )
+}
+
 /** 应用头部：图标 + 动效标题 + 徽章行 + 价格胶囊（偏中右侧） */
 function AppHeader(props: {
   info: AppStoreInfo
@@ -302,23 +409,14 @@ function AppHeader(props: {
           </GlassBadge>
         ) : null}
         {typeof info.averageUserRating === "number" ? (
-          <HStack spacing={4}>
-            <Image
-              systemName="star.fill"
-              font="caption2"
-              foregroundStyle="systemYellow"
-              contentTransition="symbolEffect"
-              symbolEffect={{ effect: "bounce", value: true }}
-            />
-            <AnimText font="caption" fontWeight="semibold" anim="numericText">
-              {info.averageUserRating.toFixed(1)}
-            </AnimText>
-            {ratingCount ? (
-              <AnimText font="caption" foregroundStyle="tertiaryLabel" anim="numericText">
-                {`(${ratingCount})`}
-              </AnimText>
-            ) : null}
-          </HStack>
+          <RatingCollectionsButton
+            rating={info.averageUserRating}
+            ratingCount={ratingCount}
+            foregroundStyle={props.foregroundStyle}
+            appid={props.appid}
+            appTitle={info.trackName || "未知应用"}
+            artworkUrl={iconUrl}
+          />
         ) : null}
         <Spacer />
       </HStack>
@@ -383,6 +481,8 @@ function AppSearchSection(props: {
   onScrollToApp?: (key: string) => void
   /** 把「从翻译记录重新选中应用」回调注册给宿主页面（记录面板使用）。 */
   onPickReady?: (pick: (item: TranslationHistoryItem) => void) => void
+  /** 翻译记录发生变化（新增/删除/清空）时通知宿主，用于控制记录按钮显示。 */
+  onHistoryChanged?: () => void
 }) {
   const [query, setQuery] = useState("")
   const [searching, setSearching] = useState(false)
@@ -628,6 +728,7 @@ function AppSearchSection(props: {
       artworkUrl: entry.artworkUrl,
       recordedAt: Date.now(),
     })
+    props.onHistoryChanged?.()
     clearSearch()
     // Search already carries full text for most apps; only fill absent fields.
     if (entry.releaseNotes === undefined || entry.description === undefined) {
@@ -822,9 +923,18 @@ function AppSearchSection(props: {
                   foregroundStyle={props.foregroundStyle}
                 />
               </HStack>
-              {/* 一键重置：收起该应用全部展开面板（更新/说明/图标/价格）；
+              {/* AppRaven 星星入口（紧凑形态：小星星 + 灰色圆环）在 Reset 左侧；
                   向右偏移到上排 v 版本徽章与 Link 徽章中间的位置 */}
-              <HStack padding={{ leading: 24 }}>
+              <HStack padding={{ leading: 24 }} spacing={8}>
+                <RatingCollectionsButton
+                  compact
+                  rating={app.detail && typeof app.detail.averageUserRating === "number" ? app.detail.averageUserRating : 0}
+                  ratingCount={app.detail && typeof app.detail.userRatingCount === "number" ? app.detail.userRatingCount.toLocaleString() : ""}
+                  foregroundStyle={props.foregroundStyle}
+                  appid={app.appid}
+                  appTitle={app.trackName || app.detail?.trackName || "未知应用"}
+                  artworkUrl={app.detail?.artworkUrl512 || app.detail?.artworkUrl100 || app.artworkUrl}
+                />
                 <ResetBadgeButton
                   hasExpanded={app.priceExpanded === true
                     || app.releaseNotesExpanded === true
@@ -1043,6 +1153,9 @@ function AppStoreContent(props: {
   const searchRefreshRef = useRef<() => Promise<void>>(() => Promise.resolve())
   const searchPickRef = useRef<(item: TranslationHistoryItem) => void>(() => {})
   const [historyOpen, setHistoryOpen] = useState(false)
+  // 翻译记录数：为空时底部「翻译记录」按钮整体不渲染（点不着，也无任何 UI）。
+  const [historyCount, setHistoryCount] = useState(() => getTranslationHistory().length)
+  const refreshHistoryCount = () => setHistoryCount(getTranslationHistory().length)
   const scrollProxyRef = useRef<ScrollViewProxy>()
   /** 折叠后把对应应用区滚回视口顶部：内容高度骤减时 ScrollView 会停在旧偏移
    *  形成过度滚动空白；scrollTo 会一次性夹紧偏移，避免需要手动点击回弹。 */
@@ -1134,6 +1247,7 @@ function AppStoreContent(props: {
         artworkUrl: nextInfo.artworkUrl512 || nextInfo.artworkUrl100,
         recordedAt: Date.now(),
       })
+      refreshHistoryCount()
       // 首次装载只挂载一次译文卡；刷新/重载时才递增 token，
       // 避免说明卡刚开始翻译就被首屏第二次渲染取消。
       if (forceTranslate || props.reloadToken > 0) setContentToken((value) => value + 1)
@@ -1212,7 +1326,7 @@ function AppStoreContent(props: {
                    />
                 </Button>
               ) : null}
-              {props.identity ? (
+              {props.identity && historyCount > 0 ? (
                 <Button
                   buttonStyle="borderless"
                   disabled={loading}
@@ -1245,7 +1359,7 @@ function AppStoreContent(props: {
                   />
                 </Button>
               ) : null}
-              {props.identity ? (
+{props.identity ? (
                 <Button
                   buttonStyle="borderless"
                   disabled={loading}
@@ -1330,7 +1444,7 @@ function AppStoreContent(props: {
         padding={{ bottom: 110 }}
         frame={{ maxWidth: "infinity", alignment: "topLeading" as any }}
       >
-        <AppSearchSection searchOpen={searchOpen} inputVisible={searchInputVisible} onInputVisibilityChanged={setSearchInputVisible} swapDescriptions={swapDescriptions} onRefreshReady={(refresh) => { searchRefreshRef.current = refresh }} onPickReady={(pick) => { searchPickRef.current = pick }} translationHost={translationHost} foregroundStyle={textForeground} gradientColors={textGradientIndex === null ? undefined : TEXT_GRADIENT_COLORS[textGradientIndex]} onScrollToApp={scrollToApp} />
+        <AppSearchSection searchOpen={searchOpen} inputVisible={searchInputVisible} onInputVisibilityChanged={setSearchInputVisible} swapDescriptions={swapDescriptions} onRefreshReady={(refresh) => { searchRefreshRef.current = refresh }} onPickReady={(pick) => { searchPickRef.current = pick }} onHistoryChanged={refreshHistoryCount} translationHost={translationHost} foregroundStyle={textForeground} gradientColors={textGradientIndex === null ? undefined : TEXT_GRADIENT_COLORS[textGradientIndex]} onScrollToApp={scrollToApp} />
         {historyOpen ? (
           <VStack key="translation-history-panel" spacing={0} padding={{ top: 8, bottom: 4 }} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
           <TranslationHistoryPanel
@@ -1342,6 +1456,11 @@ function AppStoreContent(props: {
               void searchPickRef.current(item)
             }}
             onRequestClose={() => setHistoryOpen(false)}
+            onCountChanged={(count) => {
+              setHistoryCount(count)
+              // 记录被清空后按钮随之消失，面板也一并收起，避免留下空面板。
+              if (count === 0) setHistoryOpen(false)
+            }}
           />
           </VStack>
         ) : null}

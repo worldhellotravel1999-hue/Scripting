@@ -238,9 +238,10 @@ export function VersionBadgeMenu(props: {
                 {entries === null ? loadingItems : activeEntry ? actionItems : entries.length ? versionItems : failedItems}
                 {showNotesStatus ? (
                   <HStack frame={{ maxWidth: "infinity", height: 36 }}>
-                    {notesLoading || versionsLoading ? <ProgressView progressViewStyle="circular" /> : (
-                      <Button title={versionsError ? "重新查询版本" : "重试更新说明"} buttonStyle="plain" foregroundStyle="systemOrange" action={retry} />
-                    )}
+                    {notesLoading || versionsLoading ? <ProgressView progressViewStyle="circular" /> : null}
+                    {notesLoading || versionsLoading ? null : (versionsError ? null : (
+                      <Button title="重试更新说明" buttonStyle="plain" foregroundStyle="systemOrange" action={retry} />
+                    ))}
                   </HStack>
                 ) : null}
               </LazyVStack>
