@@ -915,3 +915,146 @@ export function setAppRavenCollectionItemOrder(accountId: string, collectionId: 
   }
   writeOrderStore(COLLECTION_ITEM_ORDER_STORAGE_KEY, store, "AppRaven 合集内容排序")
 }
+
+/* ---------- 开页缓存（分享页 ↔ 搜索页互通，打开不再重复加载） ----------
+ * 合集列表是账号级数据（同一账号查任何 App 都一样），按账号存；
+ * 「已加入」状态与 internalAppId 按「账号:App Store ID」存，各 App 独立。
+ * 存共享存储：分享扩展 / 快捷指令等不同进程打开同一页面都能首帧命中。
+ * 写入一律静默容错——缓存只是加速，任何失败都不能影响页面本身。 */
+
+const PAGE_CACHE_STORAGE_KEY = "lingo_appraven_page_cache_v1"
+/** 账号级合集列表缓存最多保留的账号数（多账号场景兜底）。 */
+const MAX_COLLECTIONS_CACHE_ACCOUNTS = 6
+/** 「已加入」状态缓存条目上限：保留最近写入的若干个 App。 */
+const MAX_JOINED_CACHE_ENTRIES = 12
+
+type CollectionsCacheEntry = { list: AppRavenCollection[]; savedAt: number }
+type JoinedCacheEntry = { internalAppId: string; joinedIds: string[]; savedAt: number }
+type PageCacheStore = {
+  collections?: Record<string, CollectionsCacheEntry>
+  joined?: Record<string, JoinedCacheEntry>
+}
+
+function isValidCachedCollection(value: unknown): value is AppRavenCollection {
+  return isRecord(value)
+    && typeof value.id === "string" && !!value.id.trim()
+    && typeof value.title === "string"
+    && typeof value.appCount === "number"
+}
+
+function readPageCache(): PageCacheStore {
+  try {
+    const raw = Storage.get(PAGE_CACHE_STORAGE_KEY, { shared: true })
+    if (!isRecord(raw)) return {}
+    const store: PageCacheStore = {}
+    if (isRecord(raw.collections)) {
+      const collections: Record<string, CollectionsCacheEntry> = {}
+      for (const key of Object.keys(raw.collections)) {
+        const entry = raw.collections[key]
+        if (isRecord(entry) && Array.isArray(entry.list) && typeof entry.savedAt === "number") {
+          collections[key] = { list: entry.list as AppRavenCollection[], savedAt: entry.savedAt }
+        }
+      }
+      store.collections = collections
+    }
+    if (isRecord(raw.joined)) {
+      const joined: Record<string, JoinedCacheEntry> = {}
+      for (const key of Object.keys(raw.joined)) {
+        const entry = raw.joined[key]
+        if (isRecord(entry) && typeof entry.internalAppId === "string" && Array.isArray(entry.joinedIds) && typeof entry.savedAt === "number") {
+          joined[key] = { internalAppId: entry.internalAppId, joinedIds: entry.joinedIds, savedAt: entry.savedAt }
+        }
+      }
+      store.joined = joined
+    }
+    return store
+  } catch {
+    return {}
+  }
+}
+
+function writePageCache(store: PageCacheStore) {
+  try {
+    Storage.set(PAGE_CACHE_STORAGE_KEY, store, { shared: true })
+  } catch {
+    // 缓存写入失败不影响功能
+  }
+}
+
+/** 读某账号的合集列表缓存（账号级，跨 App 通用）；无缓存返回 null。 */
+export function readCachedUserCollections(accountId: string): AppRavenCollection[] | null {
+  try {
+    const id = requireText(accountId, "AppRaven 账号 ID")
+    const entry = readPageCache().collections?.[id]
+    if (!entry || !Array.isArray(entry.list)) return null
+    if (entry.list.length === 0) return []
+    const list = entry.list.filter(isValidCachedCollection)
+    return list.length > 0 ? list : null
+  } catch {
+    return null
+  }
+}
+
+/** 写某账号的合集列表缓存（静默容错）。 */
+export function writeCachedUserCollections(accountId: string, collections: AppRavenCollection[]) {
+  try {
+    const id = requireText(accountId, "AppRaven 账号 ID")
+    if (!Array.isArray(collections)) return
+    const store = readPageCache()
+    const next: Record<string, CollectionsCacheEntry> = { ...(store.collections ?? {}) }
+    next[id] = { list: collections, savedAt: Date.now() }
+    const keys = Object.keys(next)
+    if (keys.length > MAX_COLLECTIONS_CACHE_ACCOUNTS) {
+      keys.sort((a, b) => next[b].savedAt - next[a].savedAt)
+      for (const key of keys.slice(MAX_COLLECTIONS_CACHE_ACCOUNTS)) delete next[key]
+    }
+    store.collections = next
+    writePageCache(store)
+  } catch {
+    // 静默
+  }
+}
+
+function joinedCacheKey(accountId: string, itunesId: string) {
+  return `${accountId}:${itunesId}`
+}
+
+/** 读某账号某 App 的已加入状态缓存；无缓存返回 null。 */
+export function readCachedJoinedState(accountId: string, itunesId: string): { internalAppId: string; joinedIds: string[] } | null {
+  try {
+    const id = requireText(accountId, "AppRaven 账号 ID")
+    const app = requireText(itunesId, "App Store ID")
+    const entry = readPageCache().joined?.[joinedCacheKey(id, app)]
+    if (!entry || typeof entry.internalAppId !== "string" || !entry.internalAppId.trim()) return null
+    if (!Array.isArray(entry.joinedIds)) return null
+    const ids = entry.joinedIds.filter((value): value is string => typeof value === "string" && !!value.trim())
+    return { internalAppId: entry.internalAppId, joinedIds: ids }
+  } catch {
+    return null
+  }
+}
+
+/** 写某账号某 App 的已加入状态缓存（静默容错）。 */
+export function writeCachedJoinedState(accountId: string, itunesId: string, internalAppId: string, joinedIds: string[]) {
+  try {
+    const id = requireText(accountId, "AppRaven 账号 ID")
+    const app = requireText(itunesId, "App Store ID")
+    if (typeof internalAppId !== "string" || !internalAppId.trim() || !Array.isArray(joinedIds)) return
+    const store = readPageCache()
+    const next: Record<string, JoinedCacheEntry> = { ...(store.joined ?? {}) }
+    next[joinedCacheKey(id, app)] = {
+      internalAppId,
+      joinedIds: joinedIds.filter(value => typeof value === "string" && !!value.trim()),
+      savedAt: Date.now(),
+    }
+    const keys = Object.keys(next)
+    if (keys.length > MAX_JOINED_CACHE_ENTRIES) {
+      keys.sort((a, b) => next[b].savedAt - next[a].savedAt)
+      for (const key of keys.slice(MAX_JOINED_CACHE_ENTRIES)) delete next[key]
+    }
+    store.joined = next
+    writePageCache(store)
+  } catch {
+    // 静默
+  }
+}

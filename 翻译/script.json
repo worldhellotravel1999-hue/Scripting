@@ -1,47 +1,47 @@
 {
-  "iconImage" : null,
-  "icon" : "network",
-  "entry" : "index.tsx",
-  "version" : "2.4.38",
-  "contributors" : [
-
-  ],
-  "description" : "App Store 应用翻译工具：翻译说明、下载图标、复制链接。",
-  "localizedDescriptions" : {
-    "zh" : "搜索 App Store 应用并翻译说明，支持保存图标和复制链接。",
-    "pt" : "Um espaço de tradução que usa apenas o System Translate integrado.",
-    "es" : "Un espacio de traducción que utiliza solo System Translate integrado.",
-    "en" : "Search and translate App Store apps, with icon save and link copy.",
-    "it" : "Uno spazio di traduzione che usa solo System Translate integrato.",
-    "ru" : "Простое рабочее пространство перевода только со встроенным System Translate.",
-    "fr" : "Un espace de traduction simple utilisant uniquement System Translate.",
-    "de" : "Ein fokussierter Übersetzungsbereich, der nur System Translate verwendet.",
-    "ko" : "내장 System Translate만 사용하는 간결한 번역 작업 공간입니다.",
-    "ja" : "内蔵の System Translate のみを使う、シンプルな翻訳ワークスペース。"
+  "runInApp" : false,
+  "localizedNames" : {
+    "de" : "Adult",
+    "zh" : "Adult",
+    "en" : "Adult",
+    "ru" : "Adult",
+    "es" : "Adult",
+    "it" : "Adult",
+    "fr" : "Adult",
+    "pt" : "Adult",
+    "ja" : "Adult",
+    "ko" : "Adult"
   },
+  "permissions" : null,
   "intentInputTypes" : [
     "URLs"
   ],
-  "localizedNames" : {
-    "ja" : "Adult",
-    "ko" : "Adult",
-    "de" : "Adult",
-    "zh" : "Adult",
-    "es" : "Adult",
-    "pt" : "Adult",
-    "en" : "Adult",
-    "it" : "Adult",
-    "ru" : "Adult",
-    "fr" : "Adult"
-  },
-  "remoteResource" : {
-    "hash" : "c2a6b34b9b635df9a8c744672962d175",
-    "autoUpdateInterval" : 3600,
-    "url" : "https:\/\/github.com\/worldhellotravel1999-hue\/Scripting\/tree\/main\/翻译"
-  },
-  "permissions" : null,
   "name" : "翻译",
-  "author" : null,
   "color" : "rgba(28, 140, 255, 1)",
-  "runInApp" : false
+  "author" : null,
+  "remoteResource" : {
+    "url" : "https:\/\/github.com\/worldhellotravel1999-hue\/Scripting\/tree\/main\/翻译",
+    "autoUpdateInterval" : 3600,
+    "hash" : "a520e4186b73a761523e3f1ab2b12c13"
+  },
+  "contributors" : [
+
+  ],
+  "icon" : "network",
+  "description" : "App Store 应用翻译工具：翻译说明、下载图标、复制链接。",
+  "version" : "2.4.39",
+  "iconImage" : "",
+  "localizedDescriptions" : {
+    "es" : "Un espacio de traducción que utiliza solo System Translate integrado.",
+    "pt" : "Um espaço de tradução que usa apenas o System Translate integrado.",
+    "ja" : "内蔵の System Translate のみを使う、シンプルな翻訳ワークスペース。",
+    "it" : "Uno spazio di traduzione che usa solo System Translate integrato.",
+    "fr" : "Un espace de traduction simple utilisant uniquement System Translate.",
+    "zh" : "搜索 App Store 应用并翻译说明，支持保存图标和复制链接。",
+    "ko" : "내장 System Translate만 사용하는 간결한 번역 작업 공간입니다.",
+    "de" : "Ein fokussierter Übersetzungsbereich, der nur System Translate verwendet.",
+    "ru" : "Простое рабочее пространство перевода только со встроенным System Translate.",
+    "en" : "Search and translate App Store apps, with icon save and link copy."
+  },
+  "entry" : "index.tsx"
 }

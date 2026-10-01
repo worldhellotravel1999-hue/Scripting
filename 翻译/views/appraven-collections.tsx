@@ -34,6 +34,8 @@ import {
   isAppRavenLoggedOut,
   loginAppRaven,
   loginAppRavenCookie,
+  readCachedJoinedState,
+  readCachedUserCollections,
   refreshAppRavenAccountIcon,
   logoutAppRaven,
   recordRecentAppRavenCollection,
@@ -43,6 +45,8 @@ import {
   setAppRavenCollectionItemOrder,
   setAppRavenCollectionOrder,
   switchAppRavenAccount,
+  writeCachedJoinedState,
+  writeCachedUserCollections,
   type AppRavenCollection,
   type AppRavenCollectionItem,
   type AppRavenSession,
@@ -314,11 +318,17 @@ function SinglePageCollections(props: CollectionPageProps) {
   // 登录失败反馈：输入行放大轻推 + 红底闪现（顶部文字提示已删）。
   const errorNudge = useErrorNudge(loginError)
 
+  // 开页缓存（共享存储，分享页 ↔ 搜索页、跨进程互通）：
+  // 合集列表是账号级数据（同一账号查任何 App 都一样），已加入状态按 App 单独记。
+  // 命中即作为首帧内容，网络只做后台静默校验——打开不再转圈重载。
+  const bootCollections = account ? readCachedUserCollections(account.id) : null
+  const bootJoined = account ? readCachedJoinedState(account.id, props.appid) : null
+
   // 合集列表
-  const [collections, setCollections] = useState<AppRavenCollection[]>([])
-  const [joined, setJoined] = useState<Set<string>>(new Set())
-  const [internalAppId, setInternalAppId] = useState("")
-  const [stage, setStage] = useState<CollectionLoadStage>("resolving")
+  const [collections, setCollections] = useState<AppRavenCollection[]>(() => bootCollections ?? [])
+  const [joined, setJoined] = useState<Set<string>>(() => new Set(bootJoined?.joinedIds ?? []))
+  const [internalAppId, setInternalAppId] = useState(bootJoined?.internalAppId ?? "")
+  const [stage, setStage] = useState<CollectionLoadStage>(bootCollections ? "ready" : "resolving")
   const [stageError, setStageError] = useState("")
   const [recentOrder, setRecentOrder] = useState<string[]>(() => {
     try {
@@ -330,15 +340,20 @@ function SinglePageCollections(props: CollectionPageProps) {
   })
   const operationChains = useRef(new Map<string, Promise<void>>())
   const cancelledRef = useRef(false)
+  // 当前展示数据所属的「账号:App」键：load() 据此判断套用缓存 / 清理旧账号数据，
+  // persist 据此防止把旧账号的数据写进新账号的缓存。"" = 尚无数据。
+  const shownSnapshotKeyRef = useRef(account ? `${account.id}:${props.appid}` : "")
   // 是否已完成过一次合集加载（或加载失败）——首次加载期间 collections 还是空的，
   // 顶部回退按钮行若不加门槛会先闪出三钮再随数据到达消失（“第一次进入有缓存”现象）。
-  const everLoadedRef = useRef(false)
+  // 开页缓存命中时首帧即视为已知（数据是上次的真实结果），只做后台静默校验。
+  const everLoadedRef = useRef(bootCollections !== null)
   // 「已加入」同步代数：每次本地乐观改写（加/减/删除条目）+1；load() 发起同步时记下代数，
   // 结果返回时若代数已变（用户期间动过手），丢弃这份先于操作取回的旧结果，避免覆盖刚点出来的状态。
   const joinedEpochRef = useRef(0)
   // 首次「已加入」状态是否已按 AUTHOR 条目同步完成；完成前加/减按钮禁用，
   // 防止在「不知道到底加没加」的空集状态上误点（这是「未加入却变成已加入」的窗口之一）。
-  const [joinedSynced, setJoinedSynced] = useState(false)
+  // 开页缓存里已有本 App 的已加入状态 → 首帧即可点，后台校验会静默纠正。
+  const [joinedSynced, setJoinedSynced] = useState(bootJoined !== null)
 
   // 合集详情（内联展开，不跳页）
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -578,10 +593,48 @@ function SinglePageCollections(props: CollectionPageProps) {
     const activeAccount = account
     if (!activeSession || !activeAccount) return
     cancelledRef.current = false
-    withAnimation(() => setStage("resolving"))
+    // 开页缓存判定：当前展示数据是否已属于「本账号 + 本 App」。
+    // 不是 → 先套用该账号/该 App 的缓存（首帧直接呈现），无缓存则清掉旧账号数据回冷加载。
+    const activeKey = `${activeAccount.id}:${props.appid}`
+    if (shownSnapshotKeyRef.current !== activeKey) {
+      const cachedList = readCachedUserCollections(activeAccount.id)
+      const cachedJoined = readCachedJoinedState(activeAccount.id, props.appid)
+      shownSnapshotKeyRef.current = activeKey
+      if (cachedList || cachedJoined) {
+        withAnimation(() => {
+          if (cachedList) {
+            setCollections(cachedList)
+            setStage("ready")
+          } else {
+            setStage("resolving")
+          }
+          if (cachedJoined) {
+            setInternalAppId(cachedJoined.internalAppId)
+            setJoined(new Set(cachedJoined.joinedIds))
+          }
+        })
+        everLoadedRef.current = true
+        if (cachedJoined) setJoinedSynced(true)
+      } else {
+        // 换到无缓存的账号：清掉上一账号的展示数据，回到冷加载。
+        withAnimation(() => {
+          setCollections([])
+          setJoined(new Set())
+          setInternalAppId("")
+          setStage("resolving")
+        })
+        everLoadedRef.current = false
+        setJoinedSynced(false)
+      }
+    }
+    // 命中缓存（或数据已知）→ 静默后台校验：不闪「正在定位/正在加载」行，也不锁加/减按钮。
+    const hasCache = everLoadedRef.current
+    if (!hasCache) {
+      withAnimation(() => setStage("resolving"))
+      // 重新加载期间先禁用加/减按钮，直到新一轮「已加入」同步完成。
+      setJoinedSynced(false)
+    }
     setStageError("")
-    // 重新加载期间先禁用加/减按钮，直到新一轮「已加入」同步完成。
-    setJoinedSynced(false)
     try {
       const appId = await getAppRavenAppIdFromITunesId(props.appid, activeSession)
       if (cancelledRef.current) return
@@ -619,6 +672,17 @@ function SinglePageCollections(props: CollectionPageProps) {
       withAnimation(() => setStageError(`AppRaven 会话已失效，请重新登录：${errorText(reason)}`))
     }
   }
+
+  // 当前展示状态写回共享缓存（含本地乐观改动）：下次打开（分享页 ↔ 搜索页、跨进程）首帧即呈现。
+  // 必须声明在下面的加载 effect 之前：换账号时先守卫跳过（此刻 collections 还是旧账号的），
+  // 等 load() 同步套用新账号缓存/清空、数据落定后的下一次提交再写，避免串号。
+  // 「已加入」只在同步完成后才写，防止把未确认的空状态缓存成真值。
+  useEffect(() => {
+    if (!account || !everLoadedRef.current) return
+    if (shownSnapshotKeyRef.current !== `${account.id}:${props.appid}`) return
+    writeCachedUserCollections(account.id, collections)
+    if (joinedSynced && internalAppId) writeCachedJoinedState(account.id, props.appid, internalAppId, Array.from(joined))
+  }, [collections, joined, joinedSynced, internalAppId, account?.id, props.appid])
 
   useEffect(() => {
     if (!loggedIn) return
