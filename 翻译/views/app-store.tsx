@@ -1133,7 +1133,6 @@ function AppSearchSection(props: {
                   foregroundStyle={props.foregroundStyle}
                   gradientColors={props.gradientColors}
                   translationOnly
-                  preferSequential
                   translationEnabled={app.detailLoading !== true}
                   priority={2}
                   translationToken={app.detailToken}

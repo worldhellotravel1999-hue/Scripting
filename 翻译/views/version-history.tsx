@@ -66,7 +66,7 @@ export function VersionBadgeMenu(props: {
   const [viewedNotes, setViewedNotes] = useState<AppVersionNotes | null>(null)
   /** 当前打开的版本操作菜单；用自绘弹层保证菜单文字可使用卡片主题色。 */
   const [activeEntry, setActiveEntry] = useState<AppVersionEntry | null>(null)
-  /** 原文快照 2 秒后自动关闭；手动关闭时取消待触发的定时器。 */
+  /** 原文快照 1 秒后自动关闭；手动关闭时取消待触发的定时器。 */
   const autoCloseRef = useRef<ReturnType<typeof setTimeout>>()
   /** 徽章显示所选版本；未选择或没有可用版本号时回退商店当前版本。 */
   const displayVersion = props.displayVersion?.trim() || props.version.trim()
@@ -171,7 +171,7 @@ export function VersionBadgeMenu(props: {
               autoCloseRef.current = undefined
               setIsPresented(false)
               setViewedNotes(null)
-            }, 2000)
+            }, 1000)
           }}
         >
           <Text padding={{ horizontal: 16, vertical: 12 }} frame={{ maxWidth: "infinity", alignment: "leading" as any }} foregroundStyle={props.foregroundStyle || "label"}>查看新说明</Text>

@@ -14,13 +14,18 @@ const MAX_BATCH_PARTS = 4
 const CACHE_TTL = 30 * 60 * 1000
 const CACHE_LIMIT = 80
 const GOOGLE_CONCURRENCY = 4
-/** 谷歌快路径整体限时：多分片长文本弱网下不再逐片叠加等待，超时直接回退系统。 */
+/**
+ * 谷歌快路径整体限时：多分片长文本弱网下不再逐片叠加等待。
+ * 系统引擎已与谷歌并行开跑，超时后由它直接胜出，不再「先白等再串行」。
+ */
 const GOOGLE_FAST_PATH_TIMEOUT_MS = 5000
 
-const cache = new Map<string, { value: string; timestamp: number; engine: "google" | "system" }>()
-const inFlight = new Map<string, Promise<string>>()
-
 type EngineKind = "google" | "system"
+type RaceResult = { value: string; engine: EngineKind }
+
+const cache = new Map<string, { value: string; timestamp: number; engine: EngineKind }>()
+/** 在途任务：预热的谷歌单引擎任务或卡片的双引擎竞速任务，同 key 调用方可共享。 */
+const inFlight = new Map<string, Promise<RaceResult>>()
 
 export type TranslateTextOptions = {
   sourceLanguageCode?: string
@@ -109,7 +114,7 @@ async function runGoogleFastPath(
   onProgress?: (value: string) => void,
 ): Promise<string> {
   // 谷歌免费网页接口（移植自 App Store工具）：网络请求可并发，速度远快于系统原生串行翻译。
-  // 任何失败直接抛出，由调用方回退系统引擎。
+  // 任何失败直接抛出，由竞速器交给并行中的系统引擎收尾（不再串行等待）。
   const sourceLanguage = request.sourceLanguageCode === "auto"
     ? undefined
     : request.sourceLanguageCode
@@ -142,7 +147,7 @@ async function runGoogleFastPath(
   try {
     await Promise.race([
       Promise.all(Array.from({ length: Math.min(GOOGLE_CONCURRENCY, partsCount) }, worker)),
-      // 弱网下多分片会逐片叠加等待：整体限时一到直接按失败处理，调用方回退系统引擎。
+      // 弱网下多分片会逐片叠加等待：整体限时一到直接按失败处理，由并行的系统引擎胜出。
       new Promise<never>((_, reject) => {
         fastPathTimer = setTimeout(
           () => reject(new Error("Google 翻译请求超时。")),
@@ -168,6 +173,75 @@ async function runGoogleFastPath(
   const combined = results.join("").trim()
   if (!combined) throw new Error("Google 翻译没有返回可用译文。")
   return combined
+}
+
+/**
+ * 双引擎并行竞速：谁先成功用谁。
+ * - 两个 Promise 都挂了处理函数，落败方的迟到拒绝不会成为未处理拒绝；
+ * - 全部失败时优先抛系统引擎的错误，保持旧版「谷歌失败后由系统收尾」
+ *   的报错语义（语言提示/下载超时等关键信息在系统错误里）。
+ */
+function firstSuccess(tasks: Array<{ engine: EngineKind; task: Promise<string> }>): Promise<RaceResult> {
+  return new Promise<RaceResult>((resolve, reject) => {
+    let remaining = tasks.length
+    let lastError: unknown
+    let systemError: unknown
+    for (const { engine, task } of tasks) {
+      task.then(
+        (value) => resolve({ value, engine }),
+        (error) => {
+          if (engine === "system") systemError = error
+          lastError = error
+          remaining -= 1
+          if (remaining === 0) reject(systemError !== undefined ? systemError : lastError)
+        },
+      )
+    }
+  })
+}
+
+/**
+ * 谷歌快路径与系统引擎从同一时刻开跑，平衡两者进程：
+ * - 谷歌健康：快时≈谷歌耗时（与旧路径一致）；
+ * - 谷歌被限流/弱网：系统不再等谷歌白败（2~5s 超时）后才启动，
+ *   慢场景直接砍掉串行叠加的等待；
+ * - 谷歌冷却期：只跑系统，与旧路径一致。
+ * 进度回报同一时刻只属于一个引擎（优先谷歌，谷歌失败后交给系统），
+ * 竞速结束后迟到的进度一律静默，不会覆盖已返回的完整译文。
+ */
+async function runEngineRace(
+  request: TranslationRequest,
+  options: TranslateTextOptions,
+): Promise<RaceResult> {
+  let finished = false
+  const googleAvailable = isGoogleEngineAvailable()
+  let progressOwner: EngineKind = googleAvailable ? "google" : "system"
+  const emit = (owner: EngineKind, value: string) => {
+    if (finished || progressOwner !== owner || !value) return
+    try { options.onProgress?.(value) } catch {}
+  }
+  const tasks: Array<{ engine: EngineKind; task: Promise<string> }> = []
+  if (googleAvailable) {
+    const googleTask = runGoogleFastPath(request, (value) => emit("google", value))
+    // 谷歌失败后进度权交给系统引擎，让它的分片进度继续可见。
+    googleTask.catch(() => {
+      if (!finished && progressOwner === "google") progressOwner = "system"
+    })
+    tasks.push({ engine: "google", task: googleTask })
+  }
+  tasks.push({
+    engine: "system",
+    task: runSystemEngine(request, options.translationHost, (value) => emit("system", value)),
+  })
+  try {
+    const winner = await firstSuccess(tasks)
+    finished = true
+    throwIfCancelled(request)
+    return winner
+  } catch (error) {
+    finished = true
+    throw error
+  }
 }
 
 function storeCache(key: string, value: string, engine: EngineKind) {
@@ -257,30 +331,17 @@ async function translateGroupWithBatchRetry(
   throw lastError instanceof Error ? lastError : new Error("系统批量翻译失败。")
 }
 
-async function translateSystemBatch(
+/**
+ * 系统引擎整篇翻译（纯执行器）：缓存与在途共享已上移到 translateText 的竞速
+ * 编排层，这里只负责分片、整篇 batch 快路径与分组/逐片回退。与谷歌快路径
+ * 并行调用，输家自然完成即可，无需取消（原生 Translation 也没有取消 API）。
+ */
+async function runSystemEngine(
   request: TranslationRequest,
   translationHost?: Translation,
   onProgress?: (value: string) => void,
 ) {
   throwIfCancelled(request)
-  const key = cacheKey(request)
-  const cached = cache.get(key)
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    onProgress?.(cached.value)
-    return cached.value
-  }
-
-  // Cancellable owners must not share pending work: one card's cancellation
-  // would otherwise reject another card's live request. Completed cache is safe.
-  const shareInFlight = !request.isCancelled
-  const pending = shareInFlight ? inFlight.get(key) : undefined
-  if (pending) {
-    const value = await pending
-    throwIfCancelled(request)
-    onProgress?.(value)
-    return value
-  }
-
   const parts = splitTranslationText(request.sourceText)
   const useSequential = parts.length > 1 && (
     request.preferSequential === true || parts.length > MAX_BATCH_PARTS
@@ -296,7 +357,6 @@ async function translateSystemBatch(
           throwIfCancelled(request)
           const value = normalize(result.translatedText)
           if (!value) throw new Error("系统批量翻译没有返回可用译文。")
-          storeCache(key, value, "system")
           return value
         } catch (error) {
           throwIfCancelled(request)
@@ -373,7 +433,6 @@ async function translateSystemBatch(
       throwIfCancelled(request)
       const combined = translated.join("").trim()
       if (!combined) throw new Error("系统翻译没有返回可用译文。")
-      storeCache(key, combined, "system")
       return combined
     } catch (fallbackError) {
       throwIfCancelled(request)
@@ -383,14 +442,7 @@ async function translateSystemBatch(
     throw lastError instanceof Error ? lastError : new Error("系统翻译失败。")
   })()
 
-  if (shareInFlight) inFlight.set(key, task)
-  try {
-    const value = await task
-    throwIfCancelled(request)
-    return value
-  } finally {
-    if (shareInFlight && inFlight.get(key) === task) inFlight.delete(key)
-  }
+  return await task
 }
 
 export async function translateText(text: string, options: TranslateTextOptions = {}) {
@@ -444,44 +496,42 @@ export async function translateText(text: string, options: TranslateTextOptions 
     return cached.value
   }
 
-  // 谷歌免费网页翻译优先（快），失败回退系统原生翻译（稳）。
-  // 冷却期（网络不通/被墙）内直接走系统引擎，不浪费时间。
-  if (isGoogleEngineAvailable()) {
-    // 在途任务只可能由不可取消的调用方（系统翻译界面预热）登记，因此可取消的
-    // 调用方也可以安全等待共享结果；共享任务失败时同样回退系统引擎。
-    const pending = inFlight.get(key)
-    if (pending) {
-      try {
-        const value = await pending
-        throwIfCancelled(request)
-        options.onProgress?.(value)
-        reportEngine(options, startedAt, "google")
-        return value
-      } catch (error) {
-        throwIfCancelled(request)
-        // 共享任务失败：与自身请求失败一致，继续走系统引擎。
-      }
-    } else {
-      const shareInFlight = !request.isCancelled
-      const task = runGoogleFastPath(request, options.onProgress)
-        .then((value) => { storeCache(key, value, "google"); return value })
-      if (shareInFlight) inFlight.set(key, task)
-      try {
-        const value = await task
-        throwIfCancelled(request)
-        reportEngine(options, startedAt, "google")
-        return value
-      } catch {
-        // 谷歌失败（含共享任务失败）落到系统引擎重试。
-      } finally {
-        if (shareInFlight && inFlight.get(key) === task) inFlight.delete(key)
-      }
+  // 双引擎并行竞速（快时≈谷歌耗时，慢时系统从 0ms 起跑不再叠加等待）；
+  // 谷歌冷却期（网络不通/被墙）内竞速自动退化为纯系统引擎。
+  const pending = inFlight.get(key)
+  if (pending) {
+    // 在途任务只可能由不可取消调用方登记（预热/其他卡片），可安全等待；
+    // 共享任务失败（双引擎均败或预热谷歌单引擎失败）时继续本地竞速——
+    // 谷歌失败已标记冷却，本地竞速此时等价于系统单跑。
+    try {
+      const result = await pending
+      throwIfCancelled(request)
+      options.onProgress?.(result.value)
+      reportEngine(options, startedAt, result.engine)
+      return result.value
+    } catch {
+      throwIfCancelled(request)
     }
   }
 
-  const translated = await translateSystemBatch(request, options.translationHost, options.onProgress)
-  reportEngine(options, startedAt, "system")
-  return translated
+  // 可取消调用方不登记在途（避免自己取消时拒绝别人的共享请求），
+  // 但仍可安全等待上面不可取消调用方登记的任务。
+  const shareInFlight = !request.isCancelled
+  const task = runEngineRace(request, options).then((result) => {
+    storeCache(key, result.value, result.engine)
+    return result
+  })
+  if (shareInFlight) inFlight.set(key, task)
+  try {
+    const result = await task
+    throwIfCancelled(request)
+    // 最终完整译文统一在此回报；竞速结束后迟到的进度已静默。
+    options.onProgress?.(result.value)
+    reportEngine(options, startedAt, result.engine)
+    return result.value
+  } finally {
+    if (shareInFlight && inFlight.get(key) === task) inFlight.delete(key)
+  }
 }
 
 /**
@@ -522,7 +572,10 @@ export function prewarmGoogleTranslation(
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) return
     if (inFlight.has(key)) return
     const task = runGoogleFastPath(request, undefined)
-      .then((value) => { storeCache(key, value, "google"); return value })
+      .then((value): RaceResult => {
+        storeCache(key, value, "google")
+        return { value, engine: "google" }
+      })
     inFlight.set(key, task)
     const cleanup = () => {
       if (inFlight.get(key) === task) inFlight.delete(key)

@@ -17,10 +17,14 @@ import { fetch } from "scripting"
  * 2.4.26 弱网修复：超时 3s→2s；词典端点超时/断网时直接失败、不再串行试 gtx
  * （断网下两个端点都会超时，串行=白等双倍；只有 HTTP/空结果这种“网络通但端点
  * 被限”才值得试第二个端点）。单段弱网回退从 ~6s 压到 ~2s。
+ *
+ * 2026-10-01 平衡优化：translate.ts 改为谷歌+系统双引擎并行竞速后，谷歌失败
+ * 已不再拖慢任何翻译（系统引擎同时在跑），冷却的作用只剩“别反复撞限流”，
+ * 因此 5min→2min，让恢复后的谷歌更快重新参跑（端点限流常在几分钟内恢复）。
  */
 
 const GOOGLE_TIMEOUT_MS = 2000
-const GOOGLE_COOLDOWN_MS = 5 * 60 * 1000
+const GOOGLE_COOLDOWN_MS = 2 * 60 * 1000
 let googleBlockedUntil = 0
 
 
