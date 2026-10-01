@@ -126,6 +126,9 @@ type CollectionPageProps = {
   fullscreen?: boolean
   /** 点击全屏按钮：全屏 ↔ 缩回登录页同尺寸。 */
   onToggleFullscreen?: () => void
+  /** 内联模式（搜索页卡片）：未扩大时内容不包内层 ScrollView、自然高度撑开（整页滚动兕底）；
+   *  扩大态（fullscreen）固定近全屏高度并恢复内滚防截断。全屏按钮照常显示。 */
+  inline?: boolean
 }
 
 function errorText(reason: unknown) {
@@ -278,6 +281,15 @@ function LoginFieldRow(props: { systemName: string; children: any; grow?: boolea
  * 单页合集：登录表单、合集列表、合集详情全部在同一页内切换。
  * 页面本身由 app-store.tsx 的 sheet 窗口承载，关闭通过 props.onClose 上抛。
  */
+/** 合集页滚动包装：sheet 模式包 ScrollView（弹窗固定 detent 内滚）；inline 自然高度态（未扩大）不包，
+ *  内容自然高度撑开、卡片随合集数量变高，由搜索页整页滚动兕底；inline 扩大态（固定高度）恢复内滚防截断。 */
+function PageScroll(props: { inline?: boolean; fullscreen?: boolean; children?: any; transition?: any }) {
+  if (props.inline && !props.fullscreen) {
+    return <VStack spacing={0} frame={{ maxWidth: "infinity" }} transition={props.transition}>{props.children}</VStack>
+  }
+  return <ScrollView frame={{ maxWidth: "infinity", maxHeight: "infinity" }} transition={props.transition}>{props.children}</ScrollView>
+}
+
 function SinglePageCollections(props: CollectionPageProps) {
   const [account, setAccount] = useState<Account>(() => getActiveAppRavenAccount())
   const [session, setSession] = useState<AppRavenSession | null>(() => {
@@ -1117,7 +1129,7 @@ function SinglePageCollections(props: CollectionPageProps) {
 
       {!loggedIn ? (
           // 登录表单可滚动：内容高度不受弹窗高度裁切（旧版直接铺在弹窗里会被裁掉下半截）。
-          <ScrollView frame={{ maxWidth: "infinity", maxHeight: "infinity" }} transition={PAGE_TRANSITION}>
+          <PageScroll inline={props.inline} fullscreen={props.fullscreen} transition={PAGE_TRANSITION}>
             <VStack
               alignment="center"
               spacing={8}
@@ -1126,9 +1138,9 @@ function SinglePageCollections(props: CollectionPageProps) {
             >
               {loginFormChildren}
             </VStack>
-          </ScrollView>
+          </PageScroll>
       ) : (
-        <ScrollView frame={{ maxWidth: "infinity", maxHeight: "infinity" }} transition={PAGE_TRANSITION}>
+        <PageScroll inline={props.inline} fullscreen={props.fullscreen} transition={PAGE_TRANSITION}>
           <VStack alignment="leading" spacing={12} padding={{ horizontal: 16, vertical: 8 }}>
             <>
               {stage === "resolving" ? (
@@ -1405,7 +1417,7 @@ function SinglePageCollections(props: CollectionPageProps) {
               })}
             </>
           </VStack>
-        </ScrollView>
+        </PageScroll>
       )}
     </VStack>
   )

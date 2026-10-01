@@ -253,6 +253,7 @@ const STAR_INNER_FILL = { light: "rgba(248,248,251,0.75)", dark: "rgba(240,240,2
 /**
  * 分享页头部评分星星合集入口：无背景无圆点的原生排版，点击星星弹跳后弹出合集窗口。
  * 默认固定 420pt（贴合登录表单，表单内部超出可滚动）；合集页顶部全屏按钮点一次全屏、再点缩回。
+ * 搜索页紧凑形态传 onToggle（内联折叠）：不弹底部弹窗，展开状态由宿主持有（同「图标」面板）。
  */
 function RatingCollectionsButton(props: {
   rating: number
@@ -263,6 +264,9 @@ function RatingCollectionsButton(props: {
   artworkUrl?: string
   /** 搜索页 Reset 行用的紧凑形态：只渲染小星星 + 灰色圆环（不显示评分/评价数）。 */
   compact?: boolean
+  /** 内联模式：星星展开/收起宿主持有的合集面板，而不是弹底部 sheet。 */
+  expanded?: boolean
+  onToggle?: () => void
 }) {
   const [tick, setTick] = useState(0)
   const [isPresented, setIsPresented] = useState(false)
@@ -294,6 +298,15 @@ function RatingCollectionsButton(props: {
       buttonStyle="plain"
       action={() => {
         setTick(value => value + 1)
+        // 每次打开前刷新登录态：分享页实例可能在退出前就已挂载，避免持有旧账号状态。
+        setLoggedIn(() => {
+          try { return !isAppRavenLoggedOut() } catch { return false }
+        })
+        if (props.onToggle) {
+          // 内联折叠模式（搜索页）：就地展开/收起，不弹底部弹窗。
+          props.onToggle()
+          return
+        }
         setFullscreen(false)
         setIsPresented(true)
       }}
@@ -302,6 +315,7 @@ function RatingCollectionsButton(props: {
         onChanged: presented => setIsPresented(presented),
         content: (
           <VStack
+            key={`appraven-sheet-${tick}`}
             spacing={0}
             frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
             presentationBackground="clear"
@@ -364,6 +378,40 @@ function RatingCollectionsButton(props: {
         </HStack>
       )}
     </Button>
+  )
+}
+
+/** 搜索页内联合集面板：不走底部弹窗，与「更新/说明/图标」面板一样就地折叠展开（星星按钮本身不加任何折叠箭头）。
+ *  无背景方框（透出搜索页白色底，图标按钮的灰色胶囊不动）；默认自然高度贴合内容，扩大按钮撑到近全屏 + 页内滚动，缩小还原。 */
+function InlineCollectionsPanel(props: {
+  appid: string
+  appTitle: string
+  artworkUrl?: string
+  foregroundStyle: any
+}) {
+  /** 扩大/缩小切换：默认自然高度贴合内容；扩大后固定近全屏高度 + 页内滚动。 */
+  const [fullscreen, setFullscreen] = useState(false)
+  return (
+    <VStack
+      spacing={0}
+      frame={fullscreen
+        ? { maxWidth: "infinity", height: Math.round(Device.screen.height * 0.78) }
+        : { maxWidth: "infinity" }}
+      animation={{ animation: Animation.snappy({ duration: 0.42 }), value: fullscreen }}
+    >
+      <AppRavenCollectionsPage
+        appid={props.appid}
+        appTitle={props.appTitle}
+        artworkUrl={props.artworkUrl}
+        foregroundStyle={props.foregroundStyle}
+        onLoginStateChange={state => {
+          if (!state) setFullscreen(false)
+        }}
+        fullscreen={fullscreen}
+        onToggleFullscreen={() => setFullscreen(value => !value)}
+        inline
+      />
+    </VStack>
   )
 }
 
@@ -531,6 +579,8 @@ type PickedApp = {
   descriptionExpanded?: boolean
   /** 图标面板折叠状态：默认折叠，点「图标」胶囊展开。 */
   iconExpanded?: boolean
+  /** AppRaven 合集面板折叠状态：默认折叠，点星星展开（搜索页内联，不弹底部弹窗）。 */
+  appravenExpanded?: boolean
   /** 每次详情成功刷新 +1；译文卡据此强制重译。 */
   detailToken?: number
   /** 详情页数据（用于图标下载 / 链接复制等功能）。 */
@@ -998,7 +1048,8 @@ function AppSearchSection(props: {
                   hasExpanded={app.priceExpanded === true
                     || app.releaseNotesExpanded === true
                     || app.descriptionExpanded === true
-                    || app.iconExpanded === true}
+                    || app.iconExpanded === true
+                    || app.appravenExpanded === true}
                   foregroundStyle={props.foregroundStyle}
                   onTap={() => {
                     if (!isSelected(app)) return
@@ -1009,6 +1060,7 @@ function AppSearchSection(props: {
                         releaseNotesExpanded: false,
                         descriptionExpanded: false,
                         iconExpanded: false,
+                        appravenExpanded: false,
                       }
                       : item))
                     // 与单个面板收起同样处理：内容高度骤减时把该应用滚回视口顶部
@@ -1160,6 +1212,15 @@ function AppSearchSection(props: {
             <HStack spacing={8}>
               <RatingCollectionsButton
                 compact
+                expanded={app.appravenExpanded === true}
+                onToggle={() => {
+                  if (!isSelected(app)) return
+                  const wasExpanded = app.appravenExpanded === true
+                  updatePicked(pickedRef.current.map((item) => item.selectionId === app.selectionId
+                    ? { ...item, appravenExpanded: !item.appravenExpanded }
+                    : item))
+                  if (wasExpanded) settleAfterCollapse(app)
+                }}
                 rating={app.detail && typeof app.detail.averageUserRating === "number" ? app.detail.averageUserRating : 0}
                 ratingCount={app.detail && typeof app.detail.userRatingCount === "number" ? app.detail.userRatingCount.toLocaleString() : ""}
                 foregroundStyle={props.foregroundStyle}
@@ -1174,6 +1235,17 @@ function AppSearchSection(props: {
           {app.iconExpanded === true ? (
             <VStack alignment="leading" spacing={0} frame={{ maxWidth: "infinity", alignment: "leading" as any }} transition={PANEL_TRANSITION}>
               <IconDownloadPanel url={app.artworkUrl} title={app.trackName} />
+            </VStack>
+          ) : null}
+          {/* AppRaven 合集面板（点星星就地展开，不弹底部弹窗；星星不加折叠箭头） */}
+          {app.appravenExpanded === true ? (
+            <VStack key={`search-appraven-${app.selectionId}`} alignment="leading" spacing={0} frame={{ maxWidth: "infinity", alignment: "leading" as any }} transition={PANEL_TRANSITION}>
+              <InlineCollectionsPanel
+                appid={app.appid}
+                appTitle={app.trackName || app.detail?.trackName || "未知应用"}
+                artworkUrl={app.detail?.artworkUrl512 || app.detail?.artworkUrl100 || app.artworkUrl}
+                foregroundStyle={props.foregroundStyle}
+              />
             </VStack>
           ) : null}
         </VStack>
