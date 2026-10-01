@@ -912,7 +912,7 @@ function SinglePageCollections(props: CollectionPageProps) {
   )
   // 已保存账号行：紧跟登录头（蓝老鹰图标）正下方、偏右一点（图标右下面的旁边），不加弹性 Spacer（tight）。
   // 无背景、整体缩小；右侧删除钮 offset x +10（只改绘制与点按区，不动布局）。
-  // 删除钮双层嵌套：外层 TOP_BOX_FILL 浅灰小方框 + 内层 × 圆形（静止态淡粉色，点按确认时变红）。
+  // 删除钮双层嵌套（10-01 定稿）：外层 TOP_BOX_FILL 浅灰圆 + 内层纯白圆（不要灰白 BUTTON_BOX_FILL，用户明确要白色）+ × 静止态淡粉 #FFC0CB（恢复原色，用户要求）；点按确认时 × 变红；整体 23pt。
   // 切换按钮已删：切换账号功能移到行头头像上（点头像即切换到该账号）。
   if (accounts.length > 0) {
     pushLoginFormBlock(
@@ -963,19 +963,19 @@ function SinglePageCollections(props: CollectionPageProps) {
                 }}
               >
                 <HStack
-                  padding={{ horizontal: 4, vertical: 4 }}
-                  background={<RoundedRectangle fill={TOP_BOX_FILL} cornerRadius={10} />}
-                  clipShape={{ type: "rect", cornerRadius: 10, style: "continuous" }}
+                  padding={{ horizontal: 3, vertical: 3 }}
+                  background={<Circle fill={TOP_BOX_FILL} />}
                 >
-                  <Image
-                    systemName="xmark.circle.fill"
-                    foregroundStyle={deleteArmedId === item.id ? { light: "#FF3B30", dark: "#FF453A" } : { light: "#FFC0CB", dark: "#FFC0CB" }}
-                    font={16.4}
-                    frame={{ width: 20, height: 20 }}
-                    scaleEffect={0.9}
-                    opacity={deletePulse === 0 ? 1 : 0.45}
-                    animation={{ animation: Animation.easeOut(1.05), value: deletePulse }}
-                  />
+                  <ZStack frame={{ width: 17, height: 17 }}>
+                    <Circle fill={{ light: "#FFFFFF", dark: "#FFFFFF" } as const} />
+                    <Image
+                      systemName="xmark"
+                      font={11}
+                      foregroundStyle={deleteArmedId === item.id ? { light: "#FF3B30", dark: "#FF453A" } : { light: "#FFC0CB", dark: "#FFC0CB" }}
+                      opacity={deletePulse === 0 ? 1 : 0.45}
+                      animation={{ animation: Animation.easeOut(1.05), value: deletePulse }}
+                    />
+                  </ZStack>
                 </HStack>
               </Button>
             </HStack>
@@ -1009,7 +1009,7 @@ function SinglePageCollections(props: CollectionPageProps) {
       animation={{ animation: Animation.snappy({ duration: 0.3, extraBounce: 0.35 }), value: errorNudge }}
     >
       <LoginFieldRow systemName="person" grow errored={!!loginError}>
-        <TextField title="" prompt="邮箱或用户名" value={principal} onChanged={setPrincipal} frame={{ maxWidth: "infinity" }} />
+        <TextField title="" prompt="邮箱或用户名" value={principal} onChanged={setPrincipal} onSubmit={submitFromKeyboard} submitLabel="go" frame={{ maxWidth: "infinity" }} />
       </LoginFieldRow>
     </VStack>
     </AnimatedSection>
@@ -1021,7 +1021,7 @@ function SinglePageCollections(props: CollectionPageProps) {
       animation={{ animation: Animation.snappy({ duration: 0.3, extraBounce: 0.35 }), value: errorNudge }}
     >
       <LoginFieldRow systemName="lock" grow errored={!!loginError}>
-        <SecureField title="" prompt="密码" value={password} onChanged={setPassword} onSubmit={submitFromKeyboard} frame={{ maxWidth: "infinity" }} />
+        <SecureField title="" prompt="密码" value={password} onChanged={setPassword} onSubmit={submitFromKeyboard} submitLabel="go" frame={{ maxWidth: "infinity" }} />
       </LoginFieldRow>
     </VStack>
     </AnimatedSection>

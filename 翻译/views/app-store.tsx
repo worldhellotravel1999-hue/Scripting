@@ -338,7 +338,7 @@ function RatingCollectionsButton(props: {
             <Image
               systemName="star.fill"
               font={15}
-              foregroundStyle={{ light: "rgba(142,142,147,1)", dark: "rgba(142,142,147,1)" }}
+              foregroundStyle="systemYellow"
               contentTransition="symbolEffect"
               symbolEffect={{ effect: "bounce", value: tick }}
             />
@@ -363,6 +363,51 @@ function RatingCollectionsButton(props: {
           ) : null}
         </HStack>
       )}
+    </Button>
+  )
+}
+
+/** 搜索页删除按钮：在原圆形图标外套灰色双层圆（外灰环 + 内灰白圆底，同星星按钮的双层配色），
+ *  并复用同款呼吸灯（opacity 1↔0.45、1100ms 一跳 easeOut 1.05s）；点击仍删除该应用。 */
+function RemovePickedButton(props: { onRemove: () => void }) {
+  const [pulse, setPulse] = useState(0)
+  useEffect(() => {
+    let stopped = false
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const schedule = () => {
+      timer = setTimeout(() => {
+        if (stopped) return
+        setPulse((value) => 1 - value)
+        schedule()
+      }, 1100)
+    }
+    schedule()
+    return () => {
+      stopped = true
+      if (timer) clearTimeout(timer)
+    }
+  }, [])
+
+  return (
+    <Button
+      buttonStyle="borderless"
+      action={props.onRemove}
+    >
+      <HStack
+        padding={{ horizontal: 4, vertical: 4 }}
+        background={<Circle fill={STAR_BOX_FILL} />}
+        opacity={pulse === 0 ? 1 : 0.45}
+        animation={{ animation: Animation.easeOut(1.05), value: pulse }}
+      >
+        <ZStack frame={{ width: 32, height: 32 }}>
+          <Circle fill={STAR_INNER_FILL} />
+          <Image
+            systemName="xmark.circle.fill"
+            foregroundStyle={{ light: "rgba(255,59,48,0.55)", dark: "rgba(255,69,58,0.60)" }}
+            font="title3"
+          />
+        </ZStack>
+      </HStack>
     </Button>
   )
 }
@@ -972,31 +1017,19 @@ function AppSearchSection(props: {
                 />
               </HStack>
             </VStack>
-            <HStack spacing={8}>
-              <PriceToggle
-                appid={app.appid}
-                expanded={!!app.priceExpanded}
-                onToggle={() => {
-                  if (!isSelected(app)) return
-                  const wasExpanded = app.priceExpanded === true
-                  updatePicked(pickedRef.current.map((item) => item.selectionId === app.selectionId
-                    ? { ...item, priceExpanded: !item.priceExpanded }
-                    : item))
-                  if (wasExpanded) settleAfterCollapse(app)
-                }}
-                foregroundStyle={props.foregroundStyle}
-              />
-              <Button
-                buttonStyle="borderless"
-                action={() => removePicked(app)}
-              >
-                <Image
-                  systemName="xmark.circle.fill"
-                  foregroundStyle={{ light: "rgba(255,59,48,0.55)", dark: "rgba(255,69,58,0.60)" }}
-                  font="title3"
-                />
-              </Button>
-            </HStack>
+            <PriceToggle
+              appid={app.appid}
+              expanded={!!app.priceExpanded}
+              onToggle={() => {
+                if (!isSelected(app)) return
+                const wasExpanded = app.priceExpanded === true
+                updatePicked(pickedRef.current.map((item) => item.selectionId === app.selectionId
+                  ? { ...item, priceExpanded: !item.priceExpanded }
+                  : item))
+                if (wasExpanded) settleAfterCollapse(app)
+              }}
+              foregroundStyle={props.foregroundStyle}
+            />
           </HStack>
           {app.priceExpanded ? (
             <VStack key={`search-price-${app.selectionId}`} alignment="leading" spacing={10} padding={{ horizontal: 4, vertical: 4 }} frame={{ maxWidth: "infinity", alignment: "leading" as any }} transition={PANEL_TRANSITION}>
@@ -1123,16 +1156,19 @@ function AppSearchSection(props: {
               }}
             />
           </HStack>
-            <Spacer frame={{ width: 50 }} />
-            <RatingCollectionsButton
-              compact
-              rating={app.detail && typeof app.detail.averageUserRating === "number" ? app.detail.averageUserRating : 0}
-              ratingCount={app.detail && typeof app.detail.userRatingCount === "number" ? app.detail.userRatingCount.toLocaleString() : ""}
-              foregroundStyle={props.foregroundStyle}
-              appid={app.appid}
-              appTitle={app.trackName || app.detail?.trackName || "未知应用"}
-              artworkUrl={app.detail?.artworkUrl512 || app.detail?.artworkUrl100 || app.artworkUrl}
-            />
+            <Spacer />
+            <HStack spacing={8}>
+              <RatingCollectionsButton
+                compact
+                rating={app.detail && typeof app.detail.averageUserRating === "number" ? app.detail.averageUserRating : 0}
+                ratingCount={app.detail && typeof app.detail.userRatingCount === "number" ? app.detail.userRatingCount.toLocaleString() : ""}
+                foregroundStyle={props.foregroundStyle}
+                appid={app.appid}
+                appTitle={app.trackName || app.detail?.trackName || "未知应用"}
+                artworkUrl={app.detail?.artworkUrl512 || app.detail?.artworkUrl100 || app.artworkUrl}
+              />
+              <RemovePickedButton onRemove={() => removePicked(app)} />
+            </HStack>
           </HStack>
           {/* 图标下载面板（点「图标」胶囊展开，仅保存到相册） */}
           {app.iconExpanded === true ? (
