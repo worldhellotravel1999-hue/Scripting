@@ -1,0 +1,41 @@
+{
+  "localizedDescriptions" : {
+    "fr" : "",
+    "ja" : "",
+    "zh" : "",
+    "it" : "",
+    "ru" : "",
+    "pt" : "",
+    "es" : "",
+    "en" : "A small tool for your own use to help you figure out \"which AI channels\/which models can still be used now\". It automatically reads the AI ​​model configuration configured by Scripting, sends a real request one by one to detect the activity, directly marks the results with green dots\/red dots, and gives the failure reason, response time and stability score.",
+    "de" : ""
+  },
+  "runInApp" : false,
+  "author" : null,
+  "iconImage" : "",
+  "contributors" : [
+
+  ],
+  "icon" : "brain.head.profile",
+  "remoteResource" : null,
+  "entry" : "index.tsx",
+  "color" : "rgba(11, 91, 0, 1.00)",
+  "description" : "View overall rankings across AI models on front-end web development tasks, including agentic coding workflows",
+  "localizedNames" : {
+    "es" : "",
+    "de" : "",
+    "fr" : "",
+    "ja" : "",
+    "pt" : "",
+    "zh" : "",
+    "ru" : "",
+    "en" : "Overall",
+    "it" : ""
+  },
+  "version" : "1.0.1",
+  "permissions" : null,
+  "intentInputTypes" : [
+
+  ],
+  "name" : "Overall"
+}
