@@ -2,46 +2,46 @@
   "intentInputTypes" : [
     "URLs"
   ],
+  "runInApp" : false,
+  "color" : "rgba(28, 140, 255, 1)",
   "localizedDescriptions" : {
-    "ko" : "내장 System Translate만 사용하는 간결한 번역 작업 공간입니다.",
+    "ru" : "Простое рабочее пространство перевода только со встроенным System Translate.",
     "ja" : "内蔵の System Translate のみを使う、シンプルな翻訳ワークスペース。",
+    "pt" : "Um espaço de tradução que usa apenas o System Translate integrado.",
     "de" : "Ein fokussierter Übersetzungsbereich, der nur System Translate verwendet.",
     "en" : "Search and translate App Store apps, with icon save and link copy.",
-    "it" : "Uno spazio di traduzione che usa solo System Translate integrato.",
     "zh" : "搜索 App Store 应用并翻译说明，支持保存图标和复制链接。",
-    "fr" : "Un espace de traduction simple utilisant uniquement System Translate.",
-    "ru" : "Простое рабочее пространство перевода только со встроенным System Translate.",
+    "it" : "Uno spazio di traduzione che usa solo System Translate integrato.",
     "es" : "Un espacio de traducción que utiliza solo System Translate integrado.",
-    "pt" : "Um espaço de tradução que usa apenas o System Translate integrado."
+    "ko" : "내장 System Translate만 사용하는 간결한 번역 작업 공간입니다.",
+    "fr" : "Un espace de traduction simple utilisant uniquement System Translate."
   },
-  "description" : "App Store 应用翻译工具：翻译说明、下载图标、复制链接。",
-  "runInApp" : false,
+  "entry" : "index.tsx",
   "contributors" : [
 
   ],
+  "permissions" : null,
+  "description" : "App Store 应用翻译工具：翻译说明、下载图标、复制链接。",
+  "icon" : "network",
+  "name" : "翻译",
+  "author" : null,
+  "version" : "2.4.40",
+  "iconImage" : "",
   "remoteResource" : {
     "autoUpdateInterval" : 3600,
-    "hash" : "856444d3a12425cfd88c4add24ee9fc0",
+    "hash" : "f10d6cdd30aea5ed0adc81f1b08e466e",
     "url" : "https:\/\/github.com\/worldhellotravel1999-hue\/Scripting\/tree\/main\/翻译"
   },
   "localizedNames" : {
-    "es" : "Adult",
-    "ru" : "Adult",
-    "zh" : "Adult",
-    "fr" : "Adult",
-    "pt" : "Adult",
-    "de" : "Adult",
-    "ko" : "Adult",
     "en" : "Adult",
+    "es" : "Adult",
     "it" : "Adult",
-    "ja" : "Adult"
-  },
-  "entry" : "index.tsx",
-  "icon" : "network",
-  "name" : "翻译",
-  "permissions" : null,
-  "version" : "2.4.40",
-  "iconImage" : "",
-  "color" : "rgba(28, 140, 255, 1)",
-  "author" : null
+    "ja" : "Adult",
+    "ko" : "Adult",
+    "zh" : "Adult",
+    "de" : "Adult",
+    "ru" : "Adult",
+    "fr" : "Adult",
+    "pt" : "Adult"
+  }
 }

@@ -86,6 +86,9 @@ const APP_BLOCK_TRANSITION = Transition.asymmetric(
   Transition.opacity().combined(Transition.offset({ x: 0, y: 14 })),
   Transition.opacity().combined(Transition.offset({ x: 28, y: 0 })).combined(Transition.scale(0.96)),
 ).animation(PANEL_SPRING)
+/** 分享页合集弹窗淡入成型：系统 sheet 的底部上滑不可定制，容器保持透明使其滑动不可见，
+ *  内容延迟 320ms 后淡入 + 从 0.96 轻微放大成型，不再从底部直接弹。 */
+const COLLECTIONS_SHEET_FADE = Transition.opacity().combined(Transition.scale(0.96)).animation(Animation.smooth({ duration: 0.35 }))
 
 
 /** 一键重置胶囊：淡青色（teal），比 Link 徽章稍大，点击收起该应用全部展开面板。
@@ -293,6 +296,34 @@ function RatingCollectionsButton(props: {
   const [loggedIn, setLoggedIn] = useState(() => {
     try { return !isAppRavenLoggedOut() } catch { return false }
   })
+  /** sheet 内容淡入就绪：容器 presentationBackground 已透明 + 无拖拽条，系统上滑空跑完全不可见，
+   *  320ms 后内容再淡入 + 从 0.96 放大成型，观感即为淡出成型而非底部弹出。 */
+  const [sheetReady, setSheetReady] = useState(false)
+  useEffect(() => {
+    if (!isPresented) {
+      setSheetReady(false)
+      return
+    }
+    setSheetReady(false)
+    const timer = setTimeout(() => {
+      try {
+        withAnimation(() => setSheetReady(true))
+      } catch {
+        setSheetReady(true)
+      }
+    }, 320)
+    return () => clearTimeout(timer)
+  }, [isPresented, tick])
+  /** 优雅关闭：内容先淡出（同一成型过渡的离场），260ms 后再收 sheet，
+   *  收起时的系统下滑空跑不可见，不会看到内容从底部掉下去。 */
+  function gracefulClose() {
+    try {
+      withAnimation(() => setSheetReady(false))
+    } catch {
+      setSheetReady(false)
+    }
+    setTimeout(() => setIsPresented(false), 260)
+  }
   return (
     <Button
       buttonStyle="plain"
@@ -312,7 +343,11 @@ function RatingCollectionsButton(props: {
       }}
       sheet={{
         isPresented,
-        onChanged: presented => setIsPresented(presented),
+        onChanged: presented => {
+          // 系统下滑手势会直接收 sheet：内容已随容器一起不可见，无需补离场动画。
+          if (!presented) setSheetReady(false)
+          setIsPresented(presented)
+        },
         content: (
           <VStack
             key={`appraven-sheet-${tick}`}
@@ -320,21 +355,30 @@ function RatingCollectionsButton(props: {
             frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
             presentationBackground="clear"
             presentationDetents={fullscreen && loggedIn ? ["large"] : [LOGIN_SHEET_DETENT]}
-            presentationDragIndicator="visible"
+            presentationDragIndicator="hidden"
           >
-            <AppRavenCollectionsPage
-              appid={props.appid}
-              appTitle={props.appTitle}
-              artworkUrl={props.artworkUrl}
-              foregroundStyle={props.foregroundStyle}
-              onClose={() => setIsPresented(false)}
-              onLoginStateChange={state => {
-                setLoggedIn(state)
-                if (!state) setFullscreen(false)
-              }}
-              fullscreen={fullscreen}
-              onToggleFullscreen={() => setFullscreen(value => !value)}
-            />
+            {sheetReady ? (
+              <VStack
+                key={`appraven-fade-${tick}`}
+                spacing={0}
+                frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
+                transition={COLLECTIONS_SHEET_FADE}
+              >
+                <AppRavenCollectionsPage
+                  appid={props.appid}
+                  appTitle={props.appTitle}
+                  artworkUrl={props.artworkUrl}
+                  foregroundStyle={props.foregroundStyle}
+                  onClose={gracefulClose}
+                  onLoginStateChange={state => {
+                    setLoggedIn(state)
+                    if (!state) setFullscreen(false)
+                  }}
+                  fullscreen={fullscreen}
+                  onToggleFullscreen={() => setFullscreen(value => !value)}
+                />
+              </VStack>
+            ) : null}
           </VStack>
         ),
       }}
@@ -1290,6 +1334,8 @@ function AppStoreContent(props: {
   const [historyCount, setHistoryCount] = useState(() => getTranslationHistory().length)
   const refreshHistoryCount = () => setHistoryCount(getTranslationHistory().length)
   const scrollProxyRef = useRef<ScrollViewProxy>()
+  /** 分享按钮长按识别后，松手可能再补出一次点按：接下来 ~0.7s 内吞掉，避免误跳转。 */
+  const shareTapGuardRef = useRef(false)
   /** 折叠后把对应应用区滚回视口顶部：内容高度骤减时 ScrollView 会停在旧偏移
    *  形成过度滚动空白；scrollTo 会一次性夹紧偏移，避免需要手动点击回弹。 */
   const scrollToApp = (key: string) => {
@@ -1516,13 +1562,33 @@ function AppStoreContent(props: {
               ) : null}
               {props.identity && info ? (() => {
                 const identity = props.identity
+                const shareLink = info.trackViewUrl || identity.url
+                // 分享按钮（仅触发方式改造）：长按 = 分享（复制链接，原功能）；点击 = 直接跳转当前 App 商店页。
+                // 手势挂 ZStack（同登录页老鹰图标先例，Button 上无挂手势的先例）；长按补出的点按由 shareTapGuardRef 吞掉。
                 return (
-                  <Button
-                    buttonStyle="borderless"
-                    action={async () => {
-                      const link = info.trackViewUrl || identity.url
-                      await Pasteboard.setString(link)
-                      try { HapticFeedback.lightImpact() } catch {}
+                  <ZStack
+                    contentShape="rect"
+                    onTapGesture={() => {
+                      if (shareTapGuardRef.current) return
+                      void (async () => {
+                        try {
+                          const ok = await Safari.openURL(shareLink)
+                          if (ok) {
+                            try { HapticFeedback.lightImpact() } catch {}
+                          }
+                        } catch {}
+                      })()
+                    }}
+                    onLongPressGesture={{
+                      minDuration: 450,
+                      perform: () => {
+                        shareTapGuardRef.current = true
+                        setTimeout(() => { shareTapGuardRef.current = false }, 700)
+                        void (async () => {
+                          await Pasteboard.setString(shareLink)
+                          try { HapticFeedback.lightImpact() } catch {}
+                        })()
+                      },
                     }}
                   >
                     <Image
@@ -1532,7 +1598,7 @@ function AppStoreContent(props: {
                        frame={{ width: 36, height: 36 }}
                        background={{ style: { light: "rgba(142, 142, 147, 0.22)", dark: "rgba(142, 142, 147, 0.28)" }, shape: "circle" }}
                      />
-                  </Button>
+                  </ZStack>
                 )
               })() : null}
               <Button
