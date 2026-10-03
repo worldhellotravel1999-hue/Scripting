@@ -1,4 +1,5 @@
 import { modelKey } from "./types"
+import type { Model, Provider } from "./types"
 
 const BUILTIN_LABELS: Record<string, string> = {
   "openai.custom.models": "OpenAI",
@@ -10,8 +11,6 @@ const BUILTIN_LABELS: Record<string, string> = {
 
 // provider 名（如 "deepseek"）与上面清单键的对应关系。
 const BUILTIN_PROVIDER_NAMES = Object.keys(BUILTIN_LABELS).map(key => key.split(".")[0])
-
-import type { Model, Provider } from "./types"
 
 type JSONRecord = Record<string, unknown>
 function isRecord(value: unknown): value is JSONRecord {
@@ -30,7 +29,8 @@ export type ProviderSnapshot = {
   builtin: Array<{ name: string; provider: Provider; models: string[] }>
 }
 
-function readJSON(path: string): any | null {
+// 读失败/不存在一律当 null，交给 parseProviders 按 unknown 处理，不向下泄漏 any。
+function readJSON(path: string): unknown | null {
   try {
     if (!FileManager.existsSync(path)) return null
     return JSON.parse(FileManager.readAsStringSync(path))

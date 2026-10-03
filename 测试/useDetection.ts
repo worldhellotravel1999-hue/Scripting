@@ -76,8 +76,8 @@ export function useDetection(models: Model[], preview?: InitialRecords) {
       let result
       try {
         result = await pingModel(model.provider, model.id, run)
-      } catch (error) {
-        result = { ok: false, ms: Math.max(1, Date.now() - began), at: Date.now(), error: String((error as Error)?.message ?? error ?? "") }
+      } catch (caught) {
+        result = { ok: false, ms: Math.max(1, Date.now() - began), at: Date.now(), error: String((caught as Error)?.message ?? caught ?? "") }
       }
       if (!result || !alive()) return
       // 记下失败原因，配置类问题（未选模型、缺 API key）要能在页面上看到，

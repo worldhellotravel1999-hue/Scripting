@@ -166,7 +166,7 @@ function modelIdentifier(value: string): string {
  * Unknown/custom channel names do not imply a vendor. Returned objects are
  * independent copies; callers cannot change the mapping for subsequent calls.
  */
-export function identifyBrand(model: string, provider?: string): Brand {
+function resolveBrand(model: string, provider?: string): Brand {
   const value = typeof model === "string" ? model : ""
   const identifier = modelIdentifier(value)
 
@@ -185,4 +185,22 @@ export function identifyBrand(model: string, provider?: string): Brand {
 
   const providerRule = typeof provider === "string" ? findProvider(provider) : undefined
   return { ...(providerRule ? providerRule.brand : UNKNOWN) }
+}
+
+// identifyBrand 是纯函数，但列表每次渲染都会对每一行各调用一次（筛选 + 行内展示）。
+// 这里做有界记忆化，避免重复跑正则；结果只依赖静态 RULES，不存在失效问题，
+// 返回值仍然每次拷贝，调用方改不到缓存（保持“映射不可被污染”的原契约）。
+const brandCache = new Map<string, Brand>()
+const BRAND_CACHE_LIMIT = 512
+
+export function identifyBrand(model: string, provider?: string): Brand {
+  const value = typeof model === "string" ? model : ""
+  const owner = typeof provider === "string" ? provider : ""
+  const cacheKey = `${value}\u0000${owner}`
+  const cached = brandCache.get(cacheKey)
+  if (cached) return { ...cached }
+  const brand = resolveBrand(value, owner)
+  if (brandCache.size >= BRAND_CACHE_LIMIT) brandCache.clear()
+  brandCache.set(cacheKey, { ...brand })
+  return { ...brand }
 }

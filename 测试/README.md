@@ -39,6 +39,8 @@
 
 ## 验证
 
+离线回归可用 `scripting-ts run _Verify.ts` 随时复验（46 项，不联网不发请求）：回复判定各变体、耗时打分与单调性、失败/超时 0 分、过期窗口仍计分、缺时间戳标过期、结果补齐、样本上限 10、前三名奖励、厂商识别（含路由前缀与 Nemotron/Sonar 派生）、返回拷贝不可污染、渠道清单解析与 flatten/configuredTargets 过滤。页面可用 `scripting-ts preview_ui RankingPage.tsx` 做挂载冒烟。
+
 通过 TypeScript 诊断（0 错误）、回复判定回归、评分与排序离线检查、逐渠道真实请求连通性验证，以及原生页面截图。验证内容包括：未绑定引用修复后 `pingModel` 恢复成功、流式解析错误会由结构化请求回退恢复、回退会移除冲突的流式 OK 尾句、`global:hy4-preview` 直接结构化双探针、鉴权错误不会误触发回退、`OK.`/`OKAY`/引号包裹等回复变体、同分按耗时升序、失败与超时记 0 分、过期窗口仍计分、前三名奖励。实测 `global:glm-5.3-flash` 和 `global:hy4-preview` 在 Workbuddy 渠道的流式接口会报“无法解析响应数据”；修复后完整双探针分别返回 `ok:true`，实际评分示例为 glm 82 分、hy4 63 分。真实请求会消耗对应渠道用量。
 
 内置渠道判定实测：`probeBuiltinFlags()` 返回 `{openai:false, gemini:false, anthropic:false, deepseek:true, openrouter:false}`，分组只剩 `Workbuddy / lfree / kcne / KKAI / DeepSeek`，共 12 个模型——与用户在 Scripting 中实际添加的范围一致。

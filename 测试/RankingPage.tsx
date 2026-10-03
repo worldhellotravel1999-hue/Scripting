@@ -17,6 +17,11 @@ const MUTED = "#BDBDBD"
 const PAPER = "#FFFFFF"
 const RULE = "#ECECEB"
 
+// 厂商识别的统一入口：只有内置渠道的字符串 provider 名可作厂商证据，
+// 对象型自定义渠道名不参与判定。筛选与行内展示共用这一个判定。
+const brandOf = (model: Model) =>
+  identifyBrand(model.id, model.builtin && typeof model.provider === "string" ? model.provider : undefined)
+
 // 打分（检测中）时行背景在淡红 / 淡绿之间交替，出结果定格为对应淡色。
 const BLINK_INTERVAL = 650
 // 整段红绿交替效果的总时长（毫秒）：只在检测开始后的这段时间内交替，之后归于白底静默等结果，
@@ -73,7 +78,7 @@ function StatusBar({ phase }: { phase: Phase }) {
 function ModelRow({ model, value, phase, failure, logoDirectory, action }: {
   model: Model; value: number | null; phase: Phase; failure?: string; logoDirectory: string; action: () => void
 }) {
-  const brand = identifyBrand(model.id, model.builtin && typeof model.provider === "string" ? model.provider : undefined)
+  const brand = brandOf(model)
   const logo = useMemo(() => brand.logo ? UIImage.fromFile(`${logoDirectory}/${brand.logo.split("/").pop()}`) : null, [brand.logo, logoDirectory])
   const [flash, setFlash] = useState(false)
   const previous = useRef(phase)
@@ -197,7 +202,7 @@ export default function RankingPage(props: PageProps = {}) {
   const [sort, setSort] = useState<Sort>(props.initialSort ?? "scoreDown")
   const [now, setNow] = useState(Date.now())
   // 长按分组标签多选：选中的分组同时出现在列表中，便于横向比对、一次性一起测。
- const [selected, setSelected] = useState<string[]>(props.initialSelected ?? [])
+  const [selected, setSelected] = useState<string[]>(props.initialSelected ?? [])
   const selecting = selected.length > 0
   // 长按“All On”切换下面的模型是否并排（两列）：卡片样式完全不变，只缩窄尺寸。
   // 选择记入缓存，下次打开页面时直接恢复上次的布局，不必重新长按。
@@ -261,11 +266,13 @@ export default function RankingPage(props: PageProps = {}) {
     return () => clearTimeout(timer)
   }, [])
 
+  // 搜索词只归一化一次，不再在每个模型上重复 trim/toLowerCase。
+  const needle = query.trim().toLowerCase()
   const matching = models.filter(m => {
     if (selecting ? !selected.includes(m.group) : group && m.group !== group) return false
-    const brand = identifyBrand(m.id, m.builtin && typeof m.provider === "string" ? m.provider : undefined)
+    const brand = brandOf(m)
     const text = `${m.id} ${m.group} ${brand.name}`.toLowerCase()
-    return !query.trim() || text.includes(query.trim().toLowerCase())
+    return !needle || text.includes(needle)
   })
   const scores = Object.fromEntries(models.map(m => [m.key, scoreOf(m.key, detection.history, now, detection.results[m.key])]))
   // 分组顺序与顶部标签一致（Workbuddy、lfree、kcne…），Model 排序按“先分组、组内再按名称”，
@@ -287,14 +294,13 @@ export default function RankingPage(props: PageProps = {}) {
   })
 
   // 每个结果落地就立刻按最新分数重排：行随分数上下移动，像行情列表一样跳动。
-  const displayed = sorted
 
   function run(targets: Model[]) {
     void detection.start(targets)
   }
 
   // 一张模型卡片：并排与单列共用同一段，卡片样式（图标、字体、分数列、状态条）不因布局改变。
-  function card(model: Model, index: number) {
+  function card(model: Model) {
     const score = scores[model.key]
     const phase = props.previewPhases?.[model.key] ?? detection.phases[model.key] ?? (score?.stale ? "idle" : score ? (score.ok ? "ok" : "fail") : "idle")
     return <ModelRow key={model.key} model={model} value={score?.value ?? null} phase={phase} failure={detection.errors[model.key]} logoDirectory={logoDirectory} action={() => { if (!detection.running) run([model]) }} />
@@ -303,9 +309,9 @@ export default function RankingPage(props: PageProps = {}) {
   // 并排模式把模型两个一组放进同一行（各占一半宽），单列模式仍是一行一个。
   const rows: Model[][] = []
   if (sideBySide) {
-    for (let i = 0; i < displayed.length; i += 2) rows.push(displayed.slice(i, i + 2))
+    for (let i = 0; i < sorted.length; i += 2) rows.push(sorted.slice(i, i + 2))
   } else {
-    displayed.forEach(model => rows.push([model]))
+    sorted.forEach(model => rows.push([model]))
   }
 
   return <NavigationStack>
@@ -366,20 +372,19 @@ export default function RankingPage(props: PageProps = {}) {
         <ProgressView value={detection.progress.done} total={detection.progress.total} progressViewStyle="linear" tint={GREEN} animation={{ animation: Animation.easeOut(0.25), value: detection.progress.done }} />
       </VStack> : null}
       {detection.error ? <Text font={12} foregroundStyle={RED} padding={{ horizontal: 18, vertical: 8 }}>{detection.error}</Text> : null}
-      <List listStyle="plain" scrollContentBackground="hidden" background={PAPER} animation={{ animation: Animation.spring({ duration: 0.3, bounce: 0.35 }), value: displayed.map(m => m.key).join("|") }}>
-        {rows.map((row, rowIndex) => {
+      <List listStyle="plain" scrollContentBackground="hidden" background={PAPER} animation={{ animation: Animation.spring({ duration: 0.3, bounce: 0.35 }), value: sorted.map(m => m.key).join("|") }}>
+        {rows.map(row => {
           // 并排时一行两张卡，中间一条细分隔线；只剩一张时右侧留白，保持两列宽度一致。
-          const base = sideBySide ? rowIndex * 2 : rowIndex
           return <VStack key={row.map(model => model.key).join("+")} spacing={0} listRowInsets={{ top: 0, leading: 0, bottom: 0, trailing: 0 }} listRowSeparator="hidden" listRowBackground={<Rectangle fill={PAPER} />}>
             <HStack spacing={0}>
-              {card(row[0], base)}
+              {card(row[0])}
               {row[1] ? <Rectangle fill={RULE} frame={{ width: 1, height: 84 }} /> : null}
-              {row[1] ? card(row[1], base + 1) : sideBySide ? <Rectangle fill={PAPER} frame={{ height: 84, maxWidth: "infinity" }} /> : null}
+              {row[1] ? card(row[1]) : sideBySide ? <Rectangle fill={PAPER} frame={{ height: 84, maxWidth: "infinity" }} /> : null}
             </HStack>
             <Rectangle fill={RULE} frame={{ height: 1 }} />
           </VStack>
         })}
-        {!displayed.length ? <Text font={15} foregroundStyle="#999999" padding={{ vertical: 28 }} frame={{ maxWidth: "infinity" }} listRowSeparator="hidden">{models.length ? "没有匹配的模型" : "暂无已添加的模型，请先在 Scripting 中添加"}</Text> : null}
+        {!sorted.length ? <Text font={15} foregroundStyle="#999999" padding={{ vertical: 28 }} frame={{ maxWidth: "infinity" }} listRowSeparator="hidden">{models.length ? "没有匹配的模型" : "暂无已添加的模型，请先在 Scripting 中添加"}</Text> : null}
       </List>
     </VStack>
   </NavigationStack>

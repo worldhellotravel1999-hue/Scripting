@@ -39,8 +39,7 @@ export function scoreOf(key: string, history: History, now = Date.now(), result?
   if (!newest.ok || newest.ms > TIMEOUT_MS) return { value: 0, stale, count: all.length, ok: false }
   const at = stale ? newest.at : Math.max(now, newest.at)
   const list = all.filter(s => s.at > 0 && at - s.at <= WINDOW_MS).map(s => ({ ...s, ok: s.ok && s.ms <= TIMEOUT_MS }))
-  now = at
-  const weights = list.map(s => Math.exp(-0.6931 * Math.pow(Math.max(0, now - s.at) / WINDOW_MS, 2)))
+  const weights = list.map(s => Math.exp(-0.6931 * Math.pow(Math.max(0, at - s.at) / WINDOW_MS, 2)))
   const total = weights.reduce((a, b) => a + b, 0)
   const okWeight = list.reduce((a, s, i) => a + (s.ok ? weights[i] : 0), 0)
   const avg = okWeight > 0 ? list.reduce((a, s, i) => a + (s.ok ? s.ms * weights[i] : 0), 0) / okWeight : null
