@@ -5,6 +5,7 @@ import {
 import { identifyBrand } from "./brands"
 import { flattenModels, loadProviders, onBuiltinFlags, probeBuiltinFlags } from "./providers"
 import { scoreOf } from "./scoring"
+import { readSideBySide, saveSideBySide } from "./storage"
 import { useDetection } from "./useDetection"
 import type { InitialRecords } from "./useDetection"
 import type { Model, Phase } from "./types"
@@ -16,9 +17,6 @@ const MUTED = "#BDBDBD"
 const PAPER = "#FFFFFF"
 const RULE = "#ECECEB"
 
-// 检测中的卡片按“右→下→左→上”极小幅缓慢循环摆动（幅度约 1pt），奇偶行方向相反，揭晓后归位。
-const SWAY_STEPS = [{ x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 0, y: -1 }]
-const SWAY_INTERVAL = 520
 // 打分（检测中）时行背景在淡红 / 淡绿之间交替，出结果定格为对应淡色。
 const BLINK_INTERVAL = 650
 // 整段红绿交替效果的总时长（毫秒）：只在检测开始后的这段时间内交替，之后归于白底静默等结果，
@@ -72,8 +70,8 @@ function StatusBar({ phase }: { phase: Phase }) {
   </ZStack>
 }
 
-function ModelRow({ model, value, phase, failure, logoDirectory, action, flip }: {
-  model: Model; value: number | null; phase: Phase; failure?: string; logoDirectory: string; action: () => void; flip?: boolean
+function ModelRow({ model, value, phase, failure, logoDirectory, action }: {
+  model: Model; value: number | null; phase: Phase; failure?: string; logoDirectory: string; action: () => void
 }) {
   const brand = identifyBrand(model.id, model.builtin && typeof model.provider === "string" ? model.provider : undefined)
   const logo = useMemo(() => brand.logo ? UIImage.fromFile(`${logoDirectory}/${brand.logo.split("/").pop()}`) : null, [brand.logo, logoDirectory])
@@ -87,26 +85,6 @@ function ModelRow({ model, value, phase, failure, logoDirectory, action, flip }:
     const timer = setTimeout(() => setFlash(false), phase === "ok" ? FLASH_HOLD_OK : FLASH_HOLD_FAIL)
     return () => clearTimeout(timer)
   }, [phase])
-  // 检测中/等待中的卡片快速循环摆动（约 0.16 秒一步，反复循环），结果揭晓立刻归位。
-  const [swayIndex, setSwayIndex] = useState(-1)
-  useEffect(() => {
-    const active = phase === "checking" || phase === "queued"
-    if (!active) { setSwayIndex(-1); return }
-    let alive = true
-    let index = -1
-    let timer: ReturnType<typeof setTimeout>
-    const tick = () => {
-      if (!alive) return
-      index = (index + 1) % SWAY_STEPS.length
-      setSwayIndex(index)
-      timer = setTimeout(tick, SWAY_INTERVAL)
-    }
-    timer = setTimeout(tick, 40)
-    return () => { alive = false; clearTimeout(timer); setSwayIndex(-1) }
-  }, [phase])
-  const base = swayIndex < 0 ? { x: 0, y: 0 } : SWAY_STEPS[swayIndex]
-  // 奇偶行方向相反：偶数行右→下→左→上，奇数行左→上→右→下，像心跳一样一收一放。
-  const sway = flip ? { x: -base.x, y: -base.y } : base
   // 打分时红绿交替（0.65 秒一换），但整段交替效果只持续 BLINK_TOTAL（约 2 秒），到点即停、归于白底；
   // 出结果那一刻定格：成功绿拉长闪光、失败红较短。
   // 脚本环境不支持 8 位带透明度色值，闪底用白底调出的淡红 #FDF5F5 / 淡绿 #F2FAF6（约 6% 淡度，柔和仍可辨），
@@ -175,13 +153,12 @@ function ModelRow({ model, value, phase, failure, logoDirectory, action, flip }:
   // 图标与行内其余部分是两个并列的透明按钮，外观与原版完全一致：
   // 轻点图标即可只测这一个模型，点行内其它位置同样重测。
   // 检测完成那一刻整张卡片（含底色）变大弹出，与定格闪光一起停住，闪光结束再弹簧缩回去；
-  // 缩放放在外层容器，底色/摆动仍在内层，两种动画互不干扰。
+  // 缩放放在外层容器，底色在内层，两种动画互不干扰。
   return <HStack spacing={0} frame={{ height: 84, maxWidth: "infinity" }}
     scaleEffect={flash ? 1.06 : 1}
     animation={{ animation: Animation.spring({ duration: 0.35, bounce: 0.3 }), value: String(flash) }}>
     <HStack spacing={11} padding={{ horizontal: 17 }} frame={{ height: 84, maxWidth: "infinity" }} background={tint}
-      offset={{ x: sway.x, y: sway.y }}
-      animation={{ animation: Animation.smooth({ duration: 0.1 }), value: `${tint}/${sway.x}/${sway.y}` }}>
+      animation={{ animation: Animation.smooth({ duration: 0.1 }), value: tint }}>
       <Button action={action} buttonStyle="plain" accessibilityLabel={`${label}，轻点图标单独检测`}>
         {logo
           ? <Image image={logo} resizable scaleToFit frame={{ width: 24, height: 25 }} />
@@ -223,7 +200,8 @@ export default function RankingPage(props: PageProps = {}) {
  const [selected, setSelected] = useState<string[]>(props.initialSelected ?? [])
   const selecting = selected.length > 0
   // 长按“All On”切换下面的模型是否并排（两列）：卡片样式完全不变，只缩窄尺寸。
-  const [sideBySide, setSideBySide] = useState(props.initialSideBySide ?? false)
+  // 选择记入缓存，下次打开页面时直接恢复上次的布局，不必重新长按。
+  const [sideBySide, setSideBySide] = useState(() => props.initialSideBySide ?? readSideBySide())
   // 长按和点按的手势识别存在竞争：长按刚触发后紧跟的一次 tap 直接忽略，
   // 否则“长按选中”会被随后的 tap 清掉，表现为长按无效。
   const lastToggle = useRef(0)
@@ -260,7 +238,9 @@ export default function RankingPage(props: PageProps = {}) {
   // 与多选长按一样，用 lastToggle 屏蔽长按后紧跟的那次 tap，否则刚切完就被点回去。
   function toggleSideBySide() {
     lastToggle.current = Date.now()
-    setSideBySide(prev => !prev)
+    const next = !sideBySide
+    setSideBySide(next)
+    saveSideBySide(next)
   }
 
   // 内置渠道是否已添加要在首屏之后才探明；探明后立刻补上分组与模型。
@@ -314,11 +294,10 @@ export default function RankingPage(props: PageProps = {}) {
   }
 
   // 一张模型卡片：并排与单列共用同一段，卡片样式（图标、字体、分数列、状态条）不因布局改变。
-  // flip 按全局序号奇偶取反，让相邻行摆动方向相反，像心跳一样一收一放。
   function card(model: Model, index: number) {
     const score = scores[model.key]
     const phase = props.previewPhases?.[model.key] ?? detection.phases[model.key] ?? (score?.stale ? "idle" : score ? (score.ok ? "ok" : "fail") : "idle")
-    return <ModelRow key={model.key} model={model} value={score?.value ?? null} phase={phase} failure={detection.errors[model.key]} logoDirectory={logoDirectory} flip={index % 2 === 1} action={() => { if (!detection.running) run([model]) }} />
+    return <ModelRow key={model.key} model={model} value={score?.value ?? null} phase={phase} failure={detection.errors[model.key]} logoDirectory={logoDirectory} action={() => { if (!detection.running) run([model]) }} />
   }
 
   // 并排模式把模型两个一组放进同一行（各占一半宽），单列模式仍是一行一个。

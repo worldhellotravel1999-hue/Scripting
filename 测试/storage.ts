@@ -58,6 +58,20 @@ export function saveRecords(models: Model[], history: History, results: Results)
   }
 }
 
+export function readSideBySide(): boolean {
+  try {
+    return Storage.get<boolean>("sideBySide") === true
+  } catch (_) { return false }
+}
+
+export function saveSideBySide(value: boolean): void {
+  try {
+    Storage.set("sideBySide", value)
+  } catch (_) {
+    // 布局偏好写入失败不影响本次切换，只是下次打开回到默认单列。
+  }
+}
+
 export function removeTranslationPreference(): void {
   try {
     Storage.remove("translateEngine")
