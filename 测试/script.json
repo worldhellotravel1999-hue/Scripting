@@ -1,41 +1,45 @@
 {
-  "localizedDescriptions" : {
-    "fr" : "",
-    "ja" : "",
-    "zh" : "",
-    "it" : "",
-    "ru" : "",
-    "pt" : "",
-    "es" : "",
-    "en" : "A small tool for your own use to help you figure out \"which AI channels\/which models can still be used now\". It automatically reads the AI ​​model configuration configured by Scripting, sends a real request one by one to detect the activity, directly marks the results with green dots\/red dots, and gives the failure reason, response time and stability score.",
-    "de" : ""
+  "remoteResource" : {
+    "url" : "https:\/\/github.com\/worldhellotravel1999-hue\/Scripting\/tree\/main\/%E6%B5%8B%E8%AF%95",
+    "hash" : "340f293c9d0de4069d26a7c04434dcb6",
+    "autoUpdateInterval" : 3600
   },
-  "runInApp" : false,
-  "author" : null,
-  "iconImage" : "",
-  "contributors" : [
-
-  ],
+  "name" : "Overall",
   "icon" : "brain.head.profile",
-  "remoteResource" : null,
-  "entry" : "index.tsx",
-  "color" : "rgba(11, 91, 0, 1.00)",
-  "description" : "View overall rankings across AI models on front-end web development tasks, including agentic coding workflows",
-  "localizedNames" : {
-    "es" : "",
-    "de" : "",
-    "fr" : "",
-    "ja" : "",
-    "pt" : "",
-    "zh" : "",
-    "ru" : "",
-    "en" : "Overall",
-    "it" : ""
-  },
-  "version" : "1.0.1",
-  "permissions" : null,
   "intentInputTypes" : [
 
   ],
-  "name" : "Overall"
+  "author" : null,
+  "runInApp" : false,
+  "description" : "View overall rankings across AI models on front-end web development tasks, including agentic coding workflows",
+  "contributors" : [
+
+  ],
+  "permissions" : null,
+  "iconImage" : "",
+  "entry" : "index.tsx",
+  "localizedNames" : {
+    "ja" : "",
+    "zh" : "",
+    "it" : "",
+    "de" : "",
+    "fr" : "",
+    "es" : "",
+    "en" : "Overall",
+    "pt" : "",
+    "ru" : ""
+  },
+  "version" : "1.0.1",
+  "localizedDescriptions" : {
+    "pt" : "",
+    "ja" : "",
+    "zh" : "",
+    "ru" : "",
+    "es" : "",
+    "it" : "",
+    "en" : "A small tool for your own use to help you figure out \"which AI channels\/which models can still be used now\". It automatically reads the AI ​​model configuration configured by Scripting, sends a real request one by one to detect the activity, directly marks the results with green dots\/red dots, and gives the failure reason, response time and stability score.",
+    "fr" : "",
+    "de" : ""
+  },
+  "color" : "rgba(11, 91, 0, 1.00)"
 }

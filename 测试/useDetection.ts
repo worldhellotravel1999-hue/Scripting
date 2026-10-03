@@ -54,8 +54,8 @@ export function useDetection(models: Model[], preview?: InitialRecords) {
     let revealQueue = Promise.resolve()
     const successful: Array<{ key: string; ms: number; at: number }> = []
 
-    // 同渠道串行，最多四个渠道并行；快响应也按 420ms 间隔逐条揭晓。
-    // 延迟仅控制显示，不会增加请求耗时或改变分数。
+    // 同渠道串行，全部渠道并行（最多八个 worker）；快响应按 150ms 间隔逐条揭晓，
+    // 每行至少展示 0.4 秒检测状态。延迟仅控制显示，不会增加请求耗时或改变分数。
     const channelMap = new Map<string, Model[]>()
     for (const model of targets) {
       const key = `${model.builtin ? "b" : "c"}/${model.group}`
@@ -102,7 +102,7 @@ export function useDetection(models: Model[], preview?: InitialRecords) {
       setProgress({ done: ++completed, total: targets.length })
       const ok = result.ok
       const reveal = async () => {
-        await delay(Math.max(0, began + 1000 - Date.now(), lastReveal + 420 - Date.now()))
+        await delay(Math.max(0, began + 400 - Date.now(), lastReveal + 150 - Date.now()))
         if (!alive()) return
         lastReveal = Date.now()
         setPhases(prev => ({ ...prev, [model.key]: ok ? "ok" : "fail" }))
@@ -122,7 +122,7 @@ export function useDetection(models: Model[], preview?: InitialRecords) {
     }
 
     try {
-      await Promise.all(Array.from({ length: Math.min(4, channels.length) }, () => worker()))
+      await Promise.all(Array.from({ length: Math.min(8, channels.length) }, () => worker()))
       await revealQueue
       if (alive()) {
         if (targets.length > 1) {
