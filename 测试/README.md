@@ -29,7 +29,7 @@
 
 保留旧版两个并行探针：小请求与约 80KB 文本的额度探针，均要求返回 OK。每次点检测会向对应模型渠道发送真实请求，并可能产生该渠道的用量费用。取消和超时会停止消费请求流；如果底层建立请求尚未返回，会在流返回后立即取消。未完成任务不写为失败。
 
-`Assistant.requestStreaming` 是宿主暴露的实例方法，不能作为未绑定引用传参（调用时会抛 `self type check failed for Objective-C instance method`，导致每个探针瞬间失败、所有模型都是 0 分）；`probe.ts` 用箭头函数包一层后再传给 `pingModel`。回复判定允许大小写、首尾装饰符与句点，并接受 `OK` / `OKAY`；流式阶段只有仍是 `OK` 前缀时才继续等待，收到完整回复后才定案。
+`Assistant.requestStreaming` 是宿主暴露的实例方法，不能作为未绑定引用传参（调用时会抛 `self type check failed for Objective-C instance method`，导致每个探针瞬间失败、所有模型都是 0 分）；`probe.ts` 用箭头函数包一层后再传给 `pingModel`。如果自定义 OpenAI 兼容渠道返回“无法解析响应数据／API 类型”错误，流式接口已经建立请求但宿主解析器无法消费其响应时，探针会对同一模型回退到 `Assistant.requestStructuredData`。回退时会移除流式探针尾部的“Reply with exactly: OK”指令，避免与 JSON 输出要求冲突；`global:hy4-preview` 已知始终触发该兼容问题，因此直接使用结构化双探针，避免先等待流式解析失败再触发 30 秒总超时。结构化请求返回 `ok:true` 才计为成功，网络、鉴权、额度和超时错误不会触发回退。回复判定允许大小写、首尾装饰符与句点，并接受 `OK` / `OKAY`；流式阶段只有仍是 `OK` 前缀时才继续等待，收到完整回复后才定案。
 
 每个模型保留最近十次样本，使用三十分钟有效窗口。按耗时、有效成功率和检测次数计分；当前失败或超过 30 秒直接为 0。此分数表示当前渠道的响应速度和可用性，不是通用智能能力排行榜。原有 `scoreHistMap` 和 `lastSpeedResult` 可继续使用；历史缺失时用最近结果补齐分数，缺失时间戳的旧结果标为过期，未检测才显示“—”。红绿状态与分数采用同一份最新结果。
 
@@ -39,7 +39,7 @@
 
 ## 验证
 
-通过 TypeScript 诊断（0 错误）、回复判定回归、评分与排序离线检查、逐渠道真实请求连通性验证，以及原生页面截图。验证内容包括：未绑定引用修复后 `pingModel` 恢复成功、`OK.`/`OKAY`/引号包裹等回复变体、同分按耗时升序、失败与超时记 0 分、过期窗口仍计分、前三名奖励。实测渠道 `lfree` / `kcne` / `KKAI` 返回 `ok:true`，`Workbuddy` 因自身网络中断返回失败（该渠道确为不可用，非脚本问题）；真实请求会消耗对应渠道用量。
+通过 TypeScript 诊断（0 错误）、回复判定回归、评分与排序离线检查、逐渠道真实请求连通性验证，以及原生页面截图。验证内容包括：未绑定引用修复后 `pingModel` 恢复成功、流式解析错误会由结构化请求回退恢复、回退会移除冲突的流式 OK 尾句、`global:hy4-preview` 直接结构化双探针、鉴权错误不会误触发回退、`OK.`/`OKAY`/引号包裹等回复变体、同分按耗时升序、失败与超时记 0 分、过期窗口仍计分、前三名奖励。实测 `global:glm-5.3-flash` 和 `global:hy4-preview` 在 Workbuddy 渠道的流式接口会报“无法解析响应数据”；修复后完整双探针分别返回 `ok:true`，实际评分示例为 glm 82 分、hy4 63 分。真实请求会消耗对应渠道用量。
 
 内置渠道判定实测：`probeBuiltinFlags()` 返回 `{openai:false, gemini:false, anthropic:false, deepseek:true, openrouter:false}`，分组只剩 `Workbuddy / lfree / kcne / KKAI / DeepSeek`，共 12 个模型——与用户在 Scripting 中实际添加的范围一致。
 
