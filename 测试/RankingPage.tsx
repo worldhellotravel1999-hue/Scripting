@@ -16,11 +16,13 @@ const MUTED = "#BDBDBD"
 const PAPER = "#FFFFFF"
 const RULE = "#ECECEB"
 
-// 检测中的卡片按“右→下→左→上”快速循环摆动（上下左右，反复循环），揭晓后归位。
-const SWAY_STEPS = [{ x: 2.5, y: 0 }, { x: 0, y: 2.5 }, { x: -2.5, y: 0 }, { x: 0, y: -2.5 }]
+// 检测中的卡片按“右→下→左→上”小幅循环摆动（幅度约 1pt，心跳感），奇偶行方向相反，揭晓后归位。
+const SWAY_STEPS = [{ x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 0, y: -1 }]
 const SWAY_INTERVAL = 160
-// 打分（检测中）时行背景在成功绿 / 失败红之间交替快闪，出结果定格为对应颜色。
-const BLINK_INTERVAL = 200
+// 打分（检测中）时行背景在淡绿 / 淡红之间交替慢闪，出结果定格为对应颜色。
+const BLINK_INTERVAL = 300
+// 打分时右侧分数位的滚动间隔（秒数见下，单位毫秒）。
+const ROLL_INTERVAL = 90
 
 type Sort = "scoreDown" | "scoreUp" | "nameUp" | "nameDown"
 export type PageProps = {
@@ -64,8 +66,8 @@ function StatusBar({ phase }: { phase: Phase }) {
   </ZStack>
 }
 
-function ModelRow({ model, value, phase, failure, logoDirectory, action }: {
-  model: Model; value: number | null; phase: Phase; failure?: string; logoDirectory: string; action: () => void
+function ModelRow({ model, value, phase, failure, logoDirectory, action, flip }: {
+  model: Model; value: number | null; phase: Phase; failure?: string; logoDirectory: string; action: () => void; flip?: boolean
 }) {
   const brand = identifyBrand(model.id, model.builtin && typeof model.provider === "string" ? model.provider : undefined)
   const logo = useMemo(() => brand.logo ? UIImage.fromFile(`${logoDirectory}/${brand.logo.split("/").pop()}`) : null, [brand.logo, logoDirectory])
@@ -96,9 +98,11 @@ function ModelRow({ model, value, phase, failure, logoDirectory, action }: {
     timer = setTimeout(tick, 40)
     return () => { alive = false; clearTimeout(timer); setSwayIndex(-1) }
   }, [phase])
-  const sway = swayIndex < 0 ? { x: 0, y: 0 } : SWAY_STEPS[swayIndex]
-  // 打分时红绿交替快闪（0.2 秒一换），出结果那一刻定格：成功绿、失败红。
-  // 脚本环境不支持 8 位带透明度色值，闪底用白底调出的淡红 #FBEDED / 淡绿 #E9F6EF（约 5% 淡度，不晃眼但看得见），
+  const base = swayIndex < 0 ? { x: 0, y: 0 } : SWAY_STEPS[swayIndex]
+  // 奇偶行方向相反：偶数行右→下→左→上，奇数行左→上→右→下，像心跳一样一收一放。
+  const sway = flip ? { x: -base.x, y: -base.y } : base
+  // 打分时红绿交替慢闪（0.3 秒一换），出结果那一刻定格：成功绿、失败红。
+  // 脚本环境不支持 8 位带透明度色值，闪底用白底调出的淡红 #FDF5F5 / 淡绿 #F2FAF6（约 6% 淡度，柔和仍可辨），
   // 揭晓定格用更深的 #FDE8EA / #DCF5E7，让结果色一眼可辨。
   const [blink, setBlink] = useState(false)
   useEffect(() => {
@@ -113,10 +117,46 @@ function ModelRow({ model, value, phase, failure, logoDirectory, action }: {
     timer = setTimeout(tick, 60)
     return () => { alive = false; clearTimeout(timer); setBlink(false) }
   }, [phase])
+  // 打分时分数位滚动 1—100 的随机数字（0.09 秒一跳），替代圆形加载指示，
+  // 让“测速中”在分数位也有动态；出结果后由下面的 count-up 接手。
+  const [roll, setRoll] = useState(() => 1 + Math.floor(Math.random() * 100))
+  useEffect(() => {
+    if (phase !== "checking") return
+    let alive = true
+    let timer: ReturnType<typeof setTimeout>
+    const tick = () => {
+      if (!alive) return
+      setRoll(1 + Math.floor(Math.random() * 100))
+      timer = setTimeout(tick, ROLL_INTERVAL)
+    }
+    tick()
+    return () => { alive = false; clearTimeout(timer) }
+  }, [phase])
+  // 揭晓时从低约 30 分用 0.4 秒快速数到真实分数，避免结果“砰”地一下直接蹦出来。
+  const [settle, setSettle] = useState<number | null>(null)
+  useEffect(() => {
+    if (phase !== "ok" && phase !== "fail") { setSettle(null); return }
+    if (value === null || value <= 30) { setSettle(null); return }
+    const target = value
+    const step = Math.max(1, Math.ceil(30 / 12))
+    let alive = true
+    let current = Math.max(1, target - 30)
+    let timer: ReturnType<typeof setTimeout>
+    setSettle(current)
+    const tick = () => {
+      if (!alive) return
+      current = Math.min(target, current + step)
+      setSettle(current)
+      if (current < target) timer = setTimeout(tick, 26)
+      else timer = setTimeout(() => { if (alive) setSettle(null) }, 80)
+    }
+    timer = setTimeout(tick, 60)
+    return () => { alive = false; clearTimeout(timer); setSettle(null) }
+  }, [phase, value])
   const checking = phase === "checking"
   const failed = phase === "fail"
   const scoreColor = phase === "ok" ? GREEN : phase === "fail" ? RED : INK
-  const tint = checking ? (blink ? "#FBEDED" : "#E9F6EF") : flash ? (phase === "fail" ? "#FDE8EA" : "#DCF5E7") : PAPER
+  const tint = checking ? (blink ? "#FDF5F5" : "#F2FAF6") : flash ? (phase === "fail" ? "#FDE8EA" : "#DCF5E7") : PAPER
   const status = checking ? "检测中" : phase === "queued" ? "等待中" : phase === "ok" ? "成功" : phase === "fail" ? "失败" : "未检测"
   const label = `${model.id}，${brand.name}，${model.group}，${status}，${value === null ? "暂无分数" : `${value}分`}`
   // 失败时把应用返回的真实原因显示出来，配置类问题（未选模型、缺 key）一眼可见。
@@ -140,8 +180,7 @@ function ModelRow({ model, value, phase, failure, logoDirectory, action }: {
         </VStack>
         <VStack alignment="trailing" spacing={9} frame={{ width: 52, alignment: "trailing" }}>
           <ZStack alignment="trailing" frame={{ width: 52, height: 25 }}>
-            <Text font={{ name: "Menlo-Regular", size: 21 }} fontWeight="semibold" foregroundStyle={scoreColor} lineLimit={1} frame={{ maxWidth: "infinity", alignment: "trailing" }} contentTransition="numericText" opacity={checking ? 0 : 1} scaleEffect={flash ? 1.16 : 1} animation={{ animation: Animation.spring({ duration: 0.3, bounce: 0.25 }), value: `${value}/${phase}/${flash}` }}>{value === null ? "—" : String(value)}</Text>
-            {checking ? <ProgressView progressViewStyle="circular" tint={GREEN} frame={{ width: 26, height: 24 }} /> : null}
+            <Text font={{ name: "Menlo-Regular", size: 21 }} fontWeight="semibold" foregroundStyle={checking ? "#888888" : scoreColor} lineLimit={1} frame={{ maxWidth: "infinity", alignment: "trailing" }} contentTransition="numericText" scaleEffect={flash ? 1.16 : 1} animation={{ animation: Animation.spring({ duration: 0.3, bounce: 0.25 }), value: `${value}/${phase}/${flash}` }}>{checking ? String(roll) : (settle !== null ? String(settle) : (value === null ? "—" : String(value)))}</Text>
           </ZStack>
           <StatusBar phase={phase} />
         </VStack>
@@ -259,10 +298,11 @@ export default function RankingPage(props: PageProps = {}) {
   }
 
   // 一张模型卡片：并排与单列共用同一段，卡片样式（图标、字体、分数列、状态条）不因布局改变。
-  function card(model: Model) {
+  // flip 按全局序号奇偶取反，让相邻行摆动方向相反，像心跳一样一收一放。
+  function card(model: Model, index: number) {
     const score = scores[model.key]
     const phase = props.previewPhases?.[model.key] ?? detection.phases[model.key] ?? (score?.stale ? "idle" : score ? (score.ok ? "ok" : "fail") : "idle")
-    return <ModelRow key={model.key} model={model} value={score?.value ?? null} phase={phase} failure={detection.errors[model.key]} logoDirectory={logoDirectory} action={() => { if (!detection.running) run([model]) }} />
+    return <ModelRow key={model.key} model={model} value={score?.value ?? null} phase={phase} failure={detection.errors[model.key]} logoDirectory={logoDirectory} flip={index % 2 === 1} action={() => { if (!detection.running) run([model]) }} />
   }
 
   // 并排模式把模型两个一组放进同一行（各占一半宽），单列模式仍是一行一个。
@@ -332,13 +372,14 @@ export default function RankingPage(props: PageProps = {}) {
       </VStack> : null}
       {detection.error ? <Text font={12} foregroundStyle={RED} padding={{ horizontal: 18, vertical: 8 }}>{detection.error}</Text> : null}
       <List listStyle="plain" scrollContentBackground="hidden" background={PAPER} animation={{ animation: Animation.spring({ duration: 0.3, bounce: 0.35 }), value: displayed.map(m => m.key).join("|") }}>
-        {rows.map(row => {
+        {rows.map((row, rowIndex) => {
           // 并排时一行两张卡，中间一条细分隔线；只剩一张时右侧留白，保持两列宽度一致。
+          const base = sideBySide ? rowIndex * 2 : rowIndex
           return <VStack key={row.map(model => model.key).join("+")} spacing={0} listRowInsets={{ top: 0, leading: 0, bottom: 0, trailing: 0 }} listRowSeparator="hidden" listRowBackground={<Rectangle fill={PAPER} />}>
             <HStack spacing={0}>
-              {card(row[0])}
+              {card(row[0], base)}
               {row[1] ? <Rectangle fill={RULE} frame={{ width: 1, height: 84 }} /> : null}
-              {row[1] ? card(row[1]) : sideBySide ? <Rectangle fill={PAPER} frame={{ height: 84, maxWidth: "infinity" }} /> : null}
+              {row[1] ? card(row[1], base + 1) : sideBySide ? <Rectangle fill={PAPER} frame={{ height: 84, maxWidth: "infinity" }} /> : null}
             </HStack>
             <Rectangle fill={RULE} frame={{ height: 1 }} />
           </VStack>
