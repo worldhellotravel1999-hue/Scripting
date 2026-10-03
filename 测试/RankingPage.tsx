@@ -16,13 +16,19 @@ const MUTED = "#BDBDBD"
 const PAPER = "#FFFFFF"
 const RULE = "#ECECEB"
 
-// 检测中的卡片按“右→下→左→上”小幅循环摆动（幅度约 1pt，心跳感），奇偶行方向相反，揭晓后归位。
+// 检测中的卡片按“右→下→左→上”极小幅缓慢循环摆动（幅度约 1pt），奇偶行方向相反，揭晓后归位。
 const SWAY_STEPS = [{ x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 0, y: -1 }]
-const SWAY_INTERVAL = 160
-// 打分（检测中）时行背景在淡绿 / 淡红之间交替慢闪，出结果定格为对应颜色。
-const BLINK_INTERVAL = 300
-// 打分时右侧分数位的滚动间隔（秒数见下，单位毫秒）。
-const ROLL_INTERVAL = 90
+const SWAY_INTERVAL = 520
+// 打分（检测中）时行背景在淡红 / 淡绿之间交替，出结果定格为对应淡色。
+const BLINK_INTERVAL = 650
+// 整段红绿交替效果的总时长（毫秒）：只在检测开始后的这段时间内交替，之后归于白底静默等结果，
+// 不是整轮检测期间一直红绿来回（每次换色的间隔保持不变，不加快来回闪动）。
+const BLINK_TOTAL = 2000
+// 出结果定格闪光的时长：合格的绿色拉长为“弹窗”般的一下（分数同步放大停住，再缩放回去），失败红保持较短。
+const FLASH_HOLD_OK = 1200
+const FLASH_HOLD_FAIL = 450
+// 打分时右侧分数位的滚动间隔（单位毫秒），放慢后更柔和。
+const ROLL_INTERVAL = 280
 
 type Sort = "scoreDown" | "scoreUp" | "nameUp" | "nameDown"
 export type PageProps = {
@@ -47,21 +53,21 @@ function StatusBar({ phase }: { phase: Phase }) {
     const tick = () => {
       if (!alive) return
       setPulse(v => !v)
-      timer = setTimeout(tick, 280)
+      timer = setTimeout(tick, 700)
     }
-    timer = setTimeout(tick, 30)
+    timer = setTimeout(tick, 100)
     return () => { alive = false; clearTimeout(timer) }
   }, [phase])
   const color = phase === "ok" || phase === "checking" ? GREEN : phase === "fail" ? RED : MUTED
   return <ZStack alignment="leading" frame={{ width: 46, height: 6 }} clipShape={{ type: "rect", cornerRadius: 3 }} accessibilityHidden>
-    <Rectangle fill={color} opacity={0.16} />
+    <Rectangle fill={color} opacity={0.14} />
     <Rectangle
       fill={color}
       frame={{ width: phase === "checking" ? 16 : phase === "queued" ? 10 : 46, height: 6 }}
       clipShape={{ type: "rect", cornerRadius: 3 }}
-      offset={{ x: phase === "checking" && pulse ? 30 : 0, y: 0 }}
-      opacity={phase === "queued" ? 0.45 : 1}
-      animation={{ animation: Animation.smooth({ duration: 0.26 }), value: `${phase}/${pulse}` }}
+      offset={{ x: phase === "checking" && pulse ? 22 : 0, y: 0 }}
+      opacity={phase === "queued" ? 0.4 : 0.7}
+      animation={{ animation: Animation.smooth({ duration: 0.65 }), value: `${phase}/${pulse}` }}
     />
   </ZStack>
 }
@@ -78,7 +84,7 @@ function ModelRow({ model, value, phase, failure, logoDirectory, action, flip }:
     previous.current = phase
     if (!finished) { setFlash(false); return }
     setFlash(true)
-    const timer = setTimeout(() => setFlash(false), 450)
+    const timer = setTimeout(() => setFlash(false), phase === "ok" ? FLASH_HOLD_OK : FLASH_HOLD_FAIL)
     return () => clearTimeout(timer)
   }, [phase])
   // 检测中/等待中的卡片快速循环摆动（约 0.16 秒一步，反复循环），结果揭晓立刻归位。
@@ -101,16 +107,20 @@ function ModelRow({ model, value, phase, failure, logoDirectory, action, flip }:
   const base = swayIndex < 0 ? { x: 0, y: 0 } : SWAY_STEPS[swayIndex]
   // 奇偶行方向相反：偶数行右→下→左→上，奇数行左→上→右→下，像心跳一样一收一放。
   const sway = flip ? { x: -base.x, y: -base.y } : base
-  // 打分时红绿交替慢闪（0.3 秒一换），出结果那一刻定格：成功绿、失败红。
+  // 打分时红绿交替（0.65 秒一换），但整段交替效果只持续 BLINK_TOTAL（约 2 秒），到点即停、归于白底；
+  // 出结果那一刻定格：成功绿拉长闪光、失败红较短。
   // 脚本环境不支持 8 位带透明度色值，闪底用白底调出的淡红 #FDF5F5 / 淡绿 #F2FAF6（约 6% 淡度，柔和仍可辨），
   // 揭晓定格用更深的 #FDE8EA / #DCF5E7，让结果色一眼可辨。
   const [blink, setBlink] = useState(false)
   useEffect(() => {
     if (phase !== "checking") { setBlink(false); return }
     let alive = true
+    let elapsed = 0
     let timer: ReturnType<typeof setTimeout>
     const tick = () => {
       if (!alive) return
+      elapsed += BLINK_INTERVAL
+      if (elapsed > BLINK_TOTAL) { setBlink(false); return }
       setBlink(value => !value)
       timer = setTimeout(tick, BLINK_INTERVAL)
     }
@@ -164,28 +174,34 @@ function ModelRow({ model, value, phase, failure, logoDirectory, action, flip }:
   const subtitle = `${brand.name} · ${model.group}${detail}`
   // 图标与行内其余部分是两个并列的透明按钮，外观与原版完全一致：
   // 轻点图标即可只测这一个模型，点行内其它位置同样重测。
-  return <HStack spacing={11} padding={{ horizontal: 17 }} frame={{ height: 84, maxWidth: "infinity" }} background={tint}
-    offset={{ x: sway.x, y: sway.y }}
-    animation={{ animation: Animation.smooth({ duration: 0.1 }), value: `${tint}/${sway.x}/${sway.y}` }}>
-    <Button action={action} buttonStyle="plain" accessibilityLabel={`${label}，轻点图标单独检测`}>
-      {logo
-        ? <Image image={logo} resizable scaleToFit frame={{ width: 24, height: 25 }} />
-        : <Image systemName="sparkles" foregroundStyle="#080808" font={22} frame={{ width: 24, height: 25 }} />}
-    </Button>
-    <Button action={action} buttonStyle="plain" accessibilityLabel={`${label}，轻点重新检测`} frame={{ maxWidth: "infinity" }}>
-      <HStack spacing={11} frame={{ maxWidth: "infinity" }}>
-        <VStack alignment="leading" spacing={5} frame={{ maxWidth: "infinity", alignment: "leading" }}>
-          <Text font={{ name: "Menlo-Regular", size: 17 }} fontWeight="regular" foregroundStyle={INK} lineLimit={1} minScaleFactor={0.76} truncationMode="middle" frame={{ maxWidth: "infinity", alignment: "leading" }}>{model.id}</Text>
-          <Text font={14} foregroundStyle={failed ? "#B23A2E" : "#555555"} lineLimit={1} truncationMode="tail" frame={{ maxWidth: "infinity", alignment: "leading" }}>{subtitle}</Text>
-        </VStack>
-        <VStack alignment="trailing" spacing={9} frame={{ width: 52, alignment: "trailing" }}>
-          <ZStack alignment="trailing" frame={{ width: 52, height: 25 }}>
-            <Text font={{ name: "Menlo-Regular", size: 21 }} fontWeight="semibold" foregroundStyle={checking ? "#888888" : scoreColor} lineLimit={1} frame={{ maxWidth: "infinity", alignment: "trailing" }} contentTransition="numericText" scaleEffect={flash ? 1.16 : 1} animation={{ animation: Animation.spring({ duration: 0.3, bounce: 0.25 }), value: `${value}/${phase}/${flash}` }}>{checking ? String(roll) : (settle !== null ? String(settle) : (value === null ? "—" : String(value)))}</Text>
-          </ZStack>
-          <StatusBar phase={phase} />
-        </VStack>
-      </HStack>
-    </Button>
+  // 检测完成那一刻整张卡片（含底色）变大弹出，与定格闪光一起停住，闪光结束再弹簧缩回去；
+  // 缩放放在外层容器，底色/摆动仍在内层，两种动画互不干扰。
+  return <HStack spacing={0} frame={{ height: 84, maxWidth: "infinity" }}
+    scaleEffect={flash ? 1.06 : 1}
+    animation={{ animation: Animation.spring({ duration: 0.35, bounce: 0.3 }), value: String(flash) }}>
+    <HStack spacing={11} padding={{ horizontal: 17 }} frame={{ height: 84, maxWidth: "infinity" }} background={tint}
+      offset={{ x: sway.x, y: sway.y }}
+      animation={{ animation: Animation.smooth({ duration: 0.1 }), value: `${tint}/${sway.x}/${sway.y}` }}>
+      <Button action={action} buttonStyle="plain" accessibilityLabel={`${label}，轻点图标单独检测`}>
+        {logo
+          ? <Image image={logo} resizable scaleToFit frame={{ width: 24, height: 25 }} />
+          : <Image systemName="sparkles" foregroundStyle="#080808" font={22} frame={{ width: 24, height: 25 }} />}
+      </Button>
+      <Button action={action} buttonStyle="plain" accessibilityLabel={`${label}，轻点重新检测`} frame={{ maxWidth: "infinity" }}>
+        <HStack spacing={11} frame={{ maxWidth: "infinity" }}>
+          <VStack alignment="leading" spacing={5} frame={{ maxWidth: "infinity", alignment: "leading" }}>
+            <Text font={{ name: "Menlo-Regular", size: 17 }} fontWeight="regular" foregroundStyle={INK} lineLimit={1} minScaleFactor={0.76} truncationMode="middle" frame={{ maxWidth: "infinity", alignment: "leading" }}>{model.id}</Text>
+            <Text font={14} foregroundStyle={failed ? "#B23A2E" : "#555555"} lineLimit={1} truncationMode="tail" frame={{ maxWidth: "infinity", alignment: "leading" }}>{subtitle}</Text>
+          </VStack>
+          <VStack alignment="trailing" spacing={9} frame={{ width: 52, alignment: "trailing" }}>
+            <ZStack alignment="trailing" frame={{ width: 52, height: 25 }}>
+              <Text font={{ name: "Menlo-Regular", size: 21 }} fontWeight="semibold" foregroundStyle={checking ? "#888888" : scoreColor} lineLimit={1} frame={{ maxWidth: "infinity", alignment: "trailing" }} contentTransition="numericText" scaleEffect={flash ? 1.16 : 1} animation={{ animation: Animation.spring({ duration: 0.3, bounce: 0.25 }), value: `${value}/${phase}/${flash}` }}>{checking ? String(roll) : (settle !== null ? String(settle) : (value === null ? "—" : String(value)))}</Text>
+            </ZStack>
+            <StatusBar phase={phase} />
+          </VStack>
+        </HStack>
+      </Button>
+    </HStack>
   </HStack>
 }
 
