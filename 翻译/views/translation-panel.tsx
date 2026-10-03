@@ -66,6 +66,7 @@ export function TranslationPanel(props: {
       <List
         listStyle="plain"
         scrollContentBackground="hidden"
+        listSectionSpacing={12}
         background={{ light: "#F2F2F7", dark: "#000000" }}
         translationHost={translationHost}
       >

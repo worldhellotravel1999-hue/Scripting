@@ -182,7 +182,7 @@ function CardFrame(props: {
     <VStack
       alignment="leading"
       spacing={0}
-      padding={props.flat ? { horizontal: 0, vertical: 0 } : { horizontal: 18, vertical: 16 }}
+      padding={props.flat ? { horizontal: 0, vertical: 0 } : { horizontal: 18, vertical: 20 }}
       frame={{ maxWidth: "infinity", ...frame }}
       background={props.flat ? undefined : <RoundedRectangle fill={CARD_FILL} cornerRadius={24} />}
       clipShape={props.flat ? undefined : { type: "rect", cornerRadius: 24, style: "continuous" }}
@@ -228,18 +228,6 @@ function CircleActionButton(props: {
         <Image systemName={props.systemName} font="title3" foregroundStyle={foreground} />
       </ZStack>
     </Button>
-  )
-}
-
-function DirectionCaption(props: { source: string; targets: string[] }) {
-  return (
-    <HStack spacing={6}>
-      <Text font="caption" foregroundStyle="secondaryLabel">{languageShortLabel(props.source)}</Text>
-      <Image systemName="arrow.right" font="caption2" foregroundStyle="tertiaryLabel" />
-      <Text font="caption" foregroundStyle="secondaryLabel">
-        {targetCodes(props.targets).map(languageShortLabel).join(" · ")}
-      </Text>
-    </HStack>
   )
 }
 
@@ -609,29 +597,46 @@ export function TranslationCard(props: TranslationCardProps) {
     },
   } : null
 
+  // 收起卡（主界面已完成）：与系统 UI / 展开卡同一套版式——title3 标题 + body 正文
+  // + lineSpacing 4 + 块间 20pt，顺序同样跟 translationFirst（译文在上、原文在下）。
   if (compact) {
+    const compactSourceBlock = (
+      <VStack key="compact-source" alignment="leading" spacing={12} padding={{ top: props.translationFirst ? 20 : 0 }}>
+        <HStack spacing={8} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
+          <HStack spacing={2} frame={{ height: 28, alignment: "leading" as any }}>
+            <Text font="title3" fontWeight="semibold">{languageShortLabel(shownSourceLanguage)}</Text>
+          </HStack>
+          <Spacer />
+        </HStack>
+        <VStack alignment="leading" contextMenu={{ menuItems: <CopyButton title="复制原文" text={sourceText} /> }}>
+          <FontText role="source" flat={props.flat} foregroundStyle={props.foregroundStyle} gradientColors={props.gradientColors} lineSpacing={4} text={sourceText || "—"} />
+        </VStack>
+      </VStack>
+    )
+    const compactResultBlocks = results.map((item, index) => (
+      <VStack key={item.languageCode} alignment="leading" spacing={12} padding={{ top: props.translationFirst && index === 0 ? 0 : 20 }}>
+        <HStack spacing={8} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
+          <HStack spacing={2} frame={{ height: 28, alignment: "leading" as any }}>
+            <Text font="title3" fontWeight="semibold">{languageShortLabel(item.languageCode)}</Text>
+          </HStack>
+          <Spacer />
+          {item.text ? (
+            <Image systemName="checkmark.circle.fill" foregroundStyle="systemGreen" />
+          ) : null}
+        </HStack>
+        <VStack alignment="leading" contextMenu={{ menuItems: <CopyButton title="复制" text={item.text} /> }}>
+          <FontText role="target" flat={props.flat} foregroundStyle={props.foregroundStyle} gradientColors={props.gradientColors} lineSpacing={4} text={item.text || item.error || "—"} />
+        </VStack>
+      </VStack>
+    ))
     return (
       <CardFrame compact targetCount={normalizedTargets.length} readOnly={false} flat={props.flat} onDelete={props.onDelete ? () => props.onDelete?.(props.id) : undefined}>
-        <HStack spacing={8} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
-          <VStack alignment="leading" spacing={3} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
-            <DirectionCaption source={shownSourceLanguage} targets={normalizedTargets} />
-            <VStack alignment="leading" contextMenu={{ menuItems: <CopyButton title="复制原文" text={sourceText} /> }}>
-              <FontText role="source" small flat={props.flat} foregroundStyle={props.foregroundStyle} gradientColors={props.gradientColors} text={sourceText || "—"} />
-            </VStack>
-          </VStack>
-          <Image systemName="checkmark.circle.fill" foregroundStyle="systemGreen" />
-        </HStack>
-
-        {results.map((item) => (
-          <VStack key={item.languageCode} alignment="leading" spacing={3} padding={{ top: 7 }}>
-            <Text font="caption" foregroundStyle="tertiaryLabel">{languageShortLabel(item.languageCode)}</Text>
-            <VStack alignment="leading" contextMenu={{ menuItems: <CopyButton title="复制" text={item.text} /> }}>
-              <FontText role="target" flat={props.flat} foregroundStyle={props.foregroundStyle} gradientColors={props.gradientColors} text={item.text || item.error || (item.loading ? "…" : "—")} />
-            </VStack>
-          </VStack>
-        ))}
-
-        <HStack spacing={14} padding={{ top: 12 }}>
+        {props.translationFirst ? (
+          <>{compactResultBlocks}{compactSourceBlock}</>
+        ) : (
+          <>{compactSourceBlock}{compactResultBlocks}</>
+        )}
+        <HStack spacing={14} padding={{ top: 16 }}>
           <Spacer />
           <CircleActionButton systemName="doc.on.doc" action={copyTranslations} />
         </HStack>
@@ -641,8 +646,8 @@ export function TranslationCard(props: TranslationCardProps) {
 
   const sourceSection = props.translationOnly ? null : (
         <>
-          <HStack spacing={8} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
-            <HStack spacing={2} frame={{ height: 26, alignment: "leading" as any }}>
+          <HStack spacing={8} padding={{ top: props.translationFirst ? 20 : 0 }} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
+            <HStack spacing={2} frame={{ height: 28, alignment: "leading" as any }}>
               <Text font="title3" fontWeight="semibold">{languageShortLabel(shownSourceLanguage)}</Text>
             </HStack>
             <Spacer />
@@ -651,19 +656,19 @@ export function TranslationCard(props: TranslationCardProps) {
             ) : null}
           </HStack>
 
-          <ZStack alignment="leading" padding={{ top: 8, bottom: 13 }} frame={{ maxWidth: "infinity" as any, alignment: "leading" as any }}
+          <ZStack alignment="leading" padding={{ top: 12, bottom: 4 }} frame={{ maxWidth: "infinity" as any, alignment: "leading" as any }}
             {...(readOnly && !props.onMenuRequest ? { contextMenu: { menuItems: <CopyButton title="复制原文" text={sourceText} /> } } : {})}>
-            <FontText role="source" text={readOnly ? sourceText || "—" : sourceText} selectable={menuActions ? false : !(readOnly && props.onMenuRequest)}
+            <FontText role="source" lineSpacing={4} text={readOnly ? sourceText || "—" : sourceText} selectable={menuActions ? false : !(readOnly && props.onMenuRequest)}
               flat={props.flat} foregroundStyle={props.foregroundStyle} gradientColors={props.gradientColors} editable={!readOnly} onChanged={updateInputText} onTextSubmit={submitTranslation} />
             {menuActions ? menuOverlay(menuActions.source) : null}
           </ZStack>
         </>
   )
 
-  const resultsSection = results.map((item) => (
-        <VStack key={item.languageCode} alignment="leading" spacing={8} padding={{ top: translationOnly ? 0 : 13, bottom: 5 }}>
+  const resultsSection = results.map((item, index) => (
+        <VStack key={item.languageCode} alignment="leading" spacing={12} padding={{ top: translationOnly ? 0 : (index === 0 ? (props.translationFirst ? 0 : 16) : 20), bottom: props.translationFirst ? (index === results.length - 1 ? 0 : 8) : 8 }}>
           <HStack spacing={8} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
-            <HStack spacing={2} frame={{ height: 26, alignment: "leading" as any }}>
+            <HStack spacing={2} frame={{ height: 28, alignment: "leading" as any }}>
               <AnimText font="title3" fontWeight="semibold" anim="interpolate" dur={0.35}>
                 {languageShortLabel(item.languageCode)}
               </AnimText>
@@ -683,12 +688,12 @@ export function TranslationCard(props: TranslationCardProps) {
           {item.text ? (
             menuActions ? (
               <ZStack alignment="leading" frame={{ maxWidth: "infinity" as any, alignment: "leading" as any }}>
-                <FontText role="target" animated={!translationOnly} selectable={false} flat={props.flat} foregroundStyle={props.foregroundStyle} gradientColors={props.gradientColors} text={item.text} />
+                <FontText role="target" animated={!translationOnly} selectable={false} flat={props.flat} foregroundStyle={props.foregroundStyle} gradientColors={props.gradientColors} lineSpacing={4} text={item.text} />
                 {menuActions ? menuOverlay(() => menuActions.target(item.text)) : null}
               </ZStack>
             ) : (
               <VStack alignment="leading" contextMenu={{ menuItems: <CopyButton title="复制" text={item.text} /> }}>
-                <FontText role="target" animated={!translationOnly} selectable flat={props.flat} foregroundStyle={props.foregroundStyle} gradientColors={props.gradientColors} text={item.text} />
+                <FontText role="target" animated={!translationOnly} selectable flat={props.flat} foregroundStyle={props.foregroundStyle} gradientColors={props.gradientColors} lineSpacing={4} text={item.text} />
               </VStack>
             )
           ) : null}

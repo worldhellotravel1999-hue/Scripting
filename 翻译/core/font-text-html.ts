@@ -6,10 +6,13 @@ export function fontTextHTML(options: {
   editable: boolean
   flat: boolean
   text: string
+  /** 额外行距（pt）：折算进行高，与原生 Text.lineSpacing 对齐。 */
+  lineSpacing?: number
   gradientColors?: [string, string]
 }): string {
   if (!/^[0-9a-f-]+\.(ttf|otf)$/i.test(options.filename)) throw new Error("Invalid font filename")
   const size = options.size === 15 ? 15 : 17
+  const lineHeight = (1.45 + (options.lineSpacing ?? 0) / size).toFixed(3)
   const json = (value: unknown) => JSON.stringify(value).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029")
   const source = json(`url("${options.filename}") format("${options.format}")`)
   const gradient = options.gradientColors
@@ -22,7 +25,7 @@ export function fontTextHTML(options: {
 :root { color-scheme:light dark; }
 html,body { margin:0; padding:0; overflow:hidden; background:#fff; color:#000; }
 @media(prefers-color-scheme:dark) { html,body { background:${options.flat ? "#000" : "#1c1c1e"}; color:#fff; } }
-#text { display:block; width:100%; box-sizing:border-box; margin:0; padding:0; border:0; outline:0; background:transparent; color:inherit; ${gradient} font:${size}px/1.45 -apple-system,sans-serif; white-space:pre-wrap; overflow-wrap:anywhere; -webkit-text-size-adjust:100%; }
+#text { display:block; width:100%; box-sizing:border-box; margin:0; padding:0; border:0; outline:0; background:transparent; color:inherit; ${gradient} font:${size}px/${lineHeight} -apple-system,sans-serif; white-space:pre-wrap; overflow-wrap:anywhere; -webkit-text-size-adjust:100%; }
 textarea#text { resize:none; min-height:100px; max-height:230px; overflow-y:auto; border-radius:0; }
 textarea::placeholder { color:#aaa; }
 </style></head><body>${options.editable ? '<textarea id="text" dir="auto" aria-label="原文" enterkeyhint="send"></textarea>' : '<div id="text" dir="auto"></div>'}

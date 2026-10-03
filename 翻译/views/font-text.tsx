@@ -9,6 +9,8 @@ type FontTextProps = {
   small?: boolean
   flat?: boolean
   editable?: boolean
+  /** 行距（pt）：系统文本走 Text.lineSpacing，自带字体折算进 WebView 行高。 */
+  lineSpacing?: number
   /** false 关闭系统文本选择（自绘长按菜单场景用，避免选择栏抢长按手势）。 */
   selectable?: boolean
   animated?: boolean
@@ -19,14 +21,15 @@ type FontTextProps = {
 }
 
 function SystemText(props: FontTextProps) {
+  const lineSpacing = props.lineSpacing
   return props.editable ? (
     <TextField title="" value={props.text} onChanged={value => props.onChanged?.(value)}
       onSubmit={props.onTextSubmit} submitLabel="send"
       axis="vertical" lineLimit={{ min: 4, max: 9 }} />
   ) : props.animated ? (
-    <AnimText anim="interpolate" dur={0.4} foregroundStyle={props.foregroundStyle} {...(props.selectable === false ? {} : { textSelection: true })}>{props.text}</AnimText>
+    <AnimText anim="interpolate" dur={0.4} foregroundStyle={props.foregroundStyle} lineSpacing={lineSpacing} {...(props.selectable === false ? {} : { textSelection: true })}>{props.text}</AnimText>
   ) : (
-    <Text font={props.small ? "subheadline" : "body"} foregroundStyle={props.foregroundStyle} {...(props.selectable === false ? {} : { textSelection: true })}>{props.text}</Text>
+    <Text font={props.small ? "subheadline" : "body"} foregroundStyle={props.foregroundStyle} lineSpacing={lineSpacing} {...(props.selectable === false ? {} : { textSelection: true })}>{props.text}</Text>
   )
 }
 
@@ -105,6 +108,7 @@ function ImportedFontText(props: FontTextProps & { selectedFont: ImportedFont })
         await FileManager.writeAsString(htmlPath, fontTextHTML({
           filename: resource.filename, format: props.selectedFont.format,
           size: props.small ? 15 : 17, editable: !!props.editable, flat: !!props.flat, text: "", gradientColors: props.gradientColors,
+          lineSpacing: props.lineSpacing,
         }))
         if (!active) { await removePage(); return }
         timer = setTimeout(() => {
@@ -156,6 +160,6 @@ export function FontText(props: FontTextProps) {
   const settings = useFontSettings()
   const font = settings[props.role]
   return font
-    ? <ImportedFontText key={`${font.id}:${!!props.editable}:${!!props.small}:${!!props.flat}`} {...props} selectedFont={font} />
+    ? <ImportedFontText key={`${font.id}:${!!props.editable}:${!!props.small}:${!!props.flat}:${props.lineSpacing ?? 0}`} {...props} selectedFont={font} />
     : <SystemText {...props} />
 }
