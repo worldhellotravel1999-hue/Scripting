@@ -24,6 +24,9 @@ import { AppStoreIcon } from "./app-store"
 /** 记录不超过该条数时不套内滚容器：列表按内容收缩，底部工具条紧跟最后一条记录，避免卡片下部大片留白割裂（5×56+4×2=288 ≤ 300，行为与旧内滚一致）。 */
 const HISTORY_INLINE_MAX = 5
 
+/** 工具条圆形灰底（与 common.tsx 语言栏交换按钮同值）。 */
+const CIRCLE_GRAY_BG = { light: "rgba(142, 142, 147, 0.22)", dark: "rgba(142, 142, 147, 0.28)" } as const
+
 /** 单条记录行：图标 + 名称/开发者·时间 + 删除按钮。 */
 function HistoryRow(props: {
   item: TranslationHistoryItem
@@ -152,7 +155,7 @@ export function TranslationHistoryPanel(props: {
                 ? { light: "#000000", dark: "#FFFFFF" }
                 : { light: "rgba(0,0,0,0.35)", dark: "rgba(255,255,255,0.35)" }}
               frame={{ width: 29, height: 29 }}
-              background={{ style: { light: "rgba(142, 142, 147, 0.22)", dark: "rgba(142, 142, 147, 0.28)" }, shape: "circle" }}
+              background={{ style: CIRCLE_GRAY_BG, shape: "circle" }}
             />
           </Button>
           {/* 记录数居中夹在两按钮之间（同款圆形灰底） */}
@@ -163,7 +166,7 @@ export function TranslationHistoryPanel(props: {
               ? { light: "#000000", dark: "#FFFFFF" }
               : { light: "rgba(0,0,0,0.35)", dark: "rgba(255,255,255,0.35)" }}
             frame={{ width: 29, height: 29, alignment: "center" as any }}
-            background={{ style: { light: "rgba(142, 142, 147, 0.22)", dark: "rgba(142, 142, 147, 0.28)" }, shape: "circle" }}
+            background={{ style: CIRCLE_GRAY_BG, shape: "circle" }}
           >
             {String(items.length)}
           </Text>
@@ -174,7 +177,7 @@ export function TranslationHistoryPanel(props: {
                 font={14}
                 foregroundStyle={{ light: "#000000", dark: "#FFFFFF" }}
                 frame={{ width: 29, height: 29 }}
-                background={{ style: { light: "rgba(142, 142, 147, 0.22)", dark: "rgba(142, 142, 147, 0.28)" }, shape: "circle" }}
+                background={{ style: CIRCLE_GRAY_BG, shape: "circle" }}
               />
             </Button>
           ) : null}

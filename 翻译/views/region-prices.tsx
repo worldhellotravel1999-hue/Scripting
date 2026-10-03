@@ -54,7 +54,6 @@ function savePriceRegions(codes: string[]) {
 export function PriceRow(props: {
   appid: string
   item: RegionPrice
-  regionCodes: string[]
   onChanged: (code: string) => void
   expanded: boolean
   onExpandedChanged: (expanded: boolean) => void
@@ -262,8 +261,8 @@ export function PriceToggle(props: {
     </HStack>
   )
 }
-/** 取完整多区价格列表，供各入口的价格胶囊（展开态）共用 */
-export function useRegionPriceList(appid: string, regionCodes: string[] = DEFAULT_REGION_CODES) {
+/** 渐进加载多区价格（三个入口共用的 state + effect；逻辑与依赖逐字来自原三份重复） */
+function useRegionPriceLoader(appid: string, regionCodes: string[]) {
   const regionSignature = regionCodes.join(",")
   const [prices, setPrices] = useState<RegionPrice[] | null>(null)
   const [error, setError] = useState("")
@@ -292,45 +291,16 @@ export function useRegionPriceList(appid: string, regionCodes: string[] = DEFAUL
     }
   }, [appid, regionSignature, token])
 
-  return { prices, error, retry: () => setToken((value) => value + 1) }
+  return {
+    prices,
+    error,
+    retry: () => setToken((value) => value + 1),
+  }
 }
 
-/**
- * 紧凑展开态价格列表：与分享链接视图的 RegionPriceList 相同的价格行
- * （多区 + 内购明细），仅去掉外围衬垫与底部提示，适合嵌在头部卡内。
- */
-export function MultiRegionCompactList(props: { appid: string; foregroundStyle?: any }) {
+/** 两个列表共用的国家选择 state + 换区（原两份逐字相同） */
+function useRegionSelection() {
   const [regionCodes, setRegionCodes] = useState<string[]>(readPriceRegions)
-  const [prices, setPrices] = useState<RegionPrice[] | null>(null)
-  // 内购默认展开（2.4.29 起）：有内购的行直接展示明细，不再默认折叠；用户仍可点标题手动收起。
-  const [expandedRows, setExpandedRows] = useState<boolean[]>(() => DEFAULT_REGION_CODES.map(() => true))
-  const [error, setError] = useState("")
-  const [token, setToken] = useState(0)
-  const regionSignature = regionCodes.join(",")
-
-  useEffect(() => {
-    let cancelled = false
-    async function load() {
-      setPrices(null)
-      setError("")
-      try {
-        const result = await getRegionPrices(props.appid, regionCodes, (next) => {
-          if (!cancelled) setPrices(next)
-        })
-        if (!cancelled) setPrices(result)
-      } catch (reason) {
-        if (!cancelled) {
-          setPrices(null)
-          setError(reason instanceof Error ? reason.message : String(reason))
-        }
-      }
-    }
-    void load()
-    return () => {
-      cancelled = true
-    }
-  }, [props.appid, regionSignature, token])
-
   function replaceRegion(index: number, code: string) {
     if (!REGION_CATALOG.some((region) => region.code === code)) return
     if (regionCodes[index] === code || regionCodes.includes(code)) return
@@ -339,6 +309,23 @@ export function MultiRegionCompactList(props: { appid: string; foregroundStyle?:
     savePriceRegions(next)
     setRegionCodes(next)
   }
+  return { regionCodes, replaceRegion }
+}
+
+/** 取完整多区价格列表，供各入口的价格胶囊（展开态）共用 */
+export function useRegionPriceList(appid: string, regionCodes: string[] = DEFAULT_REGION_CODES) {
+  return useRegionPriceLoader(appid, regionCodes)
+}
+
+/**
+ * 紧凑展开态价格列表：与分享链接视图的 RegionPriceList 相同的价格行
+ * （多区 + 内购明细），仅去掉外围衬垫与底部提示，适合嵌在头部卡内。
+ */
+export function MultiRegionCompactList(props: { appid: string; foregroundStyle?: any }) {
+  const { regionCodes, replaceRegion } = useRegionSelection()
+  // 内购默认展开（2.4.29 起）：有内购的行直接展示明细，不再默认折叠；用户仍可点标题手动收起。
+  const [expandedRows, setExpandedRows] = useState<boolean[]>(() => DEFAULT_REGION_CODES.map(() => true))
+  const { prices, error, retry } = useRegionPriceLoader(props.appid, regionCodes)
 
   if (error) {
     return (
@@ -349,7 +336,7 @@ export function MultiRegionCompactList(props: { appid: string; foregroundStyle?:
           title="重试"
           systemImage="arrow.clockwise"
           buttonStyle="plain"
-          action={() => setToken((value) => value + 1)}
+          action={retry}
         />
       </HStack>
     )
@@ -364,7 +351,6 @@ export function MultiRegionCompactList(props: { appid: string; foregroundStyle?:
           key={`price-row-${index}`}
           appid={props.appid}
           item={item}
-          regionCodes={regionCodes}
           expanded={expandedRows[index] ?? true}
           onExpandedChanged={(expanded) => {
             setExpandedRows((current) => {
@@ -383,45 +369,9 @@ export function MultiRegionCompactList(props: { appid: string; foregroundStyle?:
 
 /** 展开态的完整多区价格列表（原格式） */
 export function RegionPriceList(props: { appid: string; foregroundStyle?: any }) {
-  const [regionCodes, setRegionCodes] = useState<string[]>(readPriceRegions)
-  const [prices, setPrices] = useState<RegionPrice[] | null>(null)
+  const { regionCodes, replaceRegion } = useRegionSelection()
   const [expandedRows, setExpandedRows] = useState<boolean[]>(() => DEFAULT_REGION_CODES.map(() => true))
-  const [error, setError] = useState("")
-  const [token, setToken] = useState(0)
-
-  const regionSignature = regionCodes.join(",")
-
-  useEffect(() => {
-    let cancelled = false
-    async function load() {
-      setPrices(null)
-      setError("")
-      try {
-        const result = await getRegionPrices(props.appid, regionCodes, (next) => {
-          if (!cancelled) setPrices(next)
-        })
-        if (!cancelled) setPrices(result)
-      } catch (reason) {
-        if (!cancelled) {
-          setPrices(null)
-          setError(reason instanceof Error ? reason.message : String(reason))
-        }
-      }
-    }
-    void load()
-    return () => {
-      cancelled = true
-    }
-  }, [props.appid, regionSignature, token])
-
-  function replaceRegion(index: number, code: string) {
-    if (!REGION_CATALOG.some((region) => region.code === code)) return
-    if (regionCodes[index] === code || regionCodes.includes(code)) return
-    const next = [...regionCodes]
-    next[index] = code
-    savePriceRegions(next)
-    setRegionCodes(next)
-  }
+  const { prices, error, retry } = useRegionPriceLoader(props.appid, regionCodes)
 
   if (error) {
     return (
@@ -435,7 +385,7 @@ export function RegionPriceList(props: { appid: string; foregroundStyle?: any })
             title="重试"
             systemImage="arrow.clockwise"
             buttonStyle="plain"
-            action={() => setToken((value) => value + 1)}
+            action={retry}
           />
         </HStack>
         <HStack spacing={8}>
@@ -457,7 +407,6 @@ export function RegionPriceList(props: { appid: string; foregroundStyle?: any })
           key={`price-row-${index}`}
           appid={props.appid}
           item={item}
-          regionCodes={regionCodes}
           expanded={expandedRows[index] ?? true}
           onExpandedChanged={(expanded) => {
             setExpandedRows((current) => {

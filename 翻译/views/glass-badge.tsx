@@ -133,11 +133,3 @@ export function AnimTextGlassBadge({
     </GlassBadge>
   )
 }
-
-/**
- * 玻璃卡片背景（iOS 26 Liquid Glass，低版本自动降级为空属性）。
- */
-export function glassCardEffect(shape: { type: "rect"; cornerRadius: number } | "capsule") {
-  const glass = typeof UIGlass !== "undefined" ? UIGlass.clear().interactive(true) : undefined
-  return glass ? { glassEffect: { glass, shape } } : {}
-}

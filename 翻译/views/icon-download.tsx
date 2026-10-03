@@ -109,7 +109,7 @@ export function IconDownloadPanel(props: {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [props.url])
 
   useEffect(() => {
     if (!feedback) return
@@ -322,7 +322,11 @@ export function LinkBadgeButton(props: {
   async function copy() {
     const link = props.url || props.fallbackUrl || ""
     if (!link) return
-    await Pasteboard.setString(link)
+    try {
+      await Pasteboard.setString(link)
+    } catch {
+      return
+    }
     try { HapticFeedback.lightImpact() } catch {}
     setCopied(true)
   }

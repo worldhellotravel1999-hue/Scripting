@@ -115,11 +115,7 @@ type Account = ReturnType<typeof getActiveAppRavenAccount>
 
 type CollectionPageProps = {
   appid: string
-  appTitle: string
-  artworkUrl?: string
   foregroundStyle?: any
-  /** 由 sheet 宿主传入：点关闭时把 sheet 收起。 */
-  onClose?: () => void
   /** 登录态变化回传宿主：登出时宿主把弹窗重置回非全屏尺寸。 */
   onLoginStateChange?: (loggedIn: boolean) => void
   /** 弹窗全屏开关：当前是否全屏（由宿主持有）。 */
@@ -333,8 +329,14 @@ function SinglePageCollections(props: CollectionPageProps) {
   // 开页缓存（共享存储，分享页 ↔ 搜索页、跨进程互通）：
   // 合集列表是账号级数据（同一账号查任何 App 都一样），已加入状态按 App 单独记。
   // 命中即作为首帧内容，网络只做后台静默校验——打开不再转圈重载。
-  const bootCollections = account ? readCachedUserCollections(account.id) : null
-  const bootJoined = account ? readCachedJoinedState(account.id, props.appid) : null
+  // 惰性读取：只在首渲染求值一次（下面所有消费点都是 useState/useRef 初值，初值本来就只吃首渲染），
+  // 不再每次渲染都解析两份共享存储大 JSON。
+  const [boot] = useState(() => ({
+    collections: account ? readCachedUserCollections(account.id) : null,
+    joined: account ? readCachedJoinedState(account.id, props.appid) : null,
+  }))
+  const bootCollections = boot.collections
+  const bootJoined = boot.joined
 
   // 合集列表
   const [collections, setCollections] = useState<AppRavenCollection[]>(() => bootCollections ?? [])
@@ -385,8 +387,6 @@ function SinglePageCollections(props: CollectionPageProps) {
     }
   })
   const [manualItemOrders, setManualItemOrders] = useState<Record<string, string[]>>({})
-  const [pressedCollectionId, setPressedCollectionId] = useState<string | null>(null)
-  const [pressedItemId, setPressedItemId] = useState<string | null>(null)
 
   // 展开列表排版：单列（默认）/ 并排网格，存共享存储下次打开记住。
   const [detailGrid, setDetailGrid] = useState<boolean>(() => {
@@ -911,6 +911,8 @@ function SinglePageCollections(props: CollectionPageProps) {
 
   function sortedExpandedItems(collection: AppRavenCollection) {
     const list = expandedItems[collection.id] || []
+    // 空列表短路：结果恒为 []，跳过 manualItemOrders / storage 读取（输出逐位相同）。
+    if (list.length === 0) return []
     const manual = manualItemOrders[collection.id]
     const order = manual || (() => {
       if (!account) return []
@@ -948,7 +950,7 @@ function SinglePageCollections(props: CollectionPageProps) {
   // 内容（多账号行 / 长 Cookie / 键盘弹出）超过弹窗高度时 Spacer 归零仍会溢出被裁切；
   // 现改为固定间距 + 外层 ScrollView，超出可滚动，任何账号数量都能看全。
   const loginFormChildren: any[] = []
-  const pushLoginFormBlock = (node: any, _tight = false) => {
+  const pushLoginFormBlock = (node: any) => {
     loginFormChildren.push(node)
   }
   // 顶部提示词胶囊（loginError）已按用户要求整体删除，不再显示任何顶部提示；
@@ -1058,8 +1060,7 @@ function SinglePageCollections(props: CollectionPageProps) {
           </HStack>
         ))}
       </VStack>
-      </AnimatedSection>,
-      true
+      </AnimatedSection>
     )
   }
   // Cookie 登录行：默认隐藏，轻点左上角老鹰图标切换；单行输入框 + 出入场过渡，保持简约。
@@ -1183,11 +1184,9 @@ function SinglePageCollections(props: CollectionPageProps) {
                           withAnimation(() => {
                             if (sortCollectionId === collection.id) {
                               setSortCollectionId(null)
-                              setPressedCollectionId(null)
                             } else {
                               setSortCollectionId(collection.id)
                               setSortItemContext(null)
-                              setPressedCollectionId(collection.id)
                             }
                           })
                           try { HapticFeedback.mediumImpact() } catch {}
@@ -1200,7 +1199,6 @@ function SinglePageCollections(props: CollectionPageProps) {
                           if (collectionSorting) {
                             withAnimation(() => {
                               setSortCollectionId(null)
-                              setPressedCollectionId(null)
                             })
                             return
                           }
@@ -1278,7 +1276,6 @@ function SinglePageCollections(props: CollectionPageProps) {
                                   moveCollection(collection.id, 1)
                                   if (collectionIndex === ordered.length - 1) {
                                     setSortCollectionId(null)
-                                    setPressedCollectionId(null)
                                   }
                                 }}
                                 disabled={collectionIndex === ordered.length - 1}
@@ -1360,10 +1357,8 @@ function SinglePageCollections(props: CollectionPageProps) {
                                 }
                                 if (sortItemContext?.collectionId === collection.id && sortItemContext?.itemId === item.id) {
                                   setSortItemContext(null)
-                                  setPressedItemId(null)
                                 } else {
                                   setSortItemContext({ collectionId: collection.id, itemId: item.id })
-                                  setPressedItemId(item.id)
                                 }
                                 try { HapticFeedback.mediumImpact() } catch {}
                               },
@@ -1438,9 +1433,4 @@ export function AppRavenCollectionsPage(props: CollectionPageProps) {
 
 function showCollectionToast(_text: string, _error = false) {
   // 顶部通知栏已按用户要求删除：保留调用点兼容，不再显示任何通知。
-}
-
-export function CollectionToastOverlay() {
-  // 顶部通知栏已删除：保留导出兼容外部引用，不渲染任何内容。
-  return <Text> </Text>
 }

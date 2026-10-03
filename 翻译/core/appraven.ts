@@ -520,12 +520,6 @@ export async function loginAppRavenCookie(cookie: string): Promise<AppRavenUser>
   return user
 }
 
-export async function getCurrentAppRavenUser(session?: AppRavenSession | null): Promise<AppRavenUser> {
-  const captured = resolveSession(session)
-  if (!captured) throw new Error("未登录 AppRaven")
-  return requestCurrentUser(captured, captured.accountId)
-}
-
 /** 登录后后台刷新头像：拉取最新 iconSmall/iconMedium 并写回账号存储（静默失败）。 */
 export async function refreshAppRavenAccountIcon(accountId: string, session?: AppRavenSession | null): Promise<boolean> {
   const requestedId = requireText(accountId, "AppRaven 账号 ID")
@@ -624,39 +618,6 @@ export async function getUserAppRavenCollections(userId: string, session?: AppRa
   return getUserCollectionsAtSession(requestedUserId, captured)
 }
 
-async function getCollectionsContainingAppAtSession(appId: string, session: AppRavenSession | null): Promise<AppRavenCollection[]> {
-  const all: AppRavenCollection[] = []
-  let page = 0
-  while (true) {
-    const data = await gql(
-      "GetCollectionsContainingApp",
-      "query",
-      `query GetCollectionsContainingApp($id: ID!, $query: String, $sort: CollectionSortInput!, $page: Int!) {
-        app(id: $id) {
-          collections(query: $query, sort: $sort, page: $page) {
-            hasNext
-            content { id title appCount premiumOnly suggestionCount watchCount score user { id displayName } topArtworks }
-          }
-        }
-      }`,
-      { id: appId, query: "", sort: { by: "SCORE" }, page },
-      session,
-    )
-    if (!isRecord(data.app) || !isRecord(data.app.collections)) throw new Error("AppRaven App 合集响应无效")
-    const result = parseAppRavenCollectionPage(data.app.collections)
-    all.push(...result.content)
-    if (!result.hasNext) return all
-    page += 1
-    assertPageCanContinue(result.hasNext, page)
-  }
-}
-
-export async function getCollectionsContainingApp(appId: string, session?: AppRavenSession | null): Promise<AppRavenCollection[]> {
-  const captured = resolveSession(session)
-  const requestedAppId = requireText(appId, "AppRaven App ID")
-  return getCollectionsContainingAppAtSession(requestedAppId, captured)
-}
-
 /**
  * 查询给定合集列表中哪些包含该 App（按 AUTHOR 条目判定）。
  * 与展开视图、加/减 mutation 同源（types: [AUTHOR]），替代语义不符的
@@ -709,9 +670,7 @@ export async function addAppToAppRavenCollection(appId: string, collectionId: st
     captured,
   )
   const result = parseAppRavenMutationResult(data.addAppToCollection, "AppRaven 添加结果")
-  if (!result.id) {
-    throw new Error("合集没有返回添加结果")
-  }
+  return result
 }
 
 async function getCollectionItemsAtSession(collectionId: string, page: number, session: AppRavenSession | null): Promise<AppRavenPage<AppRavenCollectionItem>> {

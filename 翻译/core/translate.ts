@@ -581,6 +581,5 @@ export function prewarmGoogleTranslation(
       if (inFlight.get(key) === task) inFlight.delete(key)
     }
     task.then(cleanup, cleanup)
-    task.catch(() => {})
   } catch {}
 }

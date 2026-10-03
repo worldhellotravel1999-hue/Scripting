@@ -147,17 +147,3 @@ export async function searchAppStore(
       releaseNotes: typeof item.releaseNotes === "string" ? item.releaseNotes : undefined,
     }))
 }
-
-export function formatReleaseDate(value: string | undefined) {
-  const raw = String(value || "").trim()
-  if (!raw) return "—"
-  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/)
-  return match ? `${match[1]}/${match[2]}/${match[3]}` : raw
-}
-
-export function formatRating(value: number | undefined, count: number | undefined) {
-  const rating = Number(value)
-  const total = Number(count)
-  if (!Number.isFinite(rating) || !Number.isFinite(total) || total <= 0) return "暂无评分"
-  return `${rating.toFixed(1)} · ${total.toLocaleString()} 个评分`
-}

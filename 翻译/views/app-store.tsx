@@ -41,7 +41,7 @@ import type { AppVersionNotes } from "../core/versions"
 import { TranslatedBlock } from "./translated-block"
 import { AnimText } from "./anim-text"
 import { AnimatedSection } from "./animated-section"
-import { AnimTextGlassBadge, GlassBadge, getGlassBadgeTokens } from "./glass-badge"
+import { GlassBadge, getGlassBadgeTokens } from "./glass-badge"
 import { IconPill, IconDownloadPanel, LinkBadgeButton } from "./icon-download"
 import { TranslationHistoryPanel } from "./translation-history"
 import { AppRavenCollectionsPage } from "./appraven-collections"
@@ -53,23 +53,16 @@ const APP_STORE_SYMBOL = "appstore.fill"
 const APP_ICON_SIZE = 56
 const APP_ICON_RADIUS = 14
 const SEARCH_ICON_SIZE = APP_ICON_SIZE
-const TEXT_GRADIENTS: LinearGradient[] = [
-  { colors: ["#243B55", "#667EEA"], startPoint: "topLeading", endPoint: "bottomTrailing" },
-  { colors: ["#0F766E", "#38BDF8"], startPoint: "topLeading", endPoint: "bottomTrailing" },
-  { colors: ["#7C3AED", "#EC4899"], startPoint: "topLeading", endPoint: "bottomTrailing" },
-  { colors: ["#B45309", "#F59E0B"], startPoint: "topLeading", endPoint: "bottomTrailing" },
-  { colors: ["#BE123C", "#FB7185"], startPoint: "topLeading", endPoint: "bottomTrailing" },
-  { colors: ["#166534", "#84CC16"], startPoint: "topLeading", endPoint: "bottomTrailing" },
-  { colors: ["#1D4ED8", "#22D3EE"], startPoint: "topLeading", endPoint: "bottomTrailing" },
-  { colors: ["#4338CA", "#A78BFA"], startPoint: "topLeading", endPoint: "bottomTrailing" },
-  { colors: ["#334155", "#CBD5E1"], startPoint: "topLeading", endPoint: "bottomTrailing" },
-]
-
 const TEXT_GRADIENT_COLORS: [string, string][] = [
   ["#243B55", "#667EEA"], ["#0F766E", "#38BDF8"], ["#7C3AED", "#EC4899"],
   ["#B45309", "#F59E0B"], ["#BE123C", "#FB7185"], ["#166534", "#84CC16"],
   ["#1D4ED8", "#22D3EE"], ["#4338CA", "#A78BFA"], ["#334155", "#CBD5E1"],
 ]
+/** 由 TEXT_GRADIENT_COLORS 单源派生（9 组色对与上方逐对一致），不再重复维护两份数据。 */
+const TEXT_GRADIENTS: LinearGradient[] = TEXT_GRADIENT_COLORS.map(
+  ([light, dark]) =>
+    ({ colors: [light, dark], startPoint: "topLeading", endPoint: "bottomTrailing" }) as LinearGradient,
+)
 function nextGradient(index: number) {
   return (index + 1) % TEXT_GRADIENTS.length
 }
@@ -267,8 +260,6 @@ function RatingCollectionsButton(props: {
   artworkUrl?: string
   /** 搜索页 Reset 行用的紧凑形态：只渲染小星星 + 灰色圆环（不显示评分/评价数）。 */
   compact?: boolean
-  /** 内联模式：星星展开/收起宿主持有的合集面板，而不是弹底部 sheet。 */
-  expanded?: boolean
   onToggle?: () => void
 }) {
   const [tick, setTick] = useState(0)
@@ -314,16 +305,6 @@ function RatingCollectionsButton(props: {
     }, 320)
     return () => clearTimeout(timer)
   }, [isPresented, tick])
-  /** 优雅关闭：内容先淡出（同一成型过渡的离场），260ms 后再收 sheet，
-   *  收起时的系统下滑空跑不可见，不会看到内容从底部掉下去。 */
-  function gracefulClose() {
-    try {
-      withAnimation(() => setSheetReady(false))
-    } catch {
-      setSheetReady(false)
-    }
-    setTimeout(() => setIsPresented(false), 260)
-  }
   return (
     <Button
       buttonStyle="plain"
@@ -366,10 +347,7 @@ function RatingCollectionsButton(props: {
               >
                 <AppRavenCollectionsPage
                   appid={props.appid}
-                  appTitle={props.appTitle}
-                  artworkUrl={props.artworkUrl}
                   foregroundStyle={props.foregroundStyle}
-                  onClose={gracefulClose}
                   onLoginStateChange={state => {
                     setLoggedIn(state)
                     if (!state) setFullscreen(false)
@@ -445,8 +423,6 @@ function InlineCollectionsPanel(props: {
     >
       <AppRavenCollectionsPage
         appid={props.appid}
-        appTitle={props.appTitle}
-        artworkUrl={props.artworkUrl}
         foregroundStyle={props.foregroundStyle}
         onLoginStateChange={state => {
           if (!state) setFullscreen(false)
@@ -1255,7 +1231,6 @@ function AppSearchSection(props: {
             <HStack spacing={8}>
               <RatingCollectionsButton
                 compact
-                expanded={app.appravenExpanded === true}
                 onToggle={() => {
                   if (!isSelected(app)) return
                   const wasExpanded = app.appravenExpanded === true
@@ -1303,7 +1278,6 @@ function AppStoreContent(props: {
   reloadToken: number
   onReload: () => void
   onClose: () => void
-  foregroundStyle?: any
 }) {
   const contentOwner = `${props.identity?.appid || ""}:${props.identity?.region || ""}`
   const ownerRef = useRef(contentOwner)
@@ -1514,6 +1488,7 @@ function AppStoreContent(props: {
                     // 面板挂载后滚到顶部，避免面板在长内容下方看不见
                     if (!historyOpen) {
                       setTimeout(() => {
+                        if (!mountedRef.current) return
                         const proxy = scrollProxyRef.current
                         if (!proxy) return
                         try {
@@ -1677,7 +1652,7 @@ function AppStoreContent(props: {
               <ProgressView />
               <AnimText font="body" fontWeight="medium" anim="interpolate" dur={0.3}>正在读取应用信息…</AnimText>
             </HStack>
-            <AnimText font="caption" foregroundStyle={props.foregroundStyle} anim="interpolate" dur={0.45}>正在连接 Apple App Store 数据服务</AnimText>
+            <AnimText font="caption" anim="interpolate" dur={0.45}>正在连接 Apple App Store 数据服务</AnimText>
           </VStack>
         ) : error && !info ? (
           <AnimatedSection index={0}>

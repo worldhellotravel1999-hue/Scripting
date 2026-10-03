@@ -143,6 +143,11 @@ export function restoredResults(values: string[], saved?: TranslationCardResult[
   })
 }
 
+/** 恢复同语言旧译文并清掉 error（内容切换/目标语言变化两处共用）。 */
+function clearedRestoredResults(values: string[], saved?: TranslationCardResult[]) {
+  return restoredResults(values, saved).map((item) => ({ ...item, error: "" }))
+}
+
 export function submittedTextAfterReturn(previous: string, next: string) {
   const insertedLength = next.length - previous.length
   if (insertedLength !== 1 && insertedLength !== 2) return null
@@ -496,7 +501,7 @@ export function TranslationCard(props: TranslationCardProps) {
       lastEditedTextRef.current = next
       setSourceText(next)
       // 内容切换保留旧译文（见 runTranslation），避免高度骤减造成白屏。
-      setResults((current) => restoredResults(normalizedTargets, current).map((item) => ({ ...item, error: "" })))
+      setResults((current) => clearedRestoredResults(normalizedTargets, current))
       setIsTranslating(false)
       completedRef.current = false
     }
@@ -508,7 +513,7 @@ export function TranslationCard(props: TranslationCardProps) {
     if (compact) return
     requestId.current += 1
     completedRef.current = false
-    setResults((current) => restoredResults(normalizedTargets, current).map((item) => ({ ...item, error: "" })))
+    setResults((current) => clearedRestoredResults(normalizedTargets, current))
     setIsTranslating(false)
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
     clearWatchdog()
@@ -566,12 +571,6 @@ export function TranslationCard(props: TranslationCardProps) {
       .map((item) => item.text.trim())
       .join("\n\n")
     if (value) await Pasteboard.setString(value)
-  }
-
-  function finishPrimaryResult() {
-    if (!props.allowsReplacement) return
-    const primary = results.find((item) => item.text.trim())
-    if (primary) finishTranslation(primary.text)
   }
 
   const shownSourceLanguage = (props.autoCorrectSourceLanguage || props.sourceLanguage === "auto")

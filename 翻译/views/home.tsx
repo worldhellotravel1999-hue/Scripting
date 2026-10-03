@@ -46,12 +46,19 @@ function activeCard(cards: TranslationCardItem[]) {
 }
 
 export function TranslationWorkspace() {
-  const initialPreferences = loadPreferences()
-  const initialSource = initialPreferences.defaultSourceLanguageCode
-  const initialTargets = normalizeTargetSelection(
-    initialPreferences.defaultTargetLanguageCodes,
-    initialSource,
-  )
+  // 首渲染初始化器：偏好只在挂载时读一次（原先每次渲染都同步读 Storage，
+  // 结果只喂下方 useState/useRef 初值，后续渲染的读取纯浪费）。回前台的
+  // 跨进程同步仍由下方 scenePhase 监听自行 loadPreferences()，不受影响。
+  const [initial] = useState(() => {
+    const preferences = loadPreferences()
+    const source = preferences.defaultSourceLanguageCode
+    return {
+      source,
+      targets: normalizeTargetSelection(preferences.defaultTargetLanguageCodes, source),
+    }
+  })
+  const initialSource = initial.source
+  const initialTargets = initial.targets
 
   const [sourceLanguage, setSourceLanguage] = useState(initialSource)
   const [detectedSourceLanguage, setDetectedSourceLanguage] = useState<string | null>(null)
@@ -144,7 +151,7 @@ export function TranslationWorkspace() {
       translationHost={translationHost}
       navigationTitle="Translate"
       navigationBarTitleDisplayMode="inline"
-       toolbar={{ principal: <TypefaceMenu /> }}
+      toolbar={{ principal: <TypefaceMenu /> }}
     >
       <Section>
         <LanguageBar

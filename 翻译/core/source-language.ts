@@ -152,9 +152,9 @@ function shortSource(text: string, original: Candidate[]): string | undefined {
 /** Resolve once per complete original, never from a fragment or device locale. */
 function detectWholeSource(text: string): string | undefined {
   if (text.length < MIN_TEXT_LENGTH || text.length > MAX_TEXT_LENGTH) return undefined
+  if (detectedSources.has(text)) return detectedSources.get(text) ?? undefined
   const minimumLetters = text.length >= 80 ? 40 : 4
   if ((text.match(/\p{L}/gu) || []).length < minimumLetters) return undefined
-  if (detectedSources.has(text)) return detectedSources.get(text) ?? undefined
   try {
     // Older Scripting builds keep the original native auto path. No network,
     // language hints, per-device bias, or guessed dominantLanguage() fallback.

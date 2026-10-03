@@ -16,7 +16,7 @@ export function AnimText({
   dur?: number
 }) {
   const [show, setShow] = useState(false)
-  const context = (children as unknown as string[]).join("").trim()
+  const context = (Array.isArray(children) ? children : [children]).join("").trim()
   useEffect(() => {
     setShow(true)
   }, [])

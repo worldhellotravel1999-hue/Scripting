@@ -17,12 +17,18 @@ export function TranslationPanel(props: {
   inputText: string | null
   allowsReplacement: boolean
 }) {
-  const preferences = loadPreferences()
-  const initialSource = preferences.defaultSourceLanguageCode
-  const initialTargets = normalizeTargetSelection(
-    preferences.defaultTargetLanguageCodes,
-    initialSource,
-  )
+  // 首渲染初始化器：偏好只在挂载时读一次（原先每次渲染都同步读 Storage，
+  // 结果只喂下方 useState 初值，后续读取纯浪费）。
+  const [initial] = useState(() => {
+    const preferences = loadPreferences()
+    const source = preferences.defaultSourceLanguageCode
+    return {
+      source,
+      targets: normalizeTargetSelection(preferences.defaultTargetLanguageCodes, source),
+    }
+  })
+  const initialSource = initial.source
+  const initialTargets = initial.targets
   const [sourceLanguage, setSourceLanguage] = useState(initialSource)
   const [detectedSourceLanguage, setDetectedSourceLanguage] = useState<string | null>(null)
   const [sourceCorrectionEnabled, setSourceCorrectionEnabled] = useState(true)

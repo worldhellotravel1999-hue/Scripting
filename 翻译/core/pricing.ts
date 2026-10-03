@@ -274,12 +274,6 @@ export function convertToCny(price: number | null, currency: string, rates: Reco
   return Number.isFinite(rate) && rate > 0 ? `≈ ${formatCny(price / rate)}` : null
 }
 
-function regionLookupURL(appid: string, code: string) {
-  const value = encodeURIComponent(appid)
-  const country = encodeURIComponent(code.toLowerCase())
-  return `https://itunes.apple.com/${country}/lookup?id=${value}&country=${country}`
-}
-
 function expectedCurrency(code: string) {
   return FALLBACK_CURRENCY[code.toLowerCase()] || ""
 }

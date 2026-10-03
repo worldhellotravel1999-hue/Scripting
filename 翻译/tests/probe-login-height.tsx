@@ -22,7 +22,7 @@ async function main() {
   // 登录页根（未登录态，隔离存储）：固定宽度、放开高度 → 读内容真实高度
   const page = (
     <VStack spacing={0} frame={{ width: 390 }}>
-      <AppRavenCollectionsPage appid="123456789" appTitle="Probe" />
+      <AppRavenCollectionsPage appid="123456789" />
     </VStack>
   )
   await measure("loginPage", page, 1)
