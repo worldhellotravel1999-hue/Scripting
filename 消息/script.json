@@ -1,0 +1,41 @@
+{
+  "icon" : "paperplane.fill",
+  "intentInputTypes" : [
+
+  ],
+  "description" : "Telegram management dashboard powered by tg-hub (Telethon + SQLite): chats, sync, search, ranking and stats.",
+  "entry" : "index.tsx",
+  "remoteResource" : null,
+  "version" : "1.0.0",
+  "localizedNames" : {
+    "zh" : "",
+    "it" : "",
+    "fr" : "",
+    "pt" : "",
+    "ja" : "",
+    "de" : "",
+    "ru" : "",
+    "es" : "",
+    "en" : ""
+  },
+  "permissions" : null,
+  "author" : null,
+  "contributors" : [
+
+  ],
+  "name" : "TGClient",
+  "localizedDescriptions" : {
+    "de" : "",
+    "fr" : "",
+    "pt" : "",
+    "ja" : "",
+    "zh" : "",
+    "it" : "",
+    "en" : "",
+    "es" : "",
+    "ru" : ""
+  },
+  "runInApp" : true,
+  "iconImage" : null,
+  "color" : "#2AABEE"
+}
