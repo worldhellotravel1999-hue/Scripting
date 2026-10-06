@@ -153,6 +153,9 @@ function View() {
   const [password, setPassword] = useState("")
   const [codeSent, setCodeSent] = useState(false)
   const [needPassword, setNeedPassword] = useState(false)
+  // API 凭证分步（公共凭证已删除）："id" → 只出 API ID 一行，"hash" → 只出 Hash 一行，
+  // null → 手机号流程；每步都能返回上一步（见 login.tsx）。
+  const [apiPhase, setApiPhase] = useState<"id" | "hash" | null>(null)
 
   // 概览
   const [stats, setStats] = useState<any>(null)
@@ -432,17 +435,26 @@ function View() {
     }
   }
 
-  const saveApi = async () => {
-    const res = await run(
-      "set_api",
-      { api_id: apiId.trim(), api_hash: apiHash.trim() },
-      30,
-      "保存凭证…"
-    )
-    if (res.ok) {
-      flash(res.message || "已保存")
-      await loadStatus("检查凭证状态…")
+  const saveApi = async (): Promise<boolean> => {
+    const id = apiId.trim()
+    const hash = apiHash.trim()
+    if (!id || !hash) {
+      setError("API ID 与 API Hash 都要填写（my.telegram.org 创建应用后获取）")
+      return false
     }
+    if (!/^\d+$/.test(id)) {
+      setError("API ID 是纯数字")
+      return false
+    }
+    if (!/^[0-9a-fA-F]{32}$/.test(hash)) {
+      setError("API Hash 应为32 位十六进制字符串")
+      return false
+    }
+    const res = await run("set_api", { api_id: id, api_hash: hash }, 30, "保存凭证…")
+    if (!res.ok) return false
+    flash(res.message || "已保存")
+    await loadStatus("检查凭证状态…")
+    return true
   }
 
   const clearApi = async () => {
@@ -530,13 +542,53 @@ function View() {
     }
   }
 
-  /** 登录页“更换手机号 / 返回” */
+  /** 登录页「更换手机号 / 返回」 */
   const restartLogin = () => {
     setCodeSent(false)
     setNeedPassword(false)
     setCode("")
     setPassword("")
     setError(null)
+  }
+
+  // ── 凭证分步导航（一行一步，可返回） ────────────────────────────────
+  const nextFromApiId = () => {
+    const v = apiId.trim()
+    if (!v) {
+      setError("请填写 API ID（my.telegram.org 上的 api_id）")
+      return
+    }
+    if (!/^\d+$/.test(v)) {
+      setError("API ID 是纯数字")
+      return
+    }
+    setError(null)
+    setApiPhase("hash")
+  }
+
+  const backToApiId = () => {
+    setError(null)
+    setApiPhase("id")
+  }
+
+  /** 手机号步骤返回去改凭证（已配置 → 回 Hash 那行；没配置 → 回 API ID 那行） */
+  const backToApi = () => {
+    restartLogin()
+    setApiPhase(status?.has_api === false ? "id" : "hash")
+  }
+
+  /** 凭证本来就在（只是点进来修改）→ 直接回手机号步骤，不必重新保存 */
+  const skipToPhone = () => {
+    setError(null)
+    setApiPhase(null)
+  }
+
+  /** 凭证两行都填完 → 落盘并进入手机号步骤 */
+  const submitApi = async () => {
+    const ok = await saveApi()
+    if (!ok) return
+    setError(null)
+    setApiPhase(null)
   }
 
   const doLogout = async () => {
@@ -612,6 +664,23 @@ function View() {
   }, [booted, status, chats])
 
   const authorized = !!status?.authorized
+
+  // 进登录页 → 从 API ID 那步开始（每次登录都重新填自己的凭证，一行一步、可返回）；
+  // 已在设置页保存过凭证的可以用「直接使用已保存的凭证」跳过。
+  // 用 ref 只在“进入登录页”时初始化一次，避免每次 status 刷新把输入清空。
+  const apiPhaseTouchedRef = useRef(false)
+  useEffect(() => {
+    if (authorized) {
+      setApiPhase(null)
+      apiPhaseTouchedRef.current = false
+      return
+    }
+    if (apiPhaseTouchedRef.current) return
+    apiPhaseTouchedRef.current = true
+    setApiId("")
+    setApiHash("")
+    setApiPhase("id")
+  }, [status, authorized])
 
   const panelCtx: PanelCtx = {
     busy,
@@ -701,7 +770,17 @@ function View() {
             setPassword={setPassword}
             codeSent={codeSent}
             needPassword={needPassword}
-            defaultApi={status?.default_api !== false}
+            apiPhase={apiPhase}
+            apiId={apiId}
+            setApiId={setApiId}
+            apiHash={apiHash}
+            setApiHash={setApiHash}
+            nextFromApiId={nextFromApiId}
+            submitApi={submitApi}
+            backToApiId={backToApiId}
+            backToApi={backToApi}
+            canSkipToPhone={status?.has_api === true}
+            skipToPhone={skipToPhone}
             sendCode={sendCode}
             doSignIn={doSignIn}
             doPassword={doPassword}

@@ -1,7 +1,8 @@
 // TGClient 的 AI 功能界面：
 //  - AiActionsSection：群详情页（作为详情页整页单卡片里的若干行，无分组标题）——
 //    点一下动作行即分析该群消息；内置 3 个动作 + 自定义动作（名称 + 提示词，可增删）。
-//  - AiGlobalSection：工具页——跨会话的「我的今日发言 / 今日消息汇总」。
+//  - 工具页的 AiGlobalSection（跨会话 AI 汇总）已于 2026-10-06 移除：工具页改为图表展示，
+//    不再做 AI 汇总统计；ResultSheet / EMPTY_AI_RESULT 仍被 detail.tsx（详情页结果浮层）使用。
 // AI 模型固定使用 Scripting 内置默认智能助手，不提供任何切换模型入口；
 // 界面上不展示任何提示词/说明文案，提示词均为本脚本自写或用户自己填写。
 // 2026-10-06 改版：**分析/提问结果一律用 ResultWindow 临时窗口展示**（页面内
@@ -29,15 +30,12 @@ import { tg } from "./api"
 import {
   WINDOW_LABELS,
   type AiAction,
-  type AiMode,
   allAiActions,
   buildActionRequest,
-  buildAiRequest,
   buildInstructRequest,
   buildTranscript,
   type AiActionBlock,
   ACTION_START,
-  MODE_LABELS,
   createStreamFlusher,
   maskActionsForDisplay,
   parseActionBlocks,
@@ -731,155 +729,3 @@ export function AiActionsSection({
   )
 }
 
-// ── 工具页：跨会话的全局 AI 汇总 ─────────────────────────────────────────────
-
-export function AiGlobalSection({
-  p,
-  res,
-  setRes,
-  openSheet,
-}: {
-  p: PanelCtx
-  /** 屏幕持有的结果状态（工具页页面浮层展示 ResultSheet） */
-  res: AiResult
-  setRes: SetAiResult
-  /** 分析开始时打开结果弹窗 */
-  openSheet: () => void
-}) {
-  const [mode, setMode] = useState<AiMode>("mine")
-  const [win, setWin] = useState("today")
-  const mountedRef = useMounted()
-
-  /** 同 AiActionsSection：连点不重复起跑；切分析对象/时间范围后旧流作废 */
-  const runningRef = useRef(false)
-  const runSeqRef = useRef(0)
-  const invalidateRun = () => {
-    runSeqRef.current += 1
-    runningRef.current = false
-  }
-
-  async function runAnalysis() {
-    if (runningRef.current) return
-    runningRef.current = true
-    const seq = ++runSeqRef.current
-    const stale = () => !mountedRef.current || seq !== runSeqRef.current
-    setRes({
-      ...EMPTY_AI_RESULT,
-      phase: "loading",
-      heading: `${MODE_LABELS[mode]}${mode === "all" ? ` · ${WINDOW_LABELS[win] ?? win}` : ""}`,
-    })
-    openSheet()
-    const flusher = createStreamFlusher(text => {
-      if (!stale()) setRes({ output: text })
-    })
-    try {
-      let messages: any[] = []
-      let scope = ""
-      let windowLabel = ""
-
-      if (mode === "mine") {
-        scope = "我今天在所有会话的发言"
-        windowLabel = "今天"
-        let me = p.status?.me
-        if (!me?.id) {
-          const st = await p.loadStatus("获取账号信息…")
-          me = st?.me
-        }
-        if (!me?.id) throw new Error("无法获取账号信息，请先完成登录")
-        const res = await tg("today", { limit: 3000 }, 90)
-        if (!res.ok) throw new Error(res.error || "读取今日消息失败")
-        messages = (res.messages || [])
-          .filter((m: any) => m.sender_id === me.id || (me.name && m.sender_name === me.name))
-          .sort((a: any, b: any) => String(a.timestamp).localeCompare(String(b.timestamp)))
-      } else {
-        scope = "所有已同步会话"
-        windowLabel = WINDOW_LABELS[win] ?? win
-        const res =
-          win === "today"
-            ? await tg("today", { limit: 3000 }, 90)
-            : await tg("recent", { hours: Number(win), limit: 1500 }, 90)
-        if (!res.ok) throw new Error(res.error || "读取消息失败")
-        messages = res.messages || []
-      }
-
-      if (messages.length === 0)
-        throw new Error("该范围内没有消息，可先到群详情页同步或换个时间范围")
-
-      const { text } = buildTranscript(
-        messages,
-        mode === "mine"
-          ? { showChat: true, showSender: false, maxChars: 12000 }
-          : { showChat: true, showSender: true, maxChars: 16000 }
-      )
-      if (text.trim() === "") throw new Error("该范围内没有可分析的文本内容")
-
-      const request = buildAiRequest(mode, text, { scope, window: windowLabel })
-      setRes({ phase: "streaming" })
-      const stream = await requestAiStream(request.systemPrompt, request.userContent)
-      let buffered = ""
-      for await (const chunk of stream) {
-        if (stale()) break
-        if (chunk.type === "text") {
-          buffered += chunk.content
-          flusher.schedule(buffered)
-        }
-      }
-      flusher.cancel()
-      if (stale()) return
-      setRes({ output: buffered, phase: "done" })
-    } catch (e) {
-      flusher.cancel()
-      if (stale()) return
-      setRes({ errorMsg: errorMessage(e), phase: "error" })
-    } finally {
-      flusher.cancel()
-      if (seq === runSeqRef.current) runningRef.current = false
-    }
-  }
-
-  const running = res.phase === "loading" || res.phase === "streaming"
-
-  return (
-    <Section title="AI 汇总分析">
-      <Picker
-        title="分析对象"
-        value={mode}
-        onChanged={(v: string) => {
-          invalidateRun()
-          setMode(v as AiMode)
-          setRes(EMPTY_AI_RESULT)
-        }}
-        pickerStyle="segmented"
-      >
-        <Text tag="mine">我的发言</Text>
-        <Text tag="all">今日汇总</Text>
-      </Picker>
-      {mode === "all" ? (
-        <Picker
-          title="时间范围"
-          value={win}
-          onChanged={(v: string) => {
-            invalidateRun()
-            setWin(v)
-            setRes(EMPTY_AI_RESULT)
-          }}
-        >
-          <Text tag="today">今天</Text>
-          <Text tag="6">近 6 小时</Text>
-          <Text tag="24">近 24 小时</Text>
-          <Text tag="168">近 7 天</Text>
-        </Picker>
-      ) : null}
-      <SettingsRow
-        icon="sparkles"
-        color="#2AABEE"
-        chevron={false}
-        title={running ? "分析中…" : "开始 AI 分析"}
-        // 生成中可随时关弹窗，再点本行即重开（不再 disabled 锁死）
-        action={() => (running ? openSheet() : runAnalysis())}
-        trailing={running ? <ProgressView /> : undefined}
-      />
-      {/* 分析结果在页面浮层临时窗口里展示，行内不插结果卡片 */}
-    </Section>
-  )
-}

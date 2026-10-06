@@ -1,11 +1,11 @@
 import {
   Button,
+  Chart,
   HStack,
   Image,
   List,
   Picker,
   ProgressView,
-  Rectangle,
   RoundedRectangle,
   Section,
   Spacer,
@@ -13,11 +13,14 @@ import {
   TextField,
   VStack,
   ZStack,
+  Circle,
+  DonutChart,
+  LineChart,
   useEffect,
   useMemo,
   useState,
 } from "scripting"
-import { fmtNum, fmtTime } from "./api"
+import { fmtNum } from "./api"
 import {
   Avatar,
   Banners,
@@ -25,24 +28,18 @@ import {
   Hint,
   MsgRow,
   PrimaryButton,
-  RankRow,
   SegmentedTabs,
   StatCard,
-  TimelineRow,
 } from "./components"
-import {
-  AiGlobalSection,
-  EMPTY_AI_RESULT,
-  ResultSheet,
-  type AiResult,
-  type SetAiResult,
-} from "./ai_panel"
 import type { PanelCtx } from "./ctx"
 
 /**
  * 工具页：整页 plain 铺满屏幕。
- * 2026-10-05 起「消息/排行/概览」标签 + 刷新从底部 DockBar 移到顶部（搜索/内容之上），
- * 底部停靠栏删除；「AI 总结」（AI 汇总分析）常驻顶部，紧跟标签行下方。
+ * 2026-10-06 改版：
+ *  - 排行不再逐行罗列「每人发了多少条」，改为 DonutChart 发言占比环形图 + 图例；
+ *  - 概览的 7 天消息量不再用字符条形，改为 LineChart 折线趋势（参考股票 App 图表风格）；
+ *  - AI 汇总统计区块（AiGlobalSection）与结果浮层整体移除。
+ * 顶部仍是「消息/排行/概览」标签 + 刷新（原底部 DockBar 已删）。
  */
 
 type Tab = "msg" | "rank" | "overview"
@@ -53,13 +50,20 @@ const TAB_ITEMS = [
   { tag: "overview", label: "概览" },
 ]
 
-export function ToolsScreen({ p }: { p: PanelCtx }) {
-  const [tab, setTab] = useState<Tab>("msg")
-  // AI 结果临时窗口：结果状态由本页持有（页面浮层展示）；离开/重开即空白
-  const [aiRes, setAiResRaw] = useState<AiResult>(EMPTY_AI_RESULT)
-  const [aiSheet, setAiSheet] = useState(false)
-  const patchAi: SetAiResult = patch =>
-    setAiResRaw(r => ({ ...r, ...(typeof patch === "function" ? patch(r) : patch) }))
+/** 图表配色：环形图分段色（沿用排行徽标色系，多了几档补位）。 */
+const RING_COLORS = [
+  "#2AABEE",
+  "#FF9F0A",
+  "#FF375F",
+  "#34C759",
+  "#AF52DE",
+  "#5AC8FA",
+  "#FF6482",
+  "#8E8E93",
+]
+
+export function ToolsScreen({ p, initialTab }: { p: PanelCtx; initialTab?: Tab }) {
+  const [tab, setTab] = useState<Tab>(initialTab ?? "msg")
 
   const switchTab = (tag: string) => {
     withAnimation(Animation.smooth({ duration: 0.28 }), () => setTab(tag as Tab))
@@ -83,18 +87,64 @@ export function ToolsScreen({ p }: { p: PanelCtx }) {
   }
 
   const localChats = p.stats?.chats || []
-  // 条形图只需一个最大值，只在数据真的变了时重算（每次 busy 起落都会重渲染）
-  const maxTimeline = useMemo(
-    () => p.timeline.reduce((a: number, r: any) => Math.max(a, r.msg_count || 0), 0),
+
+  // 发言占比环形图数据：前 7 名分段，其余合并成「其他」，避免段数过多画不下。
+  const rankSlices = useMemo(() => {
+    const rows = p.ranking || []
+    const total = rows.reduce((a: number, r: any) => a + (r.msg_count || 0), 0)
+    if (total <= 0) return { marks: [] as any[], total: 0, topName: "", topRatio: 0 }
+    const head = rows.slice(0, 7)
+    const tail = rows.slice(7)
+    const marks: any[] = head.map((r: any, i: number) => ({
+      category: r.sender_name || "未知",
+      value: r.msg_count || 0,
+      innerRadius: { type: "ratio", value: 0.66 } as const,
+      angularInset: 2,
+      foregroundStyle: RING_COLORS[i % RING_COLORS.length],
+    }))
+    const rest = tail.reduce((a: number, r: any) => a + (r.msg_count || 0), 0)
+    if (rest > 0) {
+      marks.push({
+        category: "其他",
+        value: rest,
+        innerRadius: { type: "ratio", value: 0.66 } as const,
+        angularInset: 2,
+        foregroundStyle: RING_COLORS[7],
+      })
+    }
+    const top = rows[0]
+    return {
+      marks,
+      total,
+      topName: top?.sender_name || "—",
+      topRatio: Math.round(((top?.msg_count || 0) / total) * 100),
+    }
+  }, [p.ranking])
+
+  // 环形图图例（名字 + 占比，不显示原始条数）
+  const rankLegend = useMemo(() => {
+    const total = rankSlices.total
+    if (total <= 0) return []
+    return rankSlices.marks.map((m: any, i: number) => ({
+      name: m.category,
+      color: m.foregroundStyle as string,
+      pct: Math.round((m.value / total) * 100),
+    }))
+  }, [rankSlices])
+
+  // 7 天趋势折线数据：label 用 MM-DD
+  const timelineMarks = useMemo(
+    () =>
+      (p.timeline || []).map((row: any) => ({
+        label: String(row.period ?? "").slice(5),
+        value: row.msg_count || 0,
+      })),
     [p.timeline],
   )
-  const maxRank = useMemo(
-    () => (p.ranking || []).reduce((a: number, r: any) => Math.max(a, r.msg_count || 0), 0),
-    [p.ranking],
-  )
+
+  const pctText = (n: number) => `${n}%`
 
   return (
-    <ZStack frame={{ maxWidth: "infinity", maxHeight: "infinity" }}>
     <List
       listStyle="plain"
       listRowInsets={{ top: 0, bottom: 0, leading: 16, trailing: 16 }}
@@ -135,15 +185,6 @@ export function ToolsScreen({ p }: { p: PanelCtx }) {
           </ZStack>
         </HStack>
       </Section>
-
-      {/* AI 总结：常驻页面顶部（不再是底部标签里的一个页签）；
-          结果在 ResultSheet 弹窗里看，行内不插结果卡片 */}
-      <AiGlobalSection
-        p={p}
-        res={aiRes}
-        setRes={patchAi}
-        openSheet={() => setAiSheet(true)}
-      />
 
       {tab === "msg" ? (
         <>
@@ -227,7 +268,7 @@ export function ToolsScreen({ p }: { p: PanelCtx }) {
 
       {tab === "rank" ? (
         <>
-          <Section title="发言排行">
+          <Section title="发言占比">
             <Picker
               title="时间窗口"
               value={p.rankHours}
@@ -245,24 +286,73 @@ export function ToolsScreen({ p }: { p: PanelCtx }) {
               disabled={p.busy !== null}
             />
           </Section>
-          <Section
-            title={p.ranking === null ? "排行" : `${p.ranking.length} 位发言者`}
-          >
+
+          <Section title="图表">
             {p.ranking === null ? (
               <Hint tone="muted" text="点「统计」开始" />
             ) : p.ranking.length === 0 ? (
               <Hint tone="muted" text="该时间窗口内没有数据" />
             ) : (
-              p.ranking.map((r: any, i: number) => (
-                <RankRow
-                  key={`${r.sender_id ?? "n"}-${i}`}
-                  index={i}
-                  name={r.sender_name || "未知"}
-                  count={r.msg_count}
-                  max={maxRank}
-                  sub={fmtTime(r.last_msg)}
-                />
-              ))
+              <>
+                <VStack
+                  alignment="center"
+                  spacing={0}
+                  frame={{ maxWidth: "infinity", height: 216 }}
+                  listRowSeparator={{ visibility: "hidden", edges: "all" }}
+                >
+                  <ZStack alignment="center" frame={{ width: 216, height: 216 }}>
+                    <Chart
+                      chartLegend="hidden"
+                      chartXAxis="hidden"
+                      chartYAxis="hidden"
+                      frame={{ width: 216, height: 216 }}
+                    >
+                      <DonutChart marks={rankSlices.marks} />
+                    </Chart>
+                    <VStack alignment="center" spacing={2}>
+                      <Text font="title2" bold monospacedDigit>
+                        {pctText(rankSlices.topRatio)}
+                      </Text>
+                      <Text font="caption2" foregroundStyle="#8E8E93" lineLimit={1}>
+                        {rankSlices.topName}
+                      </Text>
+                      <Text font="caption2" foregroundStyle="#AEAEB2">
+                        占比最高
+                      </Text>
+                    </VStack>
+                  </ZStack>
+                </VStack>
+
+                {/* 图例：色点 + 名字 + 占比（不显示原始条数） */}
+                <VStack
+                  alignment="leading"
+                  spacing={0}
+                  frame={{ maxWidth: "infinity" }}
+                >
+                  {rankLegend.map((row: any, i: number) => (
+                    <HStack
+                      key={`${row.name}-${i}`}
+                      spacing={8}
+                      padding={{ vertical: 7 }}
+                      frame={{ maxWidth: "infinity" }}
+                    >
+                      <Circle fill={row.color} frame={{ width: 9, height: 9 }} />
+                      <Text font="footnote" lineLimit={1}>
+                        {row.name}
+                      </Text>
+                      <Spacer />
+                      <Text
+                        font="footnote"
+                        fontWeight="semibold"
+                        monospacedDigit
+                        foregroundStyle={row.color}
+                      >
+                        {row.pct}%
+                      </Text>
+                    </HStack>
+                  ))}
+                </VStack>
+              </>
             )}
           </Section>
         </>
@@ -316,30 +406,35 @@ export function ToolsScreen({ p }: { p: PanelCtx }) {
           </Section>
 
           <Section title="最近 7 天消息量">
-            {p.timeline.length === 0 ? (
+            {timelineMarks.length === 0 ? (
               <Hint tone="muted" text="暂无数据，先在群详情页同步一些消息" />
             ) : (
-              p.timeline.map((row: any) => (
-                <TimelineRow key={row.period} row={row} max={maxTimeline} />
-              ))
+              <VStack
+                alignment="leading"
+                spacing={6}
+                frame={{ maxWidth: "infinity" }}
+                listRowSeparator={{ visibility: "hidden", edges: "all" }}
+              >
+                <Chart chartLegend="hidden" frame={{ maxWidth: "infinity", height: 180 }}>
+                  <LineChart
+                    marks={timelineMarks.map((m: any) => ({
+                      ...m,
+                      foregroundStyle: "#2AABEE",
+                      lineStyle: { lineWidth: 2.5, lineCap: "round" },
+                      interpolationMethod: "monotone" as const,
+                      symbol: "circle" as const,
+                      symbolSize: 6,
+                    }))}
+                  />
+                </Chart>
+                <Text font="caption2" foregroundStyle="#8E8E93">
+                  按天统计，共 {timelineMarks.length} 天
+                </Text>
+              </VStack>
             )}
           </Section>
         </>
       ) : null}
     </List>
-
-    {/* AI 结果临时窗口：页面内浮层（遮罩 + 居中动态卡片），不弹全屏 sheet 二级页；
-        点遮罩或「关闭」即收起，生成中也一样（后台继续跑，动作行再点重开） */}
-    {aiSheet ? (
-      <ZStack alignment="center" frame={{ maxWidth: "infinity", maxHeight: "infinity" }}>
-        <Rectangle
-          fill="rgba(0,0,0,0.32)"
-          frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
-          onTapGesture={() => setAiSheet(false)}
-        />
-        <ResultSheet res={aiRes} setRes={patchAi} onClose={() => setAiSheet(false)} p={p} />
-      </ZStack>
-    ) : null}
-    </ZStack>
   )
 }

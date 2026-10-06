@@ -532,62 +532,6 @@ export function StatCard({
   )
 }
 
-function Bar({ ratio, color }: { ratio: number; color: `#${string}` }) {
-  const r = Number.isFinite(ratio) ? Math.min(1, Math.max(0, ratio)) : 0
-  const n = r <= 0 ? 0 : Math.max(1, Math.round(r * 16))
-  return (
-    <Text font="caption" monospaced foregroundStyle={color}>
-      {"█".repeat(n)}
-    </Text>
-  )
-}
-
-export function TimelineRow({ row, max }: { row: any; max: number }) {
-  return (
-    <HStack spacing={8}>
-      <Text font="footnote" foregroundStyle="#8E8E93" frame={{ width: 58 }}>
-        {String(row.period).slice(5)}
-      </Text>
-      <Bar ratio={max > 0 ? row.msg_count / max : 0} color="#2AABEE" />
-      <Spacer />
-      <Text font="footnote" monospacedDigit bold>
-        {fmtNum(row.msg_count)}
-      </Text>
-    </HStack>
-  )
-}
-
-export function RankRow({ index, name, count, max, sub }: any) {
-  const colors: (`#${string}`)[] = ["#FF9F0A", "#FF375F", "#0A84FF", "#8E8E93"]
-  return (
-    <HStack spacing={10}>
-      <ZStack alignment="center" frame={{ width: 26, height: 26 }}>
-        <Circle
-          fill={index < 3 ? colors[index] : "#C7C7CC"}
-          frame={{ width: 26, height: 26 }}
-        />
-        <Text font="caption" bold foregroundStyle="white">
-          {index + 1}
-        </Text>
-      </ZStack>
-      <VStack alignment="leading" spacing={2} frame={{ maxWidth: "infinity", alignment: "leading" }}>
-        <Text font="headline" lineLimit={1}>
-          {name}
-        </Text>
-        <HStack spacing={6}>
-          <Bar ratio={max > 0 ? count / max : 0} color="#2AABEE" />
-          <Text font="caption2" foregroundStyle="#8E8E93">
-            {sub}
-          </Text>
-        </HStack>
-      </VStack>
-      <Text font="subheadline" monospacedDigit bold>
-        {fmtNum(count)}
-      </Text>
-    </HStack>
-  )
-}
-
 /** 从文本中提取第一个 http(s) 网址（粗粒度，够用即可）。 */
 function firstUrl(text: string): string {
   const m = text.match(/https?:\/\/[^\s<>"']+/i)

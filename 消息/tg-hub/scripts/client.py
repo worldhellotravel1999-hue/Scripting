@@ -39,7 +39,6 @@ from .config import (
     get_session_path,
     get_system_lang_code,
     get_system_version,
-    is_default_api_id,
 )
 from .db import MessageDB
 from .exceptions import ChatNotFoundError, NotAuthenticatedError, SyncError
@@ -72,9 +71,6 @@ def _run(coro):
     return tg_net.run_on_loop(coro)
 
 
-_default_api_warned = False
-
-
 @asynccontextmanager
 async def _connect(interactive: bool = False) -> AsyncGenerator[TelegramClient, None]:
     """异步上下文管理器：取用 Telegram 连接。
@@ -82,20 +78,12 @@ async def _connect(interactive: bool = False) -> AsyncGenerator[TelegramClient, 
     interactive=False（默认）走 **常驻单连接**（复用 tg_net 的唯一连接，
     用完不断开），未授权直接抛 NotAuthenticatedError —— 适合无终端环境；
     interactive=True 仅供 `login()` 的终端首次登录流程使用（独占连接，用完即断）。
-    """
-    global _default_api_warned
 
+    没有配置自己的 api_id/api_hash 时 `get_api_id()` 直接抛 ValueError
+    （公共凭证已删除，登录页会先引导填写凭证）。
+    """
     api_id = get_api_id()
     api_hash = get_api_hash()
-
-    if not _default_api_warned and is_default_api_id():
-        _default_api_warned = True
-        log.warning(
-            "Using default Telegram Desktop API credentials (api_id=2040). "
-            "This increases the risk of account restrictions. "
-            "Get your own at https://my.telegram.org and save it in the panel's "
-            "\"API credentials\" section (~/.tg-hub/api.json) or set TG_API_ID / TG_API_HASH."
-        )
 
     if interactive:
         c = TelegramClient(
@@ -414,7 +402,7 @@ class TGClient:
     tg-hub 核心客户端，提供同步接口。
 
     首次使用需要交互式登录（手机号 + 验证码），之后 session 自动复用。
-    建议优先使用你自己的 Telegram APP ID / APP HASH，降低公共凭证被滥用带来的风控风险。
+    必须使用你自己的 Telegram APP ID / APP HASH（公共凭证已删除，未配置会直接报错）。
 
     用法：
         client = TGClient()

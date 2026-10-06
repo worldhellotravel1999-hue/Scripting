@@ -241,7 +241,18 @@ async def _probe_session() -> tuple[str, dict | None, str | None]:
                         revoked = True
                     else:
                         raise r  # 非吊销错误 → 外层按 offline 处理
-            return "valid", _me_dict(me_r), None
+            # 2026-10-06 修复：以前这里直接 return "valid", _me_dict(me_r)——
+            # 当密钥已被服务端注销时 GetState 抛 AuthKeyUnregisteredError 而
+            # get_me() 返回 None，`_me_dict(None)` 的 AttributeError 会被外层
+            # 当成网络错误 → 报 offline（“已按本地登录状态继续”），死会话被当成
+            # 活会话，登录页因此反复报错。现在先收口 revoked 再谈 valid。
+            if revoked:
+                pass  # 落到 try 之后的清理分支
+            elif me_r is None:
+                # 连得上、请求也正常返回，却拿不到自己 → 服务端不认这把密钥
+                revoked = True
+            else:
+                return "valid", _me_dict(me_r), None
     except (asyncio.CancelledError, KeyboardInterrupt, SystemExit):
         raise
     except BaseException as e:  # noqa: BLE001
@@ -257,9 +268,10 @@ async def _probe_session() -> tuple[str, dict | None, str | None]:
 # ── 在线命令 ─────────────────────────────────────────────────────────────────
 
 async def _c_status(_args: dict) -> dict:
-    from scripts.config import get_db_path, get_data_dir, get_session_path, is_default_api_id
+    from scripts.config import api_configured, get_db_path, get_data_dir, get_session_path
 
     has_key = tg_net.local_auth_key()
+    has_api = api_configured()
     info = {
         "session_path": get_session_path() + ".session",
         "session_exists": Path(get_session_path() + ".session").exists(),
@@ -267,14 +279,27 @@ async def _c_status(_args: dict) -> dict:
         "db_path": str(get_db_path()),
         "db_exists": get_db_path().exists(),
         "data_dir": str(get_data_dir()),
-        "default_api": is_default_api_id(),
+        "has_api": has_api,  # 是否已配置自己的 api_id/api_hash（公共凭证已移除）
         "has_login_state": _state_path().exists(),
     }
+
+    # 没有凭证就无法连接 Telegram（公共凭证已删除）→ 先要求在登录页填凭证，
+    # 不发任何网络请求。
+    if not has_api:
+        return {**info, "ok": True, "authorized": False, "me": None, "need_api": True}
 
     # 本地确定没有登录密钥 → 直接回登录页，不发任何网络请求
     # （启动秒出，也避免无谓连接）。
     if has_key is False:
         return {**info, "ok": True, "authorized": False, "me": None}
+
+    # 正在登录流程中（已发码、尚未 sign_in）：新密钥还没在服务端注册，
+    # 探测必然拿到 AuthKeyUnregisteredError —— **绝不能当 revoked 处理**：
+    # 清理会连带删掉 login_state 里的 phone_code_hash，验证码直接作废。
+    # （get_me() 返回 None 同理，见 _probe_session 的 me_r is None 分支。）
+    st = _load_state()
+    if st.get("phone_code_hash") and not st.get("me"):
+        return {**info, "ok": True, "authorized": False, "me": None, "logging_in": True}
 
     outcome, me, net_err = await _probe_session()
     if outcome == "valid":
@@ -295,9 +320,17 @@ async def _c_status(_args: dict) -> dict:
 
 
 async def _c_send_code(args: dict) -> dict:
+    from scripts.config import api_configured
+
     phone = str(args.get("phone", "")).strip()
     if not phone:
         return {"ok": False, "error": "缺少手机号", "etype": "ValueError"}
+    if not api_configured():
+        return {
+            "ok": False,
+            "error": "尚未配置 API 凭证，请先填写 api_id / api_hash",
+            "etype": "NoApiConfig",
+        }
 
     # 本地已存登录密钥**且已有完整登录记录** → 先确认，绝不无谓地再走一轮登录：
     # 每多一次手机号登录都是风控事件，而反复登录正是被服务端批量登出的诱因。
@@ -567,11 +600,19 @@ def _c_set_api(args: dict) -> dict:
         str(args.get("api_id") or "").strip(),
         str(args.get("api_hash") or "").strip(),
     )
-    # 凭证变了 → 丢弃按旧凭证建立的常驻连接，下次联网时按新凭证重建
-    try:
-        tg_net.run_on_loop(tg_net.reset(), 10)
-    except Exception:  # noqa: BLE001
-        pass
+    # 凭证变了，但**本地已有登录密钥时绝不立即断开重建连接**：
+    # 断开后下一条命令马上重连，若服务端还没关掉旧连接就会两条连接并行
+    # → AUTH_KEY_DUPLICATED → 会话被吊销 → 被迫手机号重新登录；
+    # 而反复手机号登录正是服务端「批量登出全部设备（含手机）」的诱因。
+    # 凭证只在新建客户端时读取，已登录会话的常规命令并不需要它；
+    # 退出登录 / 会话被吊销 / 空闲 300s 断开后，下次联网自然按新凭证重建。
+    if tg_net.local_auth_key() is not True:
+        try:
+            tg_net.run_on_loop(tg_net.reset(), 10)
+        except Exception:  # noqa: BLE001
+            pass
+    else:
+        msg += "；当前已登录，登录会话保持不变，新凭证在重新登录后生效"
     return {"ok": True, "message": msg}
 
 

@@ -133,10 +133,10 @@ function ListLimitRow({ p }: { p: PanelCtx }) {
 
 export function SettingsScreen({ p }: { p: PanelCtx }) {
   // API 凭证状态说明不再常驻布局：收进 api_id/api_hash 行的弹窗 message（点击才显示）
-  const apiStatusMsg = p.status?.default_api
-    ? "当前使用公共凭证（易触发风控），建议填入自定义凭证"
-    : "已使用自定义 API 凭证"
-  const saveRowTitle = p.status?.default_api ? "保存自定义凭证" : "更新凭证"
+  const apiStatusMsg = p.status?.has_api
+    ? "已使用自己的 API 凭证"
+    : "尚未配置 API 凭证（公共凭证已移除，登录页会要求填写）"
+  const saveRowTitle = p.status?.has_api ? "更新凭证" : "保存凭证"
   return (
     <List
       listStyle="plain"
@@ -270,27 +270,27 @@ export function SettingsScreen({ p }: { p: PanelCtx }) {
           color="#FF9500"
           chevron={false}
           disabled={p.busy !== null}
-          title={p.status?.default_api ? "保存自定义凭证" : "更新凭证"}
+          title={saveRowTitle}
           action={p.saveApi}
         />
-        {p.status?.default_api ? null : (
+        {p.status?.has_api ? (
           <SettingsRow
             icon="xmark.bin"
             color="#FF3B30"
             danger
             disabled={p.busy !== null}
-            title="清除（恢复公共凭证）"
+            title="清除凭证"
             action={async () => {
               if (p.busy !== null) return
               const ok = await Dialog.confirm({
-                title: "清除自定义凭证",
-                message: "清除后恢复使用公共凭证（易触发风控），确定清除？",
+                title: "清除 API 凭证",
+                message: "清除后下次进入登录页要重新填写 api_id / api_hash（已有登录会话不会掉）。确定清除？",
                 confirmLabel: "清除",
               })
               if (ok) await p.clearApi()
             }}
           />
-        )}
+        ) : null}
 
         {/* 数据与账号 */}
         <SettingsRow
@@ -338,7 +338,7 @@ export function SettingsScreen({ p }: { p: PanelCtx }) {
             if (p.busy !== null) return
             const ok = await Dialog.confirm({
               title: "退出登录",
-              message: "仅退出本机登录（同时清除会话列表缓存），不影响手机等其他设备。",
+              message: "仅退出本机登录（同时清除会话列表缓存），不影响手机等其他设备。重新登录属风控事件，非必要请勿反复退出。",
               confirmLabel: "退出",
             })
             if (ok) await p.doLogout()

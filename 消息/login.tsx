@@ -251,18 +251,56 @@ export function LoginScreen(props: {
   setPassword: (v: string) => void
   codeSent: boolean
   needPassword: boolean
-  defaultApi: boolean
+  /**
+   * API 凭证分步（公共凭证已删除，登录必须用自己的 api_id/api_hash）：
+   *   "id"  → 只显示 API ID 一行
+   *   "hash" → 只显示 API Hash 一行
+   *   null  → 正常手机号登录流程
+   * 每步只出一个输入框，且每步都有返回入口。
+   */
+  apiPhase: "id" | "hash" | null
+  apiId: string
+  setApiId: (v: string) => void
+  apiHash: string
+  setApiHash: (v: string) => void
+  /** API ID 那步点「下一步」（前端校验纯数字） */
+  nextFromApiId: () => void
+  /** API Hash 那步点「保存并继续」（落盘并进入手机号步骤） */
+  submitApi: () => void
+  /** API Hash 那步返回 API ID */
+  backToApiId: () => void
+  /** 手机号那步返回改凭证 */
+  backToApi: () => void
+  /** 凭证本来就已经配置好（只是点进来修改）→ 可直接跳回手机号步骤 */
+  canSkipToPhone: boolean
+  skipToPhone: () => void
   sendCode: () => void
   doSignIn: () => void
   doPassword: () => void
   restart: () => void
   dismiss: () => void
 }) {
-  const stepHint = !props.codeSent
-    ? "输入手机号，获取登录验证码"
-    : props.needPassword
-      ? "该账号开启了两步验证"
-      : "验证码已发送，查收后输入即可登录"
+  const step =
+    props.apiPhase === "id"
+      ? "apiId"
+      : props.apiPhase === "hash"
+        ? "apiHash"
+        : !props.codeSent
+          ? "phone"
+          : !props.needPassword
+            ? "code"
+            : "password"
+
+  const stepHint =
+    step === "apiId"
+      ? "先填写 API ID（my.telegram.org 创建应用获取）"
+      : step === "apiHash"
+        ? "再填写对应的 API Hash（32 位）"
+        : step === "phone"
+          ? "输入手机号，获取登录验证码"
+          : step === "code"
+            ? "验证码已发送，查收后输入即可登录"
+            : "该账号开启了两步验证"
 
   /** Telegram 风主按钮 */
   const primary = (title: string, action: () => void) => <TgButton title={title} action={action} />
@@ -324,7 +362,40 @@ export function LoginScreen(props: {
             frame={{ maxWidth: 340 }}
             padding={{ top: 30 }}
           >
-            {!props.codeSent ? (
+            {step === "apiId" ? (
+              <>
+                <TgField>
+                  <TextField
+                    title="API ID（纯数字）"
+                    value={props.apiId}
+                    onChanged={props.setApiId}
+                    font={20}
+                    keyboardType="numberPad"
+                    frame={{ maxWidth: "infinity" }}
+                    padding={{ leading: 16, trailing: 16 }}
+                  />
+                </TgField>
+                {primary("下一步", props.nextFromApiId)}
+                {props.canSkipToPhone ? link("直接使用已保存的凭证", props.skipToPhone) : null}
+              </>
+            ) : step === "apiHash" ? (
+              <>
+                <TgField>
+                  <TextField
+                    title="API Hash（32 位）"
+                    value={props.apiHash}
+                    onChanged={props.setApiHash}
+                    font={20}
+                    keyboardType="asciiCapable"
+                    frame={{ maxWidth: "infinity" }}
+                    padding={{ leading: 16, trailing: 16 }}
+                  />
+                </TgField>
+                {primary("保存并继续", props.submitApi)}
+                {link("返回上一步", props.backToApiId)}
+                {props.canSkipToPhone ? link("直接使用已保存的凭证", props.skipToPhone) : null}
+              </>
+            ) : step === "phone" ? (
               <>
                 <TgField>
                   <TextField
@@ -337,8 +408,9 @@ export function LoginScreen(props: {
                   />
                 </TgField>
                 {primary("获取验证码", props.sendCode)}
+                {link("修改 API 凭证", props.backToApi)}
               </>
-            ) : !props.needPassword ? (
+            ) : step === "code" ? (
               <>
                 <TgField>
                   <TextField

@@ -94,7 +94,8 @@ export type PanelCtx = {
   setApiId: (v: string) => void
   apiHash: string
   setApiHash: (v: string) => void
-  saveApi: () => Promise<void>
+  /** 保存自定义 API 凭证（登录页也用同一个；已配置则更新） */
+  saveApi: () => Promise<boolean>
   clearApi: () => Promise<void>
   /** 传 name 则删除该会话本地记录；不传则用 delChat 输入框的值 */
   doDeleteChat: (name?: string) => Promise<void>

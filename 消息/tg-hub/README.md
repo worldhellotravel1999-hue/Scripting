@@ -76,10 +76,14 @@ python3 tg_api.py search '{"keyword":"招聘","hours":24}'
 
 ## 风控建议
 
-- 尽量在 my.telegram.org 自备 api_id / api_hash：可在面板「设置 → API 凭证」保存到
-  `~/.tg-hub/api.json`（0600），或用环境变量 `TG_API_ID` / `TG_API_HASH`（须成对；当前默认公共凭证 api_id=2040）。
-- **不要在已有登录会话的情况下更换 api_id/api_hash**：换凭证会重建连接并可能迫使重新登录，
-  而每一次手机号登录都是风控事件。
+- **必须自备 api_id / api_hash**（2026-10-06 起公共凭证 api_id=2040 已删除，没有凭证连不上）：
+  登录页会分步引导填写（先 API ID、再 API Hash，可返回），保存到 `~/.tg-hub/api.json`（0600），
+  或用环境变量 `TG_API_ID` / `TG_API_HASH`（须成对，仅作兜底）。**优先级：`api.json` > 环境变量**
+  ——2026-10-06 事故：Shell Environment 里残留的占位 `TG_API_ID=123456` 曾覆盖面板保存的真实凭证，
+  导致 `SendCodeRequest` 报 “The api_id/api_hash combination is invalid”，所以面板保存的凭证永远优先。
+  未配置时 `status` 直接返回 `need_api`，不联网。
+- **换/清凭证不会再重建连接**（本地已有登录密钥时保持现有连接），避免旧连接未关就重连触发
+  AUTH_KEY_DUPLICATED 吊销会话；但每一次手机号登录都是风控事件，非必要不要退出登录。
 - 面板每次调用带 `__timeout`，`dispatch` 用守护线程 join 兜底（Python.run 不支持超时），超时返回 `etype=Timeout`。
 - 日常用 `refresh`（每会话 ≤500 条、间隔 1 秒），首次全量用 `sync` 并控制 limit。
 - 读操作（搜索 / 统计 / 排行）完全离线，风险最低。

@@ -15,19 +15,16 @@ import json
 import os
 from pathlib import Path
 
-# Telegram Desktop 内置公共凭证（仅作兜底，不推荐长期使用）
-_DEFAULT_API_ID   = 2040
-_DEFAULT_API_HASH = "b18441a1ff607e10a989891a5462e627"
-
-# 上游 tg-cli 采用的 Telegram Desktop 5.x 指纹
-_DEFAULT_DEVICE_MODEL = "Desktop"
-_DEFAULT_SYSTEM_VERSION = "macOS 15.3"
-_DEFAULT_APP_VERSION = "5.12.1"
-_DEFAULT_LANG_CODE = "en"
-_DEFAULT_SYSTEM_LANG_CODE = "en-US"
+# API 凭证**必须是用户自己的**（2026-10-06 移除公共凭证 api_id=2040 兜底）：
+# 没有配置就直接报错，引导到登录页填写，避免公共凭证带来的批量登出风控。
 
 # 默认数据目录：存放在 home 目录下，跨 session 复用
 _DEFAULT_DATA_DIR = Path.home() / ".tg-hub"
+
+_NO_API_MSG = (
+    "尚未配置 API 凭证（公共凭证已移除）：请到 my.telegram.org 创建应用，"
+    "把 api_id / api_hash 填到登录页"
+)
 
 
 def _api_json_path() -> Path:
@@ -42,18 +39,18 @@ def _coerce_api_id(raw: str) -> int:
 
 
 def _resolve_api() -> tuple[int, str]:
-    """返回 (api_id, api_hash)。优先级：环境变量 > ~/.tg-hub/api.json > 公共凭证。
+    """返回 (api_id, api_hash)。优先级：~/.tg-hub/api.json > 环境变量。
 
-    凭证必须成对配置；只配一半或 api.json 损坏时抛 ValueError（
-    明确报错而不是静默降级回公共凭证）。
+    2026-10-06 事故：环境里残留的占位凭证 TG_API_ID=123456 /
+    TG_API_HASH=0123…（Shell Environment 注入）曾以高优先级**覆盖**
+    用户在登录页保存的真实凭证，导致 SendCodeRequest 报
+    “The api_id/api_hash combination is invalid”。
+    修复：面板保存的 api.json 永远优先，env 仅作无文件时的兜底，
+    这样陈旧 env 再也无法顶掉用户填的凭证。
+
+    凭证必须成对配置且**必须是用户自己的**——公共凭证已删除，
+    两者都没有时抛 ValueError（登录页会先引导填写凭证）。
     """
-    env_id = os.environ.get("TG_API_ID", "").strip()
-    env_hash = os.environ.get("TG_API_HASH", "").strip()
-    if env_id or env_hash:
-        if not (env_id and env_hash):
-            raise ValueError("TG_API_ID 与 TG_API_HASH 必须成对配置")
-        return _coerce_api_id(env_id), env_hash
-
     file_id = file_hash = ""
     p = _api_json_path()
     if p.exists():
@@ -67,12 +64,24 @@ def _resolve_api() -> tuple[int, str]:
         if not (file_id and file_hash):
             raise ValueError("api.json 中 api_id 与 api_hash 必须成对配置")
         return _coerce_api_id(file_id), file_hash
-    return _DEFAULT_API_ID, _DEFAULT_API_HASH
+
+    env_id = os.environ.get("TG_API_ID", "").strip()
+    env_hash = os.environ.get("TG_API_HASH", "").strip()
+    if env_id or env_hash:
+        if not (env_id and env_hash):
+            raise ValueError("TG_API_ID 与 TG_API_HASH 必须成对配置")
+        return _coerce_api_id(env_id), env_hash
+
+    raise ValueError(_NO_API_MSG)
 
 
-def is_default_api_id() -> bool:
-    """Return True if NOT using a custom api_id/api_hash pair."""
-    return _resolve_api() == (_DEFAULT_API_ID, _DEFAULT_API_HASH)
+def api_configured() -> bool:
+    """是否已配置自己的 api_id/api_hash（api.json 或环境变量）。"""
+    try:
+        _resolve_api()
+        return True
+    except ValueError:
+        return False
 
 
 def get_api_id() -> int:
@@ -91,7 +100,7 @@ def write_api_config(api_id: str, api_hash: str) -> str:
             p.unlink(missing_ok=True)
         except OSError as e:
             raise ValueError(f"清除失败：{e}") from None
-        return "已清除自定义凭证，恢复公共凭证"
+        return "已清除自定义凭证；下次进入登录页会要求重新填写 api_id / api_hash（已有登录会话不受影响）"
     if not api_id or not api_hash:
         raise ValueError("api_id 与 api_hash 必须成对填写（或同时留空以清除）")
     n_id = _coerce_api_id(api_id)
@@ -108,23 +117,23 @@ def write_api_config(api_id: str, api_hash: str) -> str:
 
 
 def get_device_model() -> str:
-    return os.environ.get("TG_DEVICE_MODEL", _DEFAULT_DEVICE_MODEL)
+    return os.environ.get("TG_DEVICE_MODEL", "Desktop")
 
 
 def get_system_version() -> str:
-    return os.environ.get("TG_SYSTEM_VERSION", _DEFAULT_SYSTEM_VERSION)
+    return os.environ.get("TG_SYSTEM_VERSION", "macOS 15.3")
 
 
 def get_app_version() -> str:
-    return os.environ.get("TG_APP_VERSION", _DEFAULT_APP_VERSION)
+    return os.environ.get("TG_APP_VERSION", "5.12.1")
 
 
 def get_lang_code() -> str:
-    return os.environ.get("TG_LANG_CODE", _DEFAULT_LANG_CODE)
+    return os.environ.get("TG_LANG_CODE", "en")
 
 
 def get_system_lang_code() -> str:
-    return os.environ.get("TG_SYSTEM_LANG_CODE", _DEFAULT_SYSTEM_LANG_CODE)
+    return os.environ.get("TG_SYSTEM_LANG_CODE", "en-US")
 
 
 def get_data_dir() -> Path:

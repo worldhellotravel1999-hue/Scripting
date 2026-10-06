@@ -4,7 +4,9 @@
 刷新用最轻参数（1 会话 / 1 条 / 无间隔）。断言：每条都返回 @@TG@@ 哨兵行。
 
 关注点：
-  · refresh 必须 ok=True（曾因 _sync_all 缺 capped_out 参数而全量报错）
+  · refresh 必须 ok=True（曾因 _sync_all 缺 capped_out 参数而全量报错）；
+    但已登出时 refresh 报“尚未登录”属预期，此时降级为不计入（登出状态
+    2026-10-06 起是合法态：公共凭证删除后每次都要重新登录）。
   · status 必须 ok=True 且 authorized=True（GetState+get_me 并行探测）
 """
 import contextlib
@@ -51,9 +53,11 @@ CASES = [
 ]
 
 REQUIRED_OK = {"stats", "timeline", "top_senders", "recent", "today",
-               "search", "filter", "status", "refresh", "local_chats"}
+               "search", "filter", "status", "local_chats"}
 
 failed = 0
+# 是否已登录：决定 refresh 是否计入必过项（登出时它必然报“尚未登录”）
+authorized = False
 for cmd, args in CASES:
     a = dict(args)
     a["__timeout"] = 60
@@ -63,7 +67,12 @@ for cmd, args in CASES:
         payload = tg_api.dispatch(cmd, json.dumps(a))
     ms = (time.time() - t0) * 1000
     ok = payload.get("ok")
-    if cmd in REQUIRED_OK and not ok:
+    if cmd == "status":
+        authorized = bool(payload.get("authorized"))
+        if not authorized:
+            print("   （未登录：refresh 的必过断言本次跳过）")
+    required = cmd in REQUIRED_OK or (cmd == "refresh" and authorized)
+    if required and not ok:
         failed += 1
     if not buf.getvalue().strip().splitlines()[-1].startswith("@@TG@@"):
         failed += 1
