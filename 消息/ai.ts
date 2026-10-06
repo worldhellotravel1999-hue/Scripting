@@ -292,7 +292,9 @@ const INSTRUCT_PROMPT =
   "删除线 <s>文本</s>、下划线 <u>文本</u>、代码块 <pre>文本</pre>、" +
   "链接 <a href=\"网址\">文字</a>、引用 <blockquote>文本</blockquote>。" +
   "8. 用户对多条消息分别提出不同要求时（如“第一条带遮罩、第二条粗体”），必须逐条落实到对应动作块的 text：" +
-  `第一条 → text 为 <span class=\"tg-spoiler\">1</span>，第二条 → text 为 <b>1</b>，其余按要求补齐，没要求的写纯文本。`
+  `第一条 → text 为 <span class=\"tg-spoiler\">1</span>，第二条 → text 为 <b>1</b>，其余按要求补齐，没要求的写纯文本。` +
+  "9. 用户已在客户端弹窗里点确认下发过指令：要发送就直接输出动作块让客户端执行，" +
+  "绝不要在文字回复里再问“确认发送吗/是否继续/需要我发送吗”之类，禁止要求二次确认。"
 
 export type AiActionBlock = { chat: string; text: string }
 

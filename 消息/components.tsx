@@ -11,6 +11,7 @@ import {
   Text,
   VStack,
   ZStack,
+  useRef,
 } from "scripting"
 import { fmtNum, fmtTime } from "./api"
 import type { PanelCtx } from "./ctx"
@@ -118,37 +119,65 @@ export function Avatar({
 
 /**
  * Telegram 设置页风格行（参考官方设置截图）：圆角彩色图标 + 标题 +
- * 右侧值/控件 + chevron。传 action 即整行可点；danger 标题变红。
+ * 右侧值/控件 + chevron。传 action 即整行可点（点图标/点行都触发）；
+ * danger 标题变红；onLongPress 提供长按入口（如自定义动作删除），
+ * 长按后 700ms 内的 tap 会被屏蔽，避免“长按被当成点一下”。
+ * 2026-10-06：新增 hint —— 行内临时提示直接显示在本行空白处（行内小字，
+ * 固定宽度防压缩、超长省略号），不再在按钮行下方另起一行 Hint 气泡。
  */
 export function SettingsRow({
   icon,
   color = "#2AABEE",
   title,
   value,
+  hint,
+  hintTone = "info",
   trailing,
   chevron = true,
   danger = false,
   disabled = false,
   action,
+  onLongPress,
 }: {
   icon: string
   color?: `#${string}`
   title: string
   value?: string
+  /** 行内临时提示（显示在标题右侧空白处，超长截断）；不再用行下气泡 */
+  hint?: string
+  hintTone?: HintTone
   /** 右侧额外内容（TextField / ProgressView / 小按钮） */
   trailing?: any
   chevron?: boolean
   danger?: boolean
   disabled?: boolean
   action?: () => void
+  /** 长按回调（与 action 并存时，长按后的短时间 tap 会被吞掉） */
+  onLongPress?: () => void
 }) {
-  const tappable = !!action && !disabled
+  const tappable = (!!action || !!onLongPress) && !disabled
+  const lastLongPress = useRef(0)
   return (
     <HStack
       spacing={12}
       padding={{ vertical: 9 }}
       frame={{ maxWidth: "infinity", alignment: "leading" }}
-      onTapGesture={tappable ? action : undefined}
+      onTapGesture={
+        tappable
+          ? () => {
+              if (Date.now() - lastLongPress.current < 700) return
+              if (action) action()
+            }
+          : undefined
+      }
+      onLongPressGesture={
+        onLongPress && !disabled
+          ? () => {
+              lastLongPress.current = Date.now()
+              onLongPress()
+            }
+          : undefined
+      }
     >
       <ZStack alignment="center" frame={{ width: 30, height: 30 }}>
         <RoundedRectangle fill={color} cornerRadius={7} frame={{ width: 30, height: 30 }} />
@@ -162,6 +191,18 @@ export function SettingsRow({
       >
         {title}
       </Text>
+      {hint ? (
+        <Text
+          font={11}
+          fontWeight="medium"
+          foregroundStyle={hintColor(hintTone)}
+          lineLimit={1}
+          // 固定宽度 = 文字自然宽（封顶 150）：压缩时先让标题退让，提示不被挤掉
+          frame={{ width: Math.min(150, labelWidth(hint, 11) + 6) }}
+        >
+          {hint}
+        </Text>
+      ) : null}
       {value ? <Text font="subheadline" foregroundStyle="#8E8E93">{value}</Text> : null}
       {trailing}
       {chevron ? (
@@ -242,6 +283,11 @@ export function RowButton({
  * tone: ok 绿 / error 红 / warn 橙 / info 蓝 / muted 灰；spinner 显示转圈。
  */
 export type HintTone = "ok" | "error" | "warn" | "info" | "muted"
+
+/** 行内提示小字的语义色（与 Hint 气泡同色系），供 SettingsRow.hint 使用 */
+export function hintColor(tone: HintTone): `#${string}` {
+  return HINT_STYLE[tone].fg
+}
 
 const HINT_STYLE: Record<HintTone, { bg: `#${string}`; fg: `#${string}`; icon: string }> = {
   ok: { bg: "#E8F8EE", fg: "#1FA257", icon: "checkmark.circle.fill" },

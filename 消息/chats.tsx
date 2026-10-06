@@ -12,6 +12,8 @@ import {
   TextField,
   VStack,
   ZStack,
+  useMemo,
+  useRef,
 } from "scripting"
 import { fmtNum, TYPE_LABEL } from "./api"
 import {
@@ -192,22 +194,54 @@ export function ChatListRow({
 
 export function ChatsScreen({ p }: { p: PanelCtx }) {
   const search = p.chatSearch.trim().toLowerCase()
-  const localByName = new Map<string, any>()
-  for (const c of p.stats?.chats || []) {
-    if (c.chat_name) localByName.set(String(c.chat_name), c)
-  }
 
-  const rows = (p.chats || []).filter((c: any) => {
-    const name = String(c.name ?? c.id)
-    if (p.chatScope === "gsync") {
-      // 「已同步」分组：只看本地已同步的会话，再扣掉本地移出的（「全部」不扣）
-      if (p.excludedChats.includes(String(c.id))) return false
-      if (!localByName.has(name)) return false
+  // 本地已同步会话名 → 统计行（每行的“已同步 N”角标 + 「已同步」筛选都要用）。
+  // 只在 stats 变时重建，不跟着每次重渲染重算。
+  const localByName = useMemo(() => {
+    const m = new Map<string, any>()
+    for (const c of p.stats?.chats || []) {
+      if (c.chat_name) m.set(String(c.chat_name), c)
     }
-    if (search && !name.toLowerCase().includes(search)) return false
-    return true
-  })
-  const shown = rows.slice(0, p.listLimit)
+    return m
+  }, [p.stats])
+
+  const rows = useMemo(
+    () =>
+      (p.chats || []).filter((c: any) => {
+        const name = String(c.name ?? c.id)
+        if (p.chatScope === "gsync") {
+          // 「已同步」分组：只看本地已同步的会话，再扣掉本地移出的（「全部」不扣）
+          if (p.excludedChats.includes(String(c.id))) return false
+          if (!localByName.has(name)) return false
+        }
+        if (search && !name.toLowerCase().includes(search)) return false
+        return true
+      }),
+    [p.chats, p.chatScope, p.excludedChats, localByName, search],
+  )
+  const shown = useMemo(() => rows.slice(0, p.listLimit), [rows, p.listLimit])
+
+  // push 的身份每次根组件重渲染都会变（它闭包了 path），用 ref 转一道，
+  // 行节点数组才只跟随「列表内容」变化——busy/通知/其它页签的任何状态抖动
+  // 都不会重建这几十行的虚拟树（每次命令的 busy 起落都会触发根组件重渲染）。
+  const pushRef = useRef(p.push)
+  pushRef.current = p.push
+  const rowNodes = useMemo(
+    () =>
+      shown.map((c: any) => {
+        const name = String(c.name ?? c.id)
+        const local = localByName.get(name)
+        return (
+          <ChatListRow
+            key={String(c.id)}
+            chat={c}
+            syncedCount={local ? local.msg_count : 0}
+            onOpen={() => pushRef.current(chatPage(c.id))}
+          />
+        )
+      }),
+    [shown, localByName],
+  )
 
   /** 切换底部标签：带平滑动画（列表行插入/删除一并过渡） */
   const switchScope = (tag: string) => {
@@ -287,24 +321,18 @@ export function ChatsScreen({ p }: { p: PanelCtx }) {
 
         {p.chats === null ? (
           <>
-            <Hint tone="muted" text="还没有加载会话列表（需要已登录）" />
+            {/* 静默预拉也在进行中：提示改成加载态，避免“没加载”误导用户重复点 */}
+            <Hint
+              tone={p.chatsLoading ? "info" : "muted"}
+              spinner={p.chatsLoading}
+              text={p.chatsLoading ? "正在拉取会话列表…" : "还没有加载会话列表（需要已登录）"}
+            />
             <PrimaryButton title="加载会话列表" action={p.loadChats} />
           </>
         ) : shown.length === 0 ? (
           <Hint tone="muted" text="没有匹配的会话" />
         ) : (
-          shown.map((c: any) => {
-            const name = String(c.name ?? c.id)
-            const local = localByName.get(name)
-            return (
-              <ChatListRow
-                key={String(c.id)}
-                chat={c}
-                syncedCount={local ? local.msg_count : 0}
-                onOpen={() => p.push(chatPage(c.id))}
-              />
-            )
-          })
+          rowNodes
         )}
       </Section>
     </List>

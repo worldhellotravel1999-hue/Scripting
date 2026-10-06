@@ -4,17 +4,24 @@
 //  - AiGlobalSection：工具页——跨会话的「我的今日发言 / 今日消息汇总」。
 // AI 模型固定使用 Scripting 内置默认智能助手，不提供任何切换模型入口；
 // 界面上不展示任何提示词/说明文案，提示词均为本脚本自写或用户自己填写。
+// 2026-10-06 改版：**分析/提问结果一律用 ResultWindow 临时窗口展示**（页面内
+// 浮层：点遮罩/关闭即可收起，背后不再弹全屏 sheet 二级页），菜单列表里不再
+// 内嵌结果卡片；同时移除「重新生成 / 重新分析」
+// ——结果本就随页面重开清空，重跑=回列表再点一次动作行，弹窗里只留复制/发送。
 
 import {
+  Device,
   HStack,
   Picker,
   ProgressView,
-  RoundedRectangle,
+  ScrollView,
   Section,
   Text,
-  TextField,
   VStack,
+  ZStack,
+  RoundedRectangle,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "scripting"
@@ -37,13 +44,13 @@ import {
   requestAiStream,
 } from "./ai"
 import type { PanelCtx } from "./ctx"
-import { FieldBox, Hint, RowButton, SettingsRow } from "./components"
+import { Hint, RowButton, SettingsRow, labelWidth, type HintTone } from "./components"
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-type Phase = "idle" | "loading" | "streaming" | "done" | "error"
+export type Phase = "idle" | "loading" | "streaming" | "done" | "error"
 
 /** 分析结果的轻量排版：把 Markdown 式输出拆成标题 / 列表 / 段落块，分别排版。 */
 type Block = { kind: "heading" | "bullet" | "para"; text: string }
@@ -85,59 +92,186 @@ function parseBlocks(src: string): Block[] {
   return blocks
 }
 
-/**
- * 共用的分析结果卡片：浅灰圆角面板 + 分块排版（标题/列表/段落各自间距、
- * 行距宽松），下方一排行内小按钮（复制 / 发送 / 重新分析）。
- */
-export function OutputBox({
-  phase,
-  output,
-  errorMsg,
-  copyHint,
-  heading,
-  onCopy,
-  onRetry,
-  retryTitle,
-  onSend,
-  sendTitle,
-  sending,
-}: {
+// ── 分析结果临时窗口：所有 AI 结果统一在这里展示 ─────────────────────
+
+/** AI 结果状态：由详情页 / 工具页屏幕持有（页面浮层展示），动作区写入。 */
+export type AiResult = {
   phase: Phase
   output: string
   errorMsg: string
-  copyHint: string
-  /** 卡片头部：如 “内容摘要 · 今天” */
+  /** 弹窗标题，如 “内容摘要 · 今天” */
   heading: string
-  onCopy: () => void
-  onRetry: () => void
-  retryTitle: string
-  /** 传入则显示「发送」按钮（把当前结果发到目标会话） */
-  onSend?: () => void
-  sendTitle?: string
-  sending?: boolean
+  /** true = 自由提问轮次：提问时已确认，结果不再提供「发到本会话」 */
+  isAsk: boolean
+  sending: boolean
+  /** 发送结果临时提示（5s 清除） */
+  sendHint: string
+  /** 复制结果临时提示（3s 清除） */
+  copyHint: string
+}
+
+export const EMPTY_AI_RESULT: AiResult = {
+  phase: "idle",
+  output: "",
+  errorMsg: "",
+  heading: "",
+  isAsk: false,
+  sending: false,
+  sendHint: "",
+  copyHint: "",
+}
+
+/** setRes 形态：直接 patch，或按最新状态计算（清提示前先比对旧值） */
+export type AiResultPatch = Partial<AiResult> | ((r: AiResult) => Partial<AiResult>)
+export type SetAiResult = (patch: AiResultPatch) => void
+
+/**
+ * 行高估算（用于“内容多大弹窗多大”的自适应临时窗口）：
+ * 文本宽度用 labelWidth（CJK=字号、西文 0.6×）；行高 ≈ 字号×1.3，
+ * 行间再加 lineSpacing 6（仅 n-1 处）。
+ */
+function estTextHeight(text: string, font: number, availWidth: number): number {
+  let lines = 0
+  for (const seg of text.split("\n")) {
+    lines += Math.max(1, Math.ceil(labelWidth(seg, font) / Math.max(60, availWidth)))
+  }
+  return lines * font * 1.3 + Math.max(0, lines - 1) * 6
+}
+
+/**
+ * 分析结果**临时窗口**卡片（页面内浮层，不走系统 sheet，背后不再有全屏二级页）。
+ * · 列表里不再内嵌结果卡片——结果只在窗口里看，页面重开即空白；
+ * · **没有重新生成 / 重新分析**：重跑 = 关掉窗口回列表再点一次动作行；
+ * · **生成中也可随时关闭**（点遮罩/关闭都行，后台继续跑；动作行再点即重开）；
+ * · **窗口尺寸随内容自适应**：分析出多少内容就撑多大（宽=屏宽-64，高封顶
+ *   60% 屏高，超出内部滚动）；
+ * · 只留 复制 / 发到本会话 / 关闭，临时提示也只出现在窗口内。
+ */
+export function ResultSheet({
+  res,
+  setRes,
+  onClose,
+  chat,
+  p,
+}: {
+  res: AiResult
+  setRes: SetAiResult
+  onClose: () => void
+  /** 传入 = 群详情页：显示「发到本会话」 */
+  chat?: any
+  /** 发送成功后静默补刷统计 */
+  p?: PanelCtx
 }) {
+  const { phase, output, errorMsg, heading, isAsk, sending } = res
   const running = phase === "loading" || phase === "streaming"
-  const blocks = output !== "" ? parseBlocks(output) : []
+  // 卸载守卫：复制/发送的 await 与计时器回来时页面可能已退出，直接 setState 会崩
+  const mountedRef = useMounted()
+  // 解析只跟输出文本有关：busy 等无关状态引起的重渲染不重跑分块
+  const blocks = useMemo(() => (output !== "" ? parseBlocks(output) : []), [output])
+  const hint = res.sendHint !== "" ? res.sendHint : res.copyHint
+  const hintTone: HintTone =
+    hint.startsWith("已") || hint.startsWith("✅") ? "ok" : "error"
+  // 窗口高度随内容自适应：估正文+状态气泡+按钮行+提示的总高 → “内容多大、窗多大”
+  const windowHeight = useMemo(() => {
+    const cardW = Device.screen.width - 64 // 窗口卡片宽度（两侧留边）
+    const avail = cardW - 32 // 卡片左右 padding
+    let scroll = 0
+    let kids = 0
+    if (phase === "loading" || phase === "streaming") {
+      scroll += 30 // 单行状态气泡
+      kids++
+    }
+    if (phase === "error") {
+      scroll += estTextHeight(errorMsg, 13, avail - 48) + 14 // 气泡上下 padding
+      kids++
+    }
+    for (const b of blocks) {
+      if (kids > 0) scroll += 8
+      const font = b.kind === "heading" ? 17 : 15
+      scroll += estTextHeight(b.text, font, avail) + (b.kind === "heading" ? 6 : 0)
+      kids++
+    }
+    let h = 16 + 30 + 12 + scroll + 12 // 上 padding + 标题行 + 间距 + 滚动区 + 间距
+    if (blocks.length > 0) h += 30 // 按钮行
+    if (hint !== "") h += 12 + estTextHeight(hint, 13, avail - 48) + 14
+    h += 18 // 下 padding
+    // 封顶 60% 屏高（超长结果内部滚动），下限 170 避免缩成条状
+    return Math.round(Math.min(Math.max(h, 170), Device.screen.height * 0.6))
+  }, [phase, errorMsg, blocks, hint])
+
+  async function copy() {
+    const msg = "已复制"
+    if (output.trim() === "") return
+    try {
+      await Clipboard.copyText(output)
+      if (!mountedRef.current) return
+      setRes({ copyHint: msg })
+    } catch {
+      if (!mountedRef.current) return
+      setRes({ copyHint: "复制失败" })
+      return
+    }
+    setTimeout(() => mountedRef.current && setRes(r => (r.copyHint === msg ? { copyHint: "" } : {})), 3000)
+  }
+
+  async function send() {
+    if (!chat || sending || output.trim() === "") return
+    setRes({ sending: true, sendHint: "" })
+    const done = (msg: string) => {
+      if (!mountedRef.current) return
+      setRes({ sending: false, sendHint: msg })
+      setTimeout(() => mountedRef.current && setRes(r => (r.sendHint === msg ? { sendHint: "" } : {})), 5000)
+    }
+    try {
+      const ret = await tg(
+        "send_message",
+        { chat: chat.name || String(chat.id), chat_id: chat.id, text: output },
+        90,
+      )
+      if (!mountedRef.current) return
+      // 后台补刷统计：不该在页面上闪“读取时间线…”转圈
+      if (ret.ok) p?.loadOverview({ quiet: true })
+      done(ret.ok ? "已发送 ✓" : ret.error || "发送失败")
+    } catch (e) {
+      done(errorMessage(e))
+    }
+  }
+
   return (
-    <VStack alignment="leading" spacing={8} frame={{ maxWidth: "infinity", alignment: "leading" }}>
-      {phase === "loading" ? <Hint tone="info" spinner text="正在读取消息记录…" /> : null}
-      {phase === "streaming" ? <Hint tone="info" spinner text="AI 生成中…" /> : null}
-      {phase === "error" ? <Hint tone="error" text={errorMsg} /> : null}
-      {blocks.length > 0 ? (
-        <VStack
-          alignment="leading"
-          spacing={6}
-          padding={{ horizontal: 14, vertical: 12 }}
+    <VStack
+      alignment="leading"
+      spacing={12}
+      padding={{ horizontal: 16, top: 16, bottom: 18 }}
+      // 临时窗口卡片：宽固定屏宽-64，高度随内容自适应（随时可关，不锁生成中）
+      frame={{
+        width: Device.screen.width - 64,
+        height: windowHeight,
+        alignment: "leading",
+      }}
+      background={<RoundedRectangle fill="#FFFFFF" cornerRadius={18} />}
+      shadow={{ color: "rgba(0,0,0,0.18)", radius: 18, y: 8 }}
+    >
+      <HStack spacing={8} frame={{ maxWidth: "infinity", alignment: "leading" }}>
+        <Text
+          font="title3"
+          fontWeight="bold"
+          lineLimit={1}
           frame={{ maxWidth: "infinity", alignment: "leading" }}
-          background={<RoundedRectangle fill="#F2F2F7" cornerRadius={12} />}
         >
-          <Text font="caption" fontWeight="semibold" foregroundStyle="#8E8E93">
-            {heading}
-          </Text>
+          {heading !== "" ? heading : "分析结果"}
+        </Text>
+        {running ? <ProgressView /> : null}
+        <RowButton title="关闭" color="#8E8E93" action={onClose} />
+      </HStack>
+      <ScrollView axes="vertical" frame={{ maxWidth: "infinity", maxHeight: "infinity" }}>
+        <VStack alignment="leading" spacing={8} frame={{ maxWidth: "infinity", alignment: "leading" }}>
+          {phase === "loading" ? <Hint tone="info" spinner text="正在读取消息记录…" /> : null}
+          {phase === "streaming" ? <Hint tone="info" spinner text="AI 生成中…" /> : null}
+          {phase === "error" ? <Hint tone="error" text={errorMsg} /> : null}
           {blocks.map((b, i) => (
             <Text
               key={i}
-              font={b.kind === "heading" ? 16 : 15}
+              font={b.kind === "heading" ? 17 : 15}
               fontWeight={b.kind === "heading" ? "semibold" : undefined}
               foregroundStyle={b.kind === "heading" ? "#000000" : "#1C1C1E"}
               lineSpacing={6}
@@ -148,36 +282,26 @@ export function OutputBox({
             </Text>
           ))}
         </VStack>
-      ) : null}
-      {blocks.length > 0 ? (
-        <HStack spacing={8} frame={{ maxWidth: "infinity", alignment: "leading" }}>
-          <RowButton title="复制" action={onCopy} />
-          {onSend ? (
-            <RowButton
-              title={sending ? "发送中…" : sendTitle || "发送"}
-              color="#34C759"
-              filled
-              disabled={sending || running}
-              action={onSend}
-            />
-          ) : null}
+      </ScrollView>
+      <HStack spacing={8} frame={{ maxWidth: "infinity", alignment: "leading" }}>
+        {blocks.length > 0 ? <RowButton title="复制" action={copy} /> : null}
+        {chat !== undefined && !isAsk && blocks.length > 0 ? (
           <RowButton
-            title={running ? "生成中…" : retryTitle}
-            color="#FF9500"
-            disabled={running}
-            action={onRetry}
+            title={sending ? "发送中…" : "发到本会话"}
+            color="#34C759"
+            filled
+            disabled={sending || running}
+            action={send}
           />
-        </HStack>
-      ) : null}
-      {blocks.length > 0 && copyHint !== "" ? (
-        <Hint tone={copyHint.startsWith("已") ? "ok" : "error"} text={copyHint} />
-      ) : null}
+        ) : null}
+      </HStack>
+      {hint !== "" ? <Hint tone={hintTone} text={hint} /> : null}
     </VStack>
   )
 }
 
-function useCopyHelper() {
-  const [copyHint, setCopyHint] = useState("")
+/** 组件卸载守卫：await / 流式回调回来时可能已退出，靠它拦住 setState。 */
+function useMounted() {
   const mountedRef = useRef(true)
   useEffect(() => {
     mountedRef.current = true
@@ -185,17 +309,7 @@ function useCopyHelper() {
       mountedRef.current = false
     }
   }, [])
-  const copy = (text: string) => {
-    if (!text.trim()) return
-    Clipboard.copyText(text)
-      .then(() => {
-        if (!mountedRef.current) return
-        setCopyHint("已复制")
-        setTimeout(() => mountedRef.current && setCopyHint(""), 3000)
-      })
-      .catch(() => mountedRef.current && setCopyHint("复制失败"))
-  }
-  return { copyHint, copy, mountedRef }
+  return mountedRef
 }
 
 // ── 群详情页：一键 AI 分析 + 自定义动作 ──────────────────────────────────
@@ -214,62 +328,64 @@ function buildChatCatalog(chats: any[] | null): string {
     .join("\n")
 }
 
-export function AiActionsSection({ p, chat }: { p: PanelCtx; chat: any }) {
+export function AiActionsSection({
+  p,
+  chat,
+  res,
+  setRes,
+  openSheet,
+}: {
+  p: PanelCtx
+  chat: any
+  /** 屏幕持有的结果状态（详情页页面浮层展示 ResultSheet） */
+  res: AiResult
+  setRes: SetAiResult
+  /** 分析开始时打开结果弹窗 */
+  openSheet: () => void
+}) {
   const [win, setWin] = useState("today")
-  const [phase, setPhase] = useState<Phase>("idle")
-  const [output, setOutput] = useState("")
-  const [errorMsg, setErrorMsg] = useState("")
   const [runningId, setRunningId] = useState("")
-  const [showForm, setShowForm] = useState(false)
-  const [newName, setNewName] = useState("")
-  const [newPrompt, setNewPrompt] = useState("")
   const [formHint, setFormHint] = useState("")
-  const [sending, setSending] = useState(false)
-  const [sendHint, setSendHint] = useState("")
   const [askText, setAskText] = useState("")
-  const [showAsk, setShowAsk] = useState(false)
-  /** 最近一次分析的卡片标题与重试入口（动作分析与自由提问共用结果卡片） */
-  const [lastRun, setLastRun] = useState<{
-    heading: string
-    retry: () => void
-  } | null>(null)
-  const { copyHint, copy, mountedRef } = useCopyHelper()
+  const mountedRef = useMounted()
 
-  const running = phase === "loading" || phase === "streaming"
-  const actions = allAiActions(p.aiSettings)
-
-  /** 把当前分析结果直接发到本会话（以登录账号发出）。 */
-  async function sendOutput() {
-    if (output.trim() === "" || sending) return
-    setSending(true)
-    setSendHint("")
-    try {
-      const res = await tg(
-        "send_message",
-        { chat: chat.name || String(chat.id), chat_id: chat.id, text: output },
-        90
-      )
-      if (!mountedRef.current) return
-      setSendHint(res.ok ? "已发送 ✓" : res.error || "发送失败")
-      if (res.ok) p.loadOverview()
-    } finally {
-      if (mountedRef.current) {
-        setSending(false)
-        setTimeout(() => mountedRef.current && setSendHint(""), 5000)
-      }
-    }
+  /**
+   * 分析轮次守卫：
+   *  · runningRef —— 连点不会起两轮（running 从渲染闭包读，双击窗口内拦不住）；
+   *  · runSeqRef  —— 切换时间范围后旧流作废，它的分块/收尾不再写回界面。
+   */
+  const runningRef = useRef(false)
+  const runSeqRef = useRef(0)
+  const invalidateRun = () => {
+    runSeqRef.current += 1
+    runningRef.current = false
   }
+
+  const running = res.phase === "loading" || res.phase === "streaming"
+  const actions = allAiActions(p.aiSettings)
 
   /** 读取当前时间范围内的本群消息并整理成可分析文本。 */
   async function fetchTranscript(maxChars = 16000): Promise<string> {
-    const res =
+    const readOnce = () =>
       win === "today"
-        ? await tg("today", { chat: chat.name || String(chat.id), limit: 3000 }, 90)
-        : await tg(
+        ? tg("today", { chat: chat.name || String(chat.id), limit: 3000 }, 90)
+        : tg(
             "recent",
             { chat: chat.name || String(chat.id), hours: Number(win), limit: 1500 },
             90,
           )
+    let res = await readOnce()
+    // 本地库还没有这个会话 → 后端降级返回 needs_sync：自动先同步一次再重读。
+    // 否则只能看到「先点同步」的报错，体感就是“必须先发一条消息才能分析”。
+    if (res.ok && res.needs_sync) {
+      const synced = await p.syncOne(chat)
+      if (!synced || !synced.ok) {
+        throw new Error(
+          synced ? `自动同步失败：${synced.error || "未知错误"}` : "自动同步未完成，请稍后重试",
+        )
+      }
+      res = await readOnce()
+    }
     if (!res.ok) throw new Error(res.error || "读取消息失败")
     const messages = res.messages || []
     if (messages.length === 0)
@@ -279,45 +395,50 @@ export function AiActionsSection({ p, chat }: { p: PanelCtx; chat: any }) {
     return text
   }
 
-  /** 统一执行入口：读记录 → 流式生成 → 卡片展示（动作分析与自由提问共用）。 */
+  /** 统一执行入口：读记录 → 流式生成 → 写入结果状态（弹窗展示）。 */
   async function runStream(
     makeRequest: (transcript: string) => { systemPrompt: string; userContent: string },
-    meta: { heading: string; retry: () => void },
+    meta: { heading: string },
     runId: string,
   ) {
-    if (running) return
-    setPhase("loading")
+    if (runningRef.current) return
+    runningRef.current = true
+    const seq = ++runSeqRef.current
+    /** 本轮是否已被放弃（切了时间范围）或组件已卸载 */
+    const stale = () => !mountedRef.current || seq !== runSeqRef.current
+    setRes({ ...EMPTY_AI_RESULT, phase: "loading", heading: meta.heading })
     setRunningId(runId)
-    setLastRun(meta)
-    setOutput("")
-    setErrorMsg("")
+    openSheet()
     const flusher = createStreamFlusher(text => {
-      if (mountedRef.current) setOutput(text)
+      if (!stale()) setRes({ output: text })
     })
     try {
       const transcript = await fetchTranscript()
+      if (stale()) return
       const request = makeRequest(transcript)
-      setPhase("streaming")
+      setRes({ phase: "streaming" })
       const stream = await requestAiStream(request.systemPrompt, request.userContent)
       let buffered = ""
       for await (const chunk of stream) {
-        if (!mountedRef.current) break
+        if (stale()) break
         if (chunk.type === "text") {
           buffered += chunk.content
           flusher.schedule(buffered)
         }
       }
       flusher.cancel()
-      if (!mountedRef.current) return
-      setOutput(buffered)
-      setPhase("done")
+      if (stale()) return
+      setRes({ output: buffered, phase: "done" })
     } catch (e) {
       flusher.cancel()
-      if (!mountedRef.current) return
-      setErrorMsg(errorMessage(e))
-      setPhase("error")
+      if (stale()) return
+      setRes({ errorMsg: errorMessage(e), phase: "error" })
     } finally {
-      if (mountedRef.current) setRunningId("")
+      flusher.cancel()
+      if (seq === runSeqRef.current) {
+        runningRef.current = false
+        if (mountedRef.current) setRunningId("")
+      }
     }
   }
 
@@ -326,25 +447,25 @@ export function AiActionsSection({ p, chat }: { p: PanelCtx; chat: any }) {
     const meta = { scope: `会话「${chat.name || chat.id}」`, window: windowLabel }
     void runStream(
       transcript => buildActionRequest(action, transcript, meta),
-      { heading: `${action.name} · ${windowLabel}`, retry: () => runAction(action) },
+      { heading: `${action.name} · ${windowLabel}` },
       action.id,
     )
   }
 
   /** 自由提问：AI 判断要发消息时输出动作块，客户端真实执行后再让 AI 汇报结果。 */
-  async function runAsk() {
-    const ask = askText.trim()
-    if (ask === "" || running) return
+  async function runAsk(textArg?: string) {
+    const ask = (textArg ?? askText).trim()
+    if (ask === "" || runningRef.current) return
+    runningRef.current = true
+    const seq = ++runSeqRef.current
+    const stale = () => !mountedRef.current || seq !== runSeqRef.current
     const windowLabel = WINDOW_LABELS[win] ?? win
     const meta = { scope: `会话「${chat.name || chat.id}」`, window: windowLabel }
-    setPhase("loading")
+    setRes({ ...EMPTY_AI_RESULT, phase: "loading", heading: `自由提问 · ${windowLabel}`, isAsk: true })
     setRunningId("ask")
-    setShowAsk(false) // 开始执行后收起输入行，结果卡片接结果（askText 保留供重试）
-    setLastRun({ heading: `自由提问 · ${windowLabel}`, retry: () => runAsk() })
-    setOutput("")
-    setErrorMsg("")
+    openSheet()
     const flusher = createStreamFlusher(text => {
-      if (mountedRef.current) setOutput(text)
+      if (!stale()) setRes({ output: text })
     })
     try {
       // 发送类指令不依赖本地记录：读不到记录时降级为空，不让纯发送指令被卡住；
@@ -360,11 +481,11 @@ export function AiActionsSection({ p, chat }: { p: PanelCtx; chat: any }) {
         ...meta,
         catalog: buildChatCatalog(p.chats),
       })
-      setPhase("streaming")
+      setRes({ phase: "streaming" })
       const stream = await requestAiStream(first.systemPrompt, first.userContent)
       let raw = ""
       for await (const chunk of stream) {
-        if (!mountedRef.current) break
+        if (stale()) break
         if (chunk.type === "text") {
           raw += chunk.content
           // 流式期间把动作块原文藏起来，用户只看得到自然语言部分
@@ -372,34 +493,34 @@ export function AiActionsSection({ p, chat }: { p: PanelCtx; chat: any }) {
         }
       }
       flusher.cancel()
-      if (!mountedRef.current) return
+      if (stale()) return
       const { actions, clean } = parseActionBlocks(raw)
       if (actions.length === 0) {
         if (raw.includes(ACTION_START)) {
-          // 有动作标记但解析不出（JSON 损坏）：报错让用户重试，不展示原文
-          setErrorMsg("AI 输出的动作格式无法解析，请点「重新生成」重试")
-          setPhase("error")
+          // 有动作标记但解析不出（JSON 损坏）：报错，不展示原文（重跑=重发一次）
+          setRes({ errorMsg: "AI 输出的动作格式无法解析，请重新发起一次", phase: "error" })
           return
         }
         // 纯回答：直接展示
-        setOutput(raw.trim())
-        setPhase("done")
+        setRes({ output: raw.trim(), phase: "done" })
         return
       }
       // 执行动作（按会话分组、每组一次批量发送），随后本地生成汇报——
       // 不再跑第二轮 AI 汇报，反馈时间少一整轮模型延迟
-      setOutput("")
+      setRes({ output: "" })
       const report = await runActions(actions)
-      if (!mountedRef.current) return
-      setOutput(clean ? `${clean}\n\n${report}` : report)
-      setPhase("done")
+      if (stale()) return
+      setRes({ output: clean ? `${clean}\n\n${report}` : report, phase: "done" })
     } catch (e) {
       flusher.cancel()
-      if (!mountedRef.current) return
-      setErrorMsg(errorMessage(e))
-      setPhase("error")
+      if (stale()) return
+      setRes({ errorMsg: errorMessage(e), phase: "error" })
     } finally {
-      if (mountedRef.current) setRunningId("")
+      flusher.cancel()
+      if (seq === runSeqRef.current) {
+        runningRef.current = false
+        if (mountedRef.current) setRunningId("")
+      }
     }
   }
 
@@ -463,15 +584,13 @@ export function AiActionsSection({ p, chat }: { p: PanelCtx; chat: any }) {
     return [head, ...failLines].join("\n")
   }
 
-  function saveAction() {
-    const name = newName.trim()
-    const prompt = newPrompt.trim()
-    if (name === "" || prompt === "") {
-      const msg = "名称和提示词都要填"
-      setFormHint(msg)
-      setTimeout(() => setFormHint(cur => (cur === msg ? "" : cur)), 5000)
-      return
-    }
+  /** 定时提示：卸载后不再触发 setState */
+  function flashFormHint(msg: string) {
+    setFormHint(msg)
+    setTimeout(() => mountedRef.current && setFormHint(cur => (cur === msg ? "" : cur)), 5000)
+  }
+
+  function saveAction(name: string, prompt: string) {
     p.setAiSettings({
       ...p.aiSettings,
       customActions: [
@@ -479,13 +598,7 @@ export function AiActionsSection({ p, chat }: { p: PanelCtx; chat: any }) {
         { id: String(Date.now()), name, prompt },
       ],
     })
-    setNewName("")
-    setNewPrompt("")
-    const msg = "已保存，点它即可分析"
-    setFormHint(msg)
-    // 保存提示临时展示，5 秒后自动消失
-    setTimeout(() => setFormHint(cur => (cur === msg ? "" : cur)), 5000)
-    setShowForm(false)
+    flashFormHint("已保存，点它即可分析")
   }
 
   function removeAction(id: string) {
@@ -497,175 +610,167 @@ export function AiActionsSection({ p, chat }: { p: PanelCtx; chat: any }) {
 
   return (
     <>
-      <Picker
+      {/* 时间范围：点行弹小窗（actionSheet）选择，不再用整行宽的分段选择器 */}
+      <SettingsRow
+        icon="clock"
+        color="#5856D6"
         title="时间范围"
-        value={win}
-        onChanged={(v: string) => {
-          setWin(v)
-          setPhase("idle")
-          setOutput("")
+        value={WINDOW_LABELS[win] ?? win}
+        action={async () => {
+          const idx = await Dialog.actionSheet({
+            title: "分析的时间范围",
+            cancelButton: true,
+            actions: [{ label: "今天" }, { label: "近 24 小时" }, { label: "近 7 天" }],
+          })
+          if (idx === null) return
+          const next = ["today", "24", "168"][idx]
+          if (next === undefined || next === win) return
+          // 换时间范围 = 放弃正在跑的那一轮，否则旧流的分块会盖到新选择上
+          invalidateRun()
+          setRunningId("")
+          setWin(next)
+          setRes(EMPTY_AI_RESULT)
         }}
-        pickerStyle="segmented"
-      >
-        <Text tag="today">今天</Text>
-        <Text tag="24">近 24 小时</Text>
-        <Text tag="168">近 7 天</Text>
-      </Picker>
+      />
 
       {actions.map(action => {
         const isCustom = p.aiSettings.customActions.some(a => a.id === action.id)
-        const row = (
+        return (
           <SettingsRow
+            key={action.id}
             icon="sparkles"
             color={isCustom ? "#8E8E93" : "#2AABEE"}
             chevron={!isCustom}
             title={action.name}
-            action={() => !running && runAction(action)}
+            // 分析进行中再点 = 重开结果弹窗（不重复起跑；生成中随时可关、随时回来看）
+            action={() => (running ? openSheet() : runAction(action))}
             trailing={runningId === action.id ? <ProgressView /> : undefined}
+            onLongPress={
+              isCustom
+                ? async () => {
+                    if (running) return
+                    const ok = await Dialog.confirm({
+                      title: "删除自定义动作",
+                      message: `删除「${action.name}」？删除后可重新添加。`,
+                      confirmLabel: "删除",
+                    })
+                    if (ok) removeAction(action.id)
+                  }
+                : undefined
+            }
           />
-        )
-        return isCustom ? (
-          <HStack key={action.id} spacing={0} frame={{ maxWidth: "infinity" }}>
-            {row}
-            <RowButton
-              title="删除"
-              color="#FF3B30"
-              action={() => removeAction(action.id)}
-            />
-          </HStack>
-        ) : (
-          row
         )
       })}
 
-      {/* 自由提问：平时一行按钮，点开才展开输入（与「添加分析动作」同交互） */}
-      {!showAsk ? (
-        <SettingsRow
-          icon="questionmark.circle"
-          color="#2AABEE"
-          chevron={false}
-          title="自由提问 / 发送指令"
-          action={() => setShowAsk(true)}
-        />
-      ) : (
-        <VStack
-          alignment="leading"
-          spacing={8}
-          frame={{ maxWidth: "infinity", alignment: "leading" }}
-        >
-          <FieldBox>
-            <TextField
-              title="自由提问"
-              prompt="输入任意问题或指令，AI 结合本群记录作答 / 执行发送…"
-              value={askText}
-              onChanged={setAskText}
-              axis="vertical"
-              lineLimit={{ min: 1, max: 4 }}
-              frame={{ maxWidth: "infinity", alignment: "leading" }}
-            />
-          </FieldBox>
-          <HStack spacing={10}>
-            <RowButton
-              title={runningId === "ask" ? "生成中…" : "提问"}
-              filled
-              disabled={running || askText.trim() === ""}
-              action={runAsk}
-            />
-            <RowButton title="收起" color="#8E8E93" action={() => setShowAsk(false)} />
-          </HStack>
-        </VStack>
-      )}
+      {/* 自由提问：点行弹窗输入，AI 结合本群记录作答 / 执行发送（askText 保留供重试）；
+          生成状态直接显示在本行（标题 + 右侧转圈），结果在弹窗里看 */}
+      <SettingsRow
+        icon="questionmark.circle"
+        color="#2AABEE"
+        chevron={false}
+        title={runningId === "ask" ? "自由提问…（生成中）" : "自由提问 / 发送指令"}
+        trailing={runningId === "ask" ? <ProgressView /> : undefined}
+        action={async () => {
+          // 有分析在跑（含本动作）→ 直接重开结果弹窗，不弹输入框、不重复起跑
+          if (running) {
+            openSheet()
+            return
+          }
+          const v = await Dialog.prompt({
+            title: "自由提问 / 发送指令",
+            message: "输入任意问题或指令，AI 结合本群记录作答；可要求向某个会话发送消息",
+            defaultValue: askText,
+            placeholder: "输入问题或指令",
+            confirmLabel: "提问",
+          })
+          if (v === null || v.trim() === "") return
+          setAskText(v.trim())
+          await runAsk(v.trim())
+        }}
+      />
 
-      {/* 分析结果卡片：紧跟动作行展示，不再在屏幕底部冒一行字 */}
-      {phase !== "idle" || output !== "" ? (
-        <OutputBox
-          heading={lastRun ? lastRun.heading : "分析结果"}
-          phase={phase}
-          output={output}
-          errorMsg={errorMsg}
-          copyHint={sendHint !== "" ? sendHint : copyHint}
-          onCopy={() => copy(output)}
-          onRetry={() => lastRun && lastRun.retry()}
-          retryTitle="重新生成"
-          onSend={sendOutput}
-          sendTitle="发到本会话"
-          sending={sending}
-        />
-      ) : null}
+      {/* 分析结果在页面浮层临时窗口里展示，行内不插结果卡片 */}
 
-      {!showForm ? (
-        <SettingsRow
-          icon="plus.circle"
-          color="#34C759"
-          chevron={false}
-          title="添加分析动作"
-          action={() => {
-            setShowForm(true)
-            setFormHint("")
-          }}
-        />
-      ) : (
-        <VStack
-          alignment="leading"
-          spacing={8}
-          frame={{ maxWidth: "infinity", alignment: "leading" }}
-        >
-          <FieldBox>
-            <TextField
-              title="动作名称，如：与我有关"
-              value={newName}
-              onChanged={setNewName}
-              frame={{ maxWidth: "infinity" }}
-            />
-          </FieldBox>
-          <FieldBox>
-            <TextField
-              title="提示词：希望 AI 怎样分析"
-              prompt="用简体中文输出…（只基于记录作答，不要编造）"
-              value={newPrompt}
-              onChanged={setNewPrompt}
-              frame={{ maxWidth: "infinity" }}
-            />
-          </FieldBox>
-          <HStack spacing={10}>
-            <RowButton title="保存" color="#34C759" filled action={saveAction} />
-            <RowButton
-              title="取消"
-              color="#8E8E93"
-              action={() => {
-                setShowForm(false)
-                setNewName("")
-                setNewPrompt("")
-                setFormHint("")
-              }}
-            />
-          </HStack>
-        </VStack>
-      )}
-      {formHint !== "" ? (
-        <Hint tone={formHint.startsWith("已") ? "ok" : "error"} text={formHint} />
-      ) : null}
+      {/* 添加分析动作：两步弹窗（名称 → 提示词），行内不放表单，提示在本行显示 */}
+      <SettingsRow
+        icon="plus.circle"
+        color="#34C759"
+        chevron={false}
+        title="添加分析动作"
+        hint={formHint !== "" ? formHint : undefined}
+        hintTone={formHint.startsWith("已") ? "ok" : "error"}
+        action={async () => {
+          if (running) return
+          setFormHint("")
+          const name = await Dialog.prompt({
+            title: "添加分析动作（1/2）",
+            message: "动作名称，如：与我有关",
+            placeholder: "动作名称",
+            confirmLabel: "下一步",
+          })
+          if (name === null) return
+          if (name.trim() === "") {
+            flashFormHint("请输入动作名称")
+            return
+          }
+          const prompt = await Dialog.prompt({
+            title: "添加分析动作（2/2）",
+            message: "提示词：希望 AI 怎样分析（只基于记录作答，不要编造）",
+            placeholder: "用简体中文输出…",
+            confirmLabel: "保存",
+          })
+          if (prompt === null) return
+          if (prompt.trim() === "") {
+            flashFormHint("请输入提示词")
+            return
+          }
+          saveAction(name.trim(), prompt.trim())
+        }}
+      />
     </>
   )
 }
 
 // ── 工具页：跨会话的全局 AI 汇总 ─────────────────────────────────────────────
 
-export function AiGlobalSection({ p }: { p: PanelCtx }) {
+export function AiGlobalSection({
+  p,
+  res,
+  setRes,
+  openSheet,
+}: {
+  p: PanelCtx
+  /** 屏幕持有的结果状态（工具页页面浮层展示 ResultSheet） */
+  res: AiResult
+  setRes: SetAiResult
+  /** 分析开始时打开结果弹窗 */
+  openSheet: () => void
+}) {
   const [mode, setMode] = useState<AiMode>("mine")
   const [win, setWin] = useState("today")
-  const [phase, setPhase] = useState<Phase>("idle")
-  const [output, setOutput] = useState("")
-  const [errorMsg, setErrorMsg] = useState("")
-  const { copyHint, copy, mountedRef } = useCopyHelper()
+  const mountedRef = useMounted()
+
+  /** 同 AiActionsSection：连点不重复起跑；切分析对象/时间范围后旧流作废 */
+  const runningRef = useRef(false)
+  const runSeqRef = useRef(0)
+  const invalidateRun = () => {
+    runSeqRef.current += 1
+    runningRef.current = false
+  }
 
   async function runAnalysis() {
-    if (phase === "loading" || phase === "streaming") return
-    setPhase("loading")
-    setOutput("")
-    setErrorMsg("")
+    if (runningRef.current) return
+    runningRef.current = true
+    const seq = ++runSeqRef.current
+    const stale = () => !mountedRef.current || seq !== runSeqRef.current
+    setRes({
+      ...EMPTY_AI_RESULT,
+      phase: "loading",
+      heading: `${MODE_LABELS[mode]}${mode === "all" ? ` · ${WINDOW_LABELS[win] ?? win}` : ""}`,
+    })
+    openSheet()
     const flusher = createStreamFlusher(text => {
-      if (mountedRef.current) setOutput(text)
+      if (!stale()) setRes({ output: text })
     })
     try {
       let messages: any[] = []
@@ -709,40 +814,40 @@ export function AiGlobalSection({ p }: { p: PanelCtx }) {
       if (text.trim() === "") throw new Error("该范围内没有可分析的文本内容")
 
       const request = buildAiRequest(mode, text, { scope, window: windowLabel })
-      setPhase("streaming")
+      setRes({ phase: "streaming" })
       const stream = await requestAiStream(request.systemPrompt, request.userContent)
       let buffered = ""
       for await (const chunk of stream) {
-        if (!mountedRef.current) break
+        if (stale()) break
         if (chunk.type === "text") {
           buffered += chunk.content
           flusher.schedule(buffered)
         }
       }
       flusher.cancel()
-      if (!mountedRef.current) return
-      setOutput(buffered)
-      setPhase("done")
+      if (stale()) return
+      setRes({ output: buffered, phase: "done" })
     } catch (e) {
       flusher.cancel()
-      if (!mountedRef.current) return
-      setErrorMsg(errorMessage(e))
-      setPhase("error")
+      if (stale()) return
+      setRes({ errorMsg: errorMessage(e), phase: "error" })
+    } finally {
+      flusher.cancel()
+      if (seq === runSeqRef.current) runningRef.current = false
     }
   }
 
-  const running = phase === "loading" || phase === "streaming"
+  const running = res.phase === "loading" || res.phase === "streaming"
 
   return (
     <Section title="AI 汇总分析">
-      <Hint tone="info" text="跨会话的全局视角；分析单个群请点进群详情。" />
       <Picker
         title="分析对象"
         value={mode}
         onChanged={(v: string) => {
+          invalidateRun()
           setMode(v as AiMode)
-          setPhase("idle")
-          setOutput("")
+          setRes(EMPTY_AI_RESULT)
         }}
         pickerStyle="segmented"
       >
@@ -754,9 +859,9 @@ export function AiGlobalSection({ p }: { p: PanelCtx }) {
           title="时间范围"
           value={win}
           onChanged={(v: string) => {
+            invalidateRun()
             setWin(v)
-            setPhase("idle")
-            setOutput("")
+            setRes(EMPTY_AI_RESULT)
           }}
         >
           <Text tag="today">今天</Text>
@@ -769,25 +874,12 @@ export function AiGlobalSection({ p }: { p: PanelCtx }) {
         icon="sparkles"
         color="#2AABEE"
         chevron={false}
-        disabled={running}
         title={running ? "分析中…" : "开始 AI 分析"}
-        action={runAnalysis}
+        // 生成中可随时关弹窗，再点本行即重开（不再 disabled 锁死）
+        action={() => (running ? openSheet() : runAnalysis())}
         trailing={running ? <ProgressView /> : undefined}
       />
-      {phase !== "idle" || output !== "" ? (
-        <OutputBox
-          heading={`${MODE_LABELS[mode]}${
-            mode === "all" ? ` · ${WINDOW_LABELS[win] ?? win}` : ""
-          }`}
-          phase={phase}
-          output={output}
-          errorMsg={errorMsg}
-          copyHint={copyHint}
-          onCopy={() => copy(output)}
-          onRetry={runAnalysis}
-          retryTitle="重新分析"
-        />
-      ) : null}
+      {/* 分析结果在页面浮层临时窗口里展示，行内不插结果卡片 */}
     </Section>
   )
 }

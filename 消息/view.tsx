@@ -83,10 +83,16 @@ function loadExcludedChats(): string[] {
 function View() {
   const dismiss = Navigation.useDismiss()
   const mountedRef = useRef(true)
+  // 临时提示（错误 8s / 通知 5s）的计时器：用 ref 手动管理，
+  // 卸载时一并清掉，避免异步回调在组件销毁后还去 setState。
+  const errorTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
     mountedRef.current = true
     return () => {
       mountedRef.current = false
+      if (errorTimer.current !== null) clearTimeout(errorTimer.current)
+      if (noticeTimer.current !== null) clearTimeout(noticeTimer.current)
     }
   }, [])
 
@@ -120,15 +126,25 @@ function View() {
     busyCount.current = Math.max(0, busyCount.current - 1)
     if (busyCount.current === 0) setBusy(null)
   }
-  const [error, setError] = useState<string | null>(null)
+  const [errorState, setErrorState] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
-  // 所有提示都是临时的：错误横幅 8 秒后自动消失（下一次操作仍会重新触发）
-  useEffect(() => {
-    if (error === null) return
-    const timer = setTimeout(() => setError(null), 8000)
-    return () => clearTimeout(timer)
-  }, [error])
+  // 所有提示都是临时的：错误横幅 8 秒后自动消失（下一次操作仍会重新触发）。
+  // 必须用 ref 计时器而不是依赖 [error] 的 effect：**重复设置同一条错误文案时
+  // state 身份没变、effect 不会重跑**，旧计时器会把新错误提前清掉。
+  const setError = (msg: string | null) => {
+    if (errorTimer.current !== null) {
+      clearTimeout(errorTimer.current)
+      errorTimer.current = null
+    }
+    setErrorState(msg)
+    if (msg !== null) {
+      errorTimer.current = setTimeout(() => {
+        errorTimer.current = null
+        if (mountedRef.current) setErrorState(null)
+      }, 8000)
+    }
+  }
 
   // 登录
   const [status, setStatus] = useState<any>(null)
@@ -248,8 +264,17 @@ function View() {
   }
 
   const flash = (msg: string) => {
+    if (noticeTimer.current !== null) {
+      clearTimeout(noticeTimer.current)
+      noticeTimer.current = null
+    }
+    if (!mountedRef.current) return
     setNotice(msg)
-    setTimeout(() => setNotice(cur => (cur === msg ? null : cur)), 5000)
+    // 新通知接管旧计时器（旧的那条不再单独计时），卸载后不再回调
+    noticeTimer.current = setTimeout(() => {
+      noticeTimer.current = null
+      if (mountedRef.current) setNotice(cur => (cur === msg ? null : cur))
+    }, 5000)
   }
 
   const loadStatus = async (label = "检查连接…") => {
@@ -264,36 +289,64 @@ function View() {
     return res
   }
 
-  const loadOverview = async () => {
+  /**
+   * 读取本地统计 + 时间线。
+   * quiet=true：不占 busy 进度（发消息 / 撤回 / AI 发送后的后台补刷用，
+   * 不该在页面上闪一下“读取时间线…”转圈）；工具页的显式刷新仍带进度。
+   */
+  const loadOverview = async (options?: { quiet?: boolean }) => {
+    const quiet = options?.quiet === true
     const s = await tg("stats", {}, 30)
     if (s.ok) setStats(s)
     else setError(s.error || "读取本地统计失败")
-    beginBusy("读取时间线…")
+    if (!quiet) beginBusy("读取时间线…")
     try {
       const t = await tg("timeline", { hours: 168, granularity: "day" }, 30)
       if (t.ok) setTimeline(t.rows || [])
       else setError(t.error || "读取时间线失败")
     } finally {
-      endBusy()
+      if (!quiet) endBusy()
     }
   }
 
   /**
    * 拉取会话列表并写入本地缓存。
    * silent=true：不占 busy 进度、失败时保留旧缓存（进入脚本后的后台静默刷新用）。
+   * **在途去重**：启动预拉 / 进入页面的检查 / 手动下拉刷新可能撞在一起，
+   * 合并成同一次请求——list_chats 要遍历 300+ dialogs（~3s），重复拉纯浪费，
+   * 且两次结果先后落缓存会互相覆盖。
    */
-  const loadChats = async (options?: { silent?: boolean }) => {
+  const chatsReqRef = useRef<Promise<void> | null>(null)
+  const [chatsLoading, setChatsLoading] = useState(false)
+  const loadChats = (options?: { silent?: boolean }): Promise<void> => {
+    const inflight = chatsReqRef.current
+    if (inflight) return inflight
     const silent = options?.silent === true
-    const res = silent
-      ? await tg("list_chats", {}, 90)
-      : await run("list_chats", {}, 90, "拉取会话列表…")
-    if (res.ok) {
-      const list = res.chats || []
-      setChats(list)
+    const task = (async () => {
+      setChatsLoading(true)
       try {
-        Storage.set(CHATS_CACHE_KEY, { at: Date.now(), chats: list })
-      } catch {}
+        const res = silent
+          ? await tg("list_chats", {}, 90)
+          : await run("list_chats", {}, 90, "拉取会话列表…")
+        if (res.ok) {
+          const list = res.chats || []
+          setChats(list)
+          try {
+            Storage.set(CHATS_CACHE_KEY, { at: Date.now(), chats: list })
+          } catch {}
+        }
+      } catch (e) {
+        console.log("loadChats failed:", e)
+      } finally {
+        setChatsLoading(false)
+      }
+    })()
+    chatsReqRef.current = task
+    const done = () => {
+      if (chatsReqRef.current === task) chatsReqRef.current = null
     }
+    task.then(done, done)
+    return task
   }
 
   const loadMessages = async (mode: string) => {
@@ -400,8 +453,8 @@ function View() {
     }
   }
 
-  const doSyncOne = async () => {
-    const name = syncChat.trim()
+  const doSyncOne = async (nameArg?: string) => {
+    const name = (nameArg ?? syncChat).trim()
     if (!name) {
       setError("请输入会话名或用户名")
       return
@@ -524,12 +577,22 @@ function View() {
     const start = Date.now()
     ;(async () => {
       try {
-        await loadStatus()
-        await loadOverview()
+        // 两条都是本地/联网的独立请求，并行跑：状态检查（联网探测）与概览
+        // （纯本地 SQLite，毫秒级）没有依赖关系。
+        await Promise.all([loadStatus(), loadOverview({ quiet: true })])
       } catch {}
       setTimeout(finish, Math.max(0, 900 - (Date.now() - start)))
     })()
     return () => clearTimeout(watchdog)
+  }, [])
+
+  // 启动即预拉会话列表：status（联网探测）与 list_chats（遍历 300+ dialogs，
+  // ~3s）是两条互相独立的秒级网络请求，串行等 status 回来才开拉会白等一截。
+  // **必须静默**：此刻还不知道登录态，走 run() 的话未登录时会把“尚未登录”
+  // 错误横幅弹到登录页表单上（silent 失败不产生任何 UI，由下面的 effect 兑底重试）。
+  useEffect(() => {
+    if (chats === null) loadChats({ silent: true })
+    return
   }, [])
 
   // 进入脚本：优先用本地缓存秒开会话列表。
@@ -537,7 +600,9 @@ function View() {
   useEffect(() => {
     if (!booted || !status?.authorized) return
     if (chats === null) {
-      loadChats()
+      // 预拉还在飞 → 让它自己完成（下面靠 chatsLoading 展示加载态），
+      // 不重复拉；已经结束且失败 → 带进度重拉一次，失败才有错误横幅。
+      if (!chatsReqRef.current) loadChats()
       return
     }
     const cache = Storage.get<ChatsCache>(CHATS_CACHE_KEY)
@@ -550,7 +615,7 @@ function View() {
 
   const panelCtx: PanelCtx = {
     busy,
-    error,
+    error: errorState,
     notice,
     dismiss,
     push,
@@ -561,6 +626,7 @@ function View() {
     timeline,
     loadOverview,
     chats,
+    chatsLoading,
     chatScope,
     setChatScope,
     chatSearch,
@@ -626,7 +692,7 @@ function View() {
         <NavigationStack>
           <LoginScreen
             busy={busy}
-            error={error}
+            error={errorState}
             phone={phone}
             setPhone={setPhone}
             code={code}

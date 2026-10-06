@@ -124,16 +124,20 @@ async def _online():
         yield c
 
 
-async def _me(c) -> dict:
+def _me_dict(m) -> dict:
+    """Telethon 的 User → 面板用的 me 字典。"""
     from scripts.client import _get_sender_name
 
-    m = await c.get_me()
     return {
         "id": m.id,
         "name": _get_sender_name(m) or "",
         "username": m.username or "",
         "phone": m.phone or "",
     }
+
+
+async def _me(c) -> dict:
+    return _me_dict(await c.get_me())
 
 
 def _err(e: BaseException) -> dict:
@@ -216,21 +220,28 @@ async def _probe_session() -> tuple[str, dict | None, str | None]:
                   会诱使用户反复登录，反复登录正是被服务端批量登出的诱因）。
     """
     from telethon import functions
-    from telethon.errors import RPCError
 
     cached_me = _load_state().get("me")
     revoked = None
     try:
         async with _online() as c:
-            try:
-                await c(functions.updates.GetStateRequest())
-            except RPCError as e:
-                if _is_revoked(e):
-                    revoked = True
-                else:
-                    raise
-            if revoked is None:
-                return "valid", await _me(c), None
+            # 两个 RPC 并行发出（同一条连接上 Telethon 按 msg_id 多路复用），
+            # 少一次串行往返——status 是启动路径上最贵的一步（串行 ~1.1s，并行 ~0.6s）。
+            # 语义与串行版完全一致：
+            #   · 任一请求命中吊销类错误 → 真掉线，清本地回登录页；
+            #   · 任一请求报其它错误 → 按网络不可用处理，**保持本地登录态**。
+            state_r, me_r = await asyncio.gather(
+                c(functions.updates.GetStateRequest()),
+                c.get_me(),
+                return_exceptions=True,
+            )
+            for r in (state_r, me_r):
+                if isinstance(r, BaseException):
+                    if _is_revoked(r):
+                        revoked = True
+                    else:
+                        raise r  # 非吊销错误 → 外层按 offline 处理
+            return "valid", _me_dict(me_r), None
     except (asyncio.CancelledError, KeyboardInterrupt, SystemExit):
         raise
     except BaseException as e:  # noqa: BLE001
@@ -427,60 +438,120 @@ def _c_local_chats(_args: dict) -> dict:
     return {"ok": True, "chats": _client().local_chats()}
 
 
+def _read_ok(key: str, rows: list, chat, *, with_count: bool = True, limit: int | None = None) -> dict:
+    payload: dict = {"ok": True, key: rows if limit is None else rows[:limit]}
+    if with_count:
+        payload["count"] = len(rows)
+    if chat:
+        payload["chat"] = chat
+    return payload
+
+
+def _read_missing_sync(key: str, chat: str, note: str, *, with_count: bool = True) -> dict:
+    """会话还没同步进本地库：**降级为空结果**而不是报错。
+
+    以前这里抛 ChatNotFoundError → 前端弹「本地库中没有会话…（请先同步）」，
+    但用户正是要同步/查看时看到它，且发一条消息把会话写进本地库后才消失，
+    体感就是「必须先发消息才能同步」。现在返回空 + needs_sync，
+    前端据此自动先同步一次再重读。
+    """
+    payload: dict = {
+        "ok": True,
+        key: [],
+        "needs_sync": True,
+        "chat": chat,
+        "note": note,
+    }
+    if with_count:
+        payload["count"] = 0
+    return payload
+
+
+def _guard_chat(runner, key: str, chat, *, with_count: bool = True, limit: int | None = None) -> dict:
+    """执行本地读命令；ChatNotFoundError → needs_sync 空结果（见上）。"""
+    from scripts.exceptions import ChatNotFoundError
+
+    try:
+        rows = runner()
+    except ChatNotFoundError as e:
+        return _read_missing_sync(key, str(chat or ""), str(e), with_count=with_count)
+    return _read_ok(key, rows, chat, with_count=with_count, limit=limit)
+
+
 def _c_search(args: dict) -> dict:
-    msgs = _client().search(
-        str(args.get("keyword") or ""),
-        chat=args.get("chat") or None,
-        sender=args.get("sender") or None,
-        hours=int(args["hours"]) if args.get("hours") else None,
-        regex=bool(args.get("regex")),
-        limit=int(args.get("limit") or 50),
+    return _guard_chat(
+        lambda: _client().search(
+            str(args.get("keyword") or ""),
+            chat=args.get("chat") or None,
+            sender=args.get("sender") or None,
+            hours=int(args["hours"]) if args.get("hours") else None,
+            regex=bool(args.get("regex")),
+            limit=int(args.get("limit") or 50),
+        ),
+        "messages",
+        args.get("chat") or None,
     )
-    return {"ok": True, "messages": msgs, "count": len(msgs)}
 
 
 def _c_filter(args: dict) -> dict:
-    msgs = _client().filter(
-        str(args.get("keywords") or ""),
-        chat=args.get("chat") or None,
-        hours=int(args["hours"]) if args.get("hours") else None,
+    return _guard_chat(
+        lambda: _client().filter(
+            str(args.get("keywords") or ""),
+            chat=args.get("chat") or None,
+            hours=int(args["hours"]) if args.get("hours") else None,
+        ),
+        "messages",
+        args.get("chat") or None,
+        limit=int(args.get("limit") or 100),
     )
-    limit = int(args.get("limit") or 100)
-    return {"ok": True, "messages": msgs[:limit], "count": len(msgs)}
 
 
 def _c_today(args: dict) -> dict:
     limit = int(args.get("limit") or 5000)
-    msgs = _client().today(chat=args.get("chat") or None, limit=limit)
-    return {"ok": True, "messages": msgs, "count": len(msgs)}
+    return _guard_chat(
+        lambda: _client().today(chat=args.get("chat") or None, limit=limit),
+        "messages",
+        args.get("chat") or None,
+    )
 
 
 def _c_recent(args: dict) -> dict:
-    msgs = _client().recent(
-        hours=int(args.get("hours") or 24),
-        chat=args.get("chat") or None,
-        sender=args.get("sender") or None,
-        limit=int(args.get("limit") or 100),
+    return _guard_chat(
+        lambda: _client().recent(
+            hours=int(args.get("hours") or 24),
+            chat=args.get("chat") or None,
+            sender=args.get("sender") or None,
+            limit=int(args.get("limit") or 100),
+        ),
+        "messages",
+        args.get("chat") or None,
     )
-    return {"ok": True, "messages": msgs, "count": len(msgs)}
 
 
 def _c_top_senders(args: dict) -> dict:
-    rows = _client().top_senders(
-        chat=args.get("chat") or None,
-        hours=int(args["hours"]) if args.get("hours") else None,
-        limit=int(args.get("limit") or 20),
+    return _guard_chat(
+        lambda: _client().top_senders(
+            chat=args.get("chat") or None,
+            hours=int(args["hours"]) if args.get("hours") else None,
+            limit=int(args.get("limit") or 20),
+        ),
+        "rows",
+        args.get("chat") or None,
+        with_count=False,
     )
-    return {"ok": True, "rows": rows}
 
 
 def _c_timeline(args: dict) -> dict:
-    rows = _client().timeline(
-        chat=args.get("chat") or None,
-        hours=int(args["hours"]) if args.get("hours") else None,
-        granularity=str(args.get("granularity") or "day"),
+    return _guard_chat(
+        lambda: _client().timeline(
+            chat=args.get("chat") or None,
+            hours=int(args["hours"]) if args.get("hours") else None,
+            granularity=str(args.get("granularity") or "day"),
+        ),
+        "rows",
+        args.get("chat") or None,
+        with_count=False,
     )
-    return {"ok": True, "rows": rows}
 
 
 def _c_delete_chat(args: dict) -> dict:

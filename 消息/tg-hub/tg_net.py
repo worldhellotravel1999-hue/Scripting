@@ -95,6 +95,10 @@ def run_on_loop(coro, timeout: float | None = None):
 
 def _make_client():
     from telethon import TelegramClient
+    # 短事务 session：每次同步的 session 读写都在方法内提交/回滚并关闭连接，
+    # 文件句柄绝不跨网络 await 存活——否则 iOS 挂起时仍持锁 → 0xdead10cc 被杀。
+    # 保持旧 .session 文件格式与单连接约束不变。
+    from tg_session import IOSSQLiteSession
     from scripts.config import (
         get_api_hash,
         get_api_id,
@@ -107,7 +111,7 @@ def _make_client():
     )
 
     return TelegramClient(
-        get_session_path(),
+        IOSSQLiteSession(get_session_path()),
         get_api_id(),
         get_api_hash(),
         device_model=get_device_model(),

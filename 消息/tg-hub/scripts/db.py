@@ -11,6 +11,7 @@ import json
 import logging
 import re
 import sqlite3
+from contextlib import closing, contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -58,7 +59,11 @@ def _canonical_chat_id(chat_id: int) -> int:
 
 
 class MessageDB:
-    """SQLite message store with context manager support."""
+    """File-backed message store; connections live only inside synchronous SQL helpers.
+
+    外层 ``with MessageDB()`` 只管理轻对象，可安全跨 await；不缓存连接或游标。
+    每个 SQL helper 自己完成打开、提交/回滚、关闭，嵌套查询不共享连接。
+    """
 
     def __init__(self, db_path: Path | str | None = None):
         if db_path is None:
@@ -66,10 +71,7 @@ class MessageDB:
         else:
             self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self.conn = sqlite3.connect(str(self.db_path))
-        self.conn.row_factory = sqlite3.Row
-        self.conn.execute("PRAGMA journal_mode=WAL")
-        self.conn.executescript(_CREATE_TABLE + _CREATE_INDEX)
+        self._initialized = False
         self.last_error: str | None = None  # 最近一次写库失败原因（成功写入后不清除，由调用方按次新建实例）
 
     def __enter__(self):
@@ -78,6 +80,50 @@ class MessageDB:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
         return False
+
+    @contextmanager
+    def _connection(self):
+        """One synchronous operation; never expose this scope across an await.
+
+        WAL 是持久设置，schema/pragma 只在本对象第一次成功打开时配置。
+        conn 的事务上下文先提交/回滚，finally 再关闭（初始化失败也关闭）。
+        """
+        conn = sqlite3.connect(str(self.db_path))
+        try:
+            conn.row_factory = sqlite3.Row
+            if not self._initialized:
+                with conn:
+                    with closing(conn.cursor()) as cursor:
+                        cursor.execute("PRAGMA journal_mode=WAL")
+                        cursor.fetchall()
+                        cursor.executescript(_CREATE_TABLE + _CREATE_INDEX)
+                self._initialized = True
+            with conn:
+                yield conn
+        finally:
+            conn.close()
+
+    def _fetchall(self, sql: str, params=()):
+        with self._connection() as conn:
+            with closing(conn.cursor()) as cursor:
+                cursor.execute(sql, params)
+                return cursor.fetchall()
+
+    def _fetchone(self, sql: str, params=()):
+        with self._connection() as conn:
+            with closing(conn.cursor()) as cursor:
+                cursor.execute(sql, params)
+                return cursor.fetchone()
+
+    def _write(self, sql: str, params, *, many: bool = False) -> int:
+        with self._connection() as conn:
+            with closing(conn.cursor()) as cursor:
+                if many:
+                    cursor.executemany(sql, params)
+                else:
+                    cursor.execute(sql, params)
+                # rowcount 对 executemany 累计实际插入行数，不计 OR IGNORE 重复行。
+                return cursor.rowcount
 
     def find_chats(self, chat_str: str) -> list[dict]:
         """Return chats matching a numeric ID, exact name, or partial name."""
@@ -139,7 +185,7 @@ class MessageDB:
     ) -> bool:
         """Insert a message, returns True if inserted (not duplicate)."""
         try:
-            cursor = self.conn.execute(
+            inserted = self._write(
                 """INSERT OR IGNORE INTO messages
                    (
                        platform,
@@ -165,8 +211,7 @@ class MessageDB:
                     json.dumps(raw_json, ensure_ascii=False) if raw_json else None,
                 ),
             )
-            self.conn.commit()
-            return cursor.rowcount > 0
+            return inserted > 0
         except sqlite3.Error as e:
             self.last_error = str(e)
             log.warning("insert_message failed: %s", e)
@@ -198,8 +243,7 @@ class MessageDB:
             for m in messages
         ]
         try:
-            before = self.conn.total_changes
-            self.conn.executemany(
+            return self._write(
                 """INSERT OR IGNORE INTO messages
                    (
                        platform,
@@ -214,9 +258,8 @@ class MessageDB:
                    )
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 rows,
+                many=True,
             )
-            self.conn.commit()
-            return self.conn.total_changes - before
         except sqlite3.Error as e:
             self.last_error = str(e)
             log.warning("insert_batch failed: %s", e)
@@ -245,7 +288,7 @@ class MessageDB:
             params.append(cutoff)
         query += " ORDER BY timestamp DESC LIMIT ?"
         params.append(limit)
-        rows = self.conn.execute(query, params).fetchall()
+        rows = self._fetchall(query, params)
         return [dict(r) for r in rows]
 
     def search_regex(
@@ -272,7 +315,7 @@ class MessageDB:
             params.append(cutoff)
         query += " ORDER BY timestamp DESC"
 
-        rows = self.conn.execute(query, params).fetchall()
+        rows = self._fetchall(query, params)
         results: list[dict] = []
         for row in rows:
             msg = dict(row)
@@ -308,7 +351,7 @@ class MessageDB:
             f"SELECT * FROM ({base_query} ORDER BY timestamp DESC LIMIT ?) "
             "ORDER BY timestamp ASC"
         )
-        rows = self.conn.execute(query, params + [limit]).fetchall()
+        rows = self._fetchall(query, params + [limit])
         return [dict(r) for r in rows]
 
     def get_today(
@@ -345,53 +388,51 @@ class MessageDB:
             params.append(chat_id)
         query += " ORDER BY chat_name, timestamp ASC LIMIT ?"
         params.append(limit)
-        rows = self.conn.execute(query, params).fetchall()
+        rows = self._fetchall(query, params)
         return [dict(r) for r in rows]
 
     def get_chats(self) -> list[dict]:
         """Get all known chats with message counts."""
-        rows = self.conn.execute(
+        rows = self._fetchall(
             """SELECT chat_id, chat_name, COUNT(*) as msg_count,
                       MIN(timestamp) as first_msg, MAX(timestamp) as last_msg
                FROM messages
                GROUP BY chat_id
                ORDER BY msg_count DESC"""
-        ).fetchall()
+        )
         return [dict(r) for r in rows]
 
     def get_last_msg_id(self, chat_id: int) -> int | None:
         """Get the latest msg_id for a chat, used for incremental sync."""
-        row = self.conn.execute(
+        row = self._fetchone(
             "SELECT MAX(msg_id) FROM messages WHERE chat_id = ?", (chat_id,)
-        ).fetchone()
+        )
         return row[0] if row and row[0] is not None else None
 
     def count(self, chat_id: int | None = None) -> int:
         if chat_id:
-            row = self.conn.execute(
+            row = self._fetchone(
                 "SELECT COUNT(*) FROM messages WHERE chat_id = ?", (chat_id,)
-            ).fetchone()
+            )
         else:
-            row = self.conn.execute("SELECT COUNT(*) FROM messages").fetchone()
+            row = self._fetchone("SELECT COUNT(*) FROM messages")
         return row[0]
 
     def get_latest_timestamp(self, chat_id: int | None = None) -> str | None:
         """Return the latest stored message timestamp for a chat or the whole DB."""
         if chat_id:
-            row = self.conn.execute(
+            row = self._fetchone(
                 "SELECT MAX(timestamp) FROM messages WHERE chat_id = ?", (chat_id,)
-            ).fetchone()
+            )
         else:
-            row = self.conn.execute("SELECT MAX(timestamp) FROM messages").fetchone()
+            row = self._fetchone("SELECT MAX(timestamp) FROM messages")
         return row[0] if row and row[0] is not None else None
 
     def delete_chat(self, chat_id: int) -> int:
         """Delete all messages for a chat. Returns number of deleted rows."""
-        cursor = self.conn.execute(
+        return self._write(
             "DELETE FROM messages WHERE chat_id = ?", (chat_id,)
         )
-        self.conn.commit()
-        return cursor.rowcount
 
     def delete_messages(self, chat_id: int, msg_ids: list[int]) -> int:
         """Delete specific messages (撤回后同步本地视图). Returns deleted rows."""
@@ -399,12 +440,10 @@ class MessageDB:
             return 0
         canonical = _canonical_chat_id(chat_id)
         placeholders = ",".join("?" for _ in msg_ids)
-        cursor = self.conn.execute(
+        return self._write(
             f"DELETE FROM messages WHERE chat_id = ? AND msg_id IN ({placeholders})",
             (canonical, *msg_ids),
         )
-        self.conn.commit()
-        return cursor.rowcount
 
     def top_senders(
         self,
@@ -424,7 +463,7 @@ class MessageDB:
             params.append(cutoff)
 
         where = " AND ".join(conditions)
-        rows = self.conn.execute(
+        rows = self._fetchall(
             f"""SELECT MAX(sender_name) as sender_name, sender_id, COUNT(*) as msg_count,
                        MIN(timestamp) as first_msg, MAX(timestamp) as last_msg
                 FROM messages WHERE {where}
@@ -432,7 +471,7 @@ class MessageDB:
                 ORDER BY msg_count DESC
                 LIMIT ?""",
             params + [limit],
-        ).fetchall()
+        )
         return [dict(r) for r in rows]
 
     def timeline(
@@ -458,14 +497,15 @@ class MessageDB:
             params.append(cutoff)
 
         where = " AND ".join(conditions)
-        rows = self.conn.execute(
+        rows = self._fetchall(
             f"""SELECT {time_expr} as period, COUNT(*) as msg_count
                 FROM messages WHERE {where}
                 GROUP BY period
                 ORDER BY period ASC""",
             params,
-        ).fetchall()
+        )
         return [dict(r) for r in rows]
 
     def close(self):
-        self.conn.close()
+        """Compatibility no-op: every SQL helper has already closed its connection."""
+        return None

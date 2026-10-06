@@ -235,6 +235,30 @@ async def _get_me(client: TelegramClient) -> dict:
     }
 
 
+async def _resolve_sync_entity(client: TelegramClient, chat: Any) -> Any:
+    """解析要同步的目标（名字 / 数字 ID / 已有 entity）。
+
+    以前只调 `client.get_entity(chat)`，按名字解析依赖 telethon session 里的
+    实体缓存（缓存没有这个名字就报 "Cannot find any entity"），而名字缓存
+    要等 iter_dialogs 跑过一轮才写进去 —— 这就是“必须先做点什么（比如发一条
+    消息）才能同步”的根源。这里加一层兑底：找不到时遍历 dialogs 精确匹配标题。
+    """
+    if not isinstance(chat, str):
+        return await client.get_entity(chat)
+    text = chat.strip()
+    if text == "":
+        raise ValueError("缺少要同步的会话名或 ID")
+    try:
+        return await client.get_entity(text)
+    except Exception:  # noqa: BLE001 名字/用户名解析失败 → 走 dialogs 兑底
+        pass
+    target = text.casefold()
+    async for dialog in client.iter_dialogs():
+        if (dialog.name or "").casefold() == target:
+            return dialog.entity
+    raise ValueError(f"找不到会话「{text}」，请先刷新会话列表或检查名称")
+
+
 async def _fetch_history(
     client: TelegramClient,
     chat: str | int,
@@ -251,7 +275,7 @@ async def _fetch_history(
     inserted = 0
     batch: list[dict] = []
     try:
-        entity = await client.get_entity(chat)
+        entity = await _resolve_sync_entity(client, chat)
         chat_name = (
             getattr(entity, "title", None)
             or getattr(entity, "first_name", None)
@@ -290,6 +314,11 @@ async def _fetch_history(
             ))
             if len(batch) >= BATCH:
                 inserted += db.insert_batch(batch)
+                # 写失败立即中止，不能清空 batch 后继续网络迭代（错误会被拖到
+                # 整轮结束才报，最多静默丢 200 条）。insert_batch 内部已回滚+关连接。
+                db_err = getattr(db, "last_error", None)
+                if db_err:
+                    raise SyncError(f"写入本地数据库失败：{db_err}")
                 batch.clear()
                 if on_progress:
                     on_progress(inserted)
@@ -308,11 +337,11 @@ async def _fetch_history(
         if batch:
             inserted += db.insert_batch(batch)
             batch.clear()
-        log.warning("Telegram rate limit hit, waiting %ss...", e.seconds)
-        await asyncio.sleep(e.seconds + random.uniform(1, 3))
         db_err = getattr(db, "last_error", None)
         if db_err:
             raise SyncError(f"写入本地数据库失败：{db_err}")
+        log.warning("Telegram rate limit hit, waiting %ss...", e.seconds)
+        await asyncio.sleep(e.seconds + random.uniform(1, 3))
         return inserted
     finally:
         if owns_db:
@@ -326,6 +355,7 @@ async def _sync_all(
     on_chat_done: Callable[[str, int], None] | None = None,
     delay: float = 1.0,
     max_chats: int | None = None,
+    capped_out: list[str] | None = None,
 ) -> dict[str, int]:
     results: dict[str, int] = {}
     stored = {c["chat_id"]: c for c in db.get_chats()}
@@ -467,6 +497,10 @@ class TGClient:
 
         Returns:
             {chat_name: new_count, ...}
+
+        capped_out:
+            首次同步（本地还没有该会话任何记录）且 limit_per_chat 超过首次上限时，
+            实际按首次上限截断的会话名会追加到这里（供面板提示“首次同步按 500 条截断”）。
         """
         def _on_done(name: str, count: int):
             if count > 0:

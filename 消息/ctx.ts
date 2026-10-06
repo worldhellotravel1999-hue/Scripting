@@ -29,10 +29,13 @@ export type PanelCtx = {
 
   stats: any
   timeline: any[]
-  loadOverview: () => Promise<void>
+  /** 读取本地统计+时间线；quiet=true 不占 busy 进度（后台补刷用） */
+  loadOverview: (options?: { quiet?: boolean }) => Promise<void>
 
   // 会话列表
   chats: any[] | null
+  /** 会话列表正在拉取（静默预拉时也置真，用于首页空态提示） */
+  chatsLoading: boolean
   chatScope: string
   setChatScope: (v: string) => void
   chatSearch: string
@@ -49,7 +52,7 @@ export type PanelCtx = {
   restoreChat: (id: any) => void
   /** 清空移出记录（删存储键，被移出的会话回到分组） */
   clearExcludedRecords: () => void
-  /** 拉取会话列表（silent=后台静默刷新，不占进度且失败保留缓存） */
+  /** 拉取会话列表（silent=后台静默刷新，不占进度且失败保留缓存）；并发调用自动合并 */
   loadChats: (options?: { silent?: boolean }) => Promise<void>
   /** 同步单个会话，返回原始结果（详情页自行展示） */
   syncOne: (chat: any) => Promise<TgResult | null>
@@ -81,7 +84,8 @@ export type PanelCtx = {
   setSyncChat: (v: string) => void
   syncOneLimit: string
   setSyncOneLimit: (v: string) => void
-  doSyncOne: () => Promise<void>
+  /** 同步单个会话（不传 name 时用 syncChat 输入值；弹窗流程直接传 name） */
+  doSyncOne: (name?: string) => Promise<void>
 
   // 设置页：凭证与数据
   delChat: string

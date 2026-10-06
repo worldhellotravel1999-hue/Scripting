@@ -1,50 +1,49 @@
 import {
   Button,
-  HStack,
   Image,
   List,
   ProgressView,
   Section,
-  TextField,
   useState,
 } from "scripting"
-import { fmtNum, fmtTime, tg } from "./api"
-import { Banners, FieldBox, Hint, RowButton, SettingsRow } from "./components"
+import { fmtNum, tg } from "./api"
+import { Banners, SettingsRow } from "./components"
 import type { PanelCtx } from "./ctx"
 
 /**
  * 设置页：整页一张无题单卡（不分组、无分组标题，与首页/群详情同风格）。
- * 全部为彩色圆角图标行 + 行内控件（见 components.tsx::SettingsRow）：
- *  同步（一键刷新 / 每会话条数 / 按名字同步 / 加入群组）→ 显示条数 → API 凭证 → 数据与账号。
- * 批量退出 / 删除已移到群详情页卡片末尾（见 detail.tsx::BulkLeaveSection）。
+ * 2026-10-05 改版：行内不再放「输入框 + 按钮」，改为**点整行（含彩色图标）
+ * 弹 Dialog 输入/确认**，当前值以灰色 value 展示，说明文字全部收进弹窗
+ * （点击才显示）。
+ * 2026-10-06：5 秒操作结果提示改为**行内小字**（直接显示在本行空白处），
+ * 不再在行下另起 Hint 气泡；重复的「上次刷新」提示行删除（顶部 Banners 已有）。
+ * 批量退出 / 删除在群详情页卡片末尾（见 detail.tsx::BulkLeaveSection）。
  */
 
 /**
- * 加入群组：输入邀请链接（t.me/+xxx）或公开 @用户名，走后端 join_chat 命令
- * （2026-10-05 从首页搬进设置页，样式与其它行一致）。
+ * 加入群组：点行弹窗输入邀请链接（t.me/+xxx）或公开 @用户名，
+ * 走后端 join_chat 命令（2026-10-05 改为弹窗交互，行内不再放输入框+按钮）。
  */
 function JoinChatRow({ p }: { p: PanelCtx }) {
-  const [text, setText] = useState("")
   const [joining, setJoining] = useState(false)
   const [hint, setHint] = useState<{ ok: boolean; text: string } | null>(null)
 
-  async function join() {
-    const v = text.trim()
-    if (v === "" || joining) return
+  function flashHint(h: { ok: boolean; text: string }) {
+    setHint(h)
+    setTimeout(() => setHint(cur => (cur?.text === h.text ? null : cur)), 5000)
+  }
+
+  async function join(v: string) {
+    if (joining) return
     setJoining(true)
     setHint(null)
     try {
       const res = await tg("join_chat", { chat: v }, 120)
       if (res.ok) {
-        const h = { ok: true, text: `已加入「${res.chat}」，回列表刷新可见` }
-        setHint(h)
-        setTimeout(() => setHint(cur => (cur?.text === h.text ? null : cur)), 5000)
-        setText("")
+        flashHint({ ok: true, text: `已加入「${res.chat}」` })
         p.loadChats()
       } else {
-        const h = { ok: false, text: res.error || "加入失败" }
-        setHint(h)
-        setTimeout(() => setHint(cur => (cur?.text === h.text ? null : cur)), 5000)
+        flashHint({ ok: false, text: res.error || "加入失败" })
       }
     } finally {
       setJoining(false)
@@ -56,70 +55,38 @@ function JoinChatRow({ p }: { p: PanelCtx }) {
       <SettingsRow
         icon="plus.circle"
         color="#34C759"
-        chevron={false}
-        title="加入群组"
-        trailing={
-          <HStack spacing={6}>
-            <FieldBox width={96}>
-              <TextField
-                title="邀请链接 / @用户名"
-                value={text}
-                onChanged={(v: string) => {
-                  setText(v)
-                  setHint(null)
-                }}
-                frame={{ maxWidth: "infinity" }}
-              />
-            </FieldBox>
-            <RowButton
-              title={joining ? "加入中…" : "加入"}
-              color="#34C759"
-              filled
-              disabled={joining || text.trim() === ""}
-              action={join}
-            />
-          </HStack>
-        }
+        title={joining ? "加入中…" : "加入群组"}
+        hint={hint ? hint.text : undefined}
+        hintTone={hint ? (hint.ok ? "ok" : "error") : "info"}
+        disabled={joining}
+        action={async () => {
+          if (joining) return
+          const v = await Dialog.prompt({
+            title: "加入群组",
+            message: "输入邀请链接（t.me/+xxx）或公开 @用户名",
+            placeholder: "@用户名 / 邀请链接",
+            confirmLabel: "加入",
+          })
+          if (v === null || v.trim() === "") return
+          await join(v.trim())
+        }}
       />
-      {hint ? <Hint tone={hint.ok ? "ok" : "error"} text={hint.text} /> : null}
     </>
   )
 }
 
 /**
  * 「显示条数」行（属于单卡的一部分，不再自带分组标题）：
- * 输入数字 → 点「写入缓存」才生效并落盘（重启脚本不回默认 50）。
+ * 点行弹窗输入数字 +「写入缓存」确认才落盘（重启脚本不回默认 50）。
  * 钳制：≥1 且不超过当前会话总数（会话未加载时不设上限）。
  */
 function ListLimitRow({ p }: { p: PanelCtx }) {
   const total = (p.chats || []).length
-  const [text, setText] = useState(String(Math.max(1, p.listLimit)))
-  const [hint, setHint] = useState("")
+  const [hint, setHint] = useState<{ tone: "ok" | "error"; text: string } | null>(null)
 
-  const handleInput = (v: string) => {
-    setText(v.replace(/[^0-9]/g, "").slice(0, 6))
-    setHint("")
-  }
-
-  function save() {
-    if (text === "") {
-      const msg = "请输入 ≥1 的数字"
-      setHint(msg)
-      setTimeout(() => setHint(cur => (cur === msg ? "" : cur)), 5000)
-      return
-    }
-    let n = Number(text)
-    if (!Number.isFinite(n) || n < 1) n = 1
-    const capped = total > 0 && n > total
-    if (capped) n = total
-    p.setListLimit(n) // 落盘（view.tsx 写入 Storage）
-    setText(String(n))
-    const msg = capped
-      ? `已写入缓存：显示 ${fmtNum(n)} 条（按会话总数封顶）`
-      : `已写入缓存：显示 ${fmtNum(n)} 条，重启脚本仍生效`
-    setHint(msg)
-    // 提示临时展示，5 秒后自动消失
-    setTimeout(() => setHint(cur => (cur === msg ? "" : cur)), 5000)
+  function flash(tone: "ok" | "error", msg: string) {
+    setHint({ tone, text: msg })
+    setTimeout(() => setHint(cur => (cur?.text === msg ? null : cur)), 5000)
   }
 
   return (
@@ -127,23 +94,49 @@ function ListLimitRow({ p }: { p: PanelCtx }) {
       <SettingsRow
         icon="list.number"
         color="#2AABEE"
-        chevron={false}
         title="显示条数"
-        trailing={
-          <HStack spacing={6}>
-            <FieldBox width={48}>
-              <TextField title="50" value={text} onChanged={handleInput} frame={{ maxWidth: "infinity" }} />
-            </FieldBox>
-            <RowButton title="写入缓存" action={save} />
-          </HStack>
-        }
+        hint={hint ? hint.text : undefined}
+        hintTone={hint ? hint.tone : "info"}
+        value={String(Math.max(1, p.listLimit))}
+        action={async () => {
+          const v = await Dialog.prompt({
+            title: "显示条数",
+            message:
+              total > 0
+                ? `首页最多显示的会话条数（1 ~ ${total}），写入缓存后重启仍生效`
+                : "首页最多显示的会话条数（≥1），写入缓存后重启仍生效",
+            defaultValue: String(Math.max(1, p.listLimit)),
+            keyboardType: "numberPad",
+            confirmLabel: "写入缓存",
+          })
+          if (v === null) return
+          if (v.replace(/[^0-9]/g, "") === "") {
+            flash("error", "请输入 ≥1 的数字")
+            return
+          }
+          let n = Number(v)
+          if (!Number.isFinite(n) || n < 1) n = 1
+          const capped = total > 0 && n > total
+          if (capped) n = total
+          p.setListLimit(n) // 落盘（view.tsx 写入 Storage）
+          flash(
+            "ok",
+            capped
+              ? `已写入 ${fmtNum(n)} 条（按总数封顶）`
+              : `已写入 ${fmtNum(n)} 条（重启仍生效）`,
+          )
+        }}
       />
-      {hint !== "" ? <Hint tone="ok" text={hint} /> : null}
     </>
   )
 }
 
 export function SettingsScreen({ p }: { p: PanelCtx }) {
+  // API 凭证状态说明不再常驻布局：收进 api_id/api_hash 行的弹窗 message（点击才显示）
+  const apiStatusMsg = p.status?.default_api
+    ? "当前使用公共凭证（易触发风控），建议填入自定义凭证"
+    : "已使用自定义 API 凭证"
+  const saveRowTitle = p.status?.default_api ? "保存自定义凭证" : "更新凭证"
   return (
     <List
       listStyle="plain"
@@ -177,67 +170,58 @@ export function SettingsScreen({ p }: { p: PanelCtx }) {
         <SettingsRow
           icon="gauge"
           color="#5856D6"
-          chevron={false}
           title="每会话最多条数"
-          trailing={
-            <FieldBox width={90}>
-              <TextField
-                title="500"
-                value={p.refreshLimit}
-                onChanged={p.setRefreshLimit}
-                frame={{ maxWidth: "infinity" }}
-              />
-            </FieldBox>
-          }
+          value={p.refreshLimit}
+          action={async () => {
+            const v = await Dialog.prompt({
+              title: "每会话最多条数",
+              message: "「刷新全部已同步会话」时，每个会话最多拉取的消息条数",
+              defaultValue: p.refreshLimit,
+              keyboardType: "numberPad",
+              confirmLabel: "确定",
+            })
+            if (v === null) return
+            const n = v.replace(/[^0-9]/g, "").slice(0, 6)
+            if (n !== "") p.setRefreshLimit(n)
+          }}
         />
         <SettingsRow
           icon="list.number"
           color="#5856D6"
-          chevron={false}
           title="本轮会话数上限"
-          trailing={
-            <FieldBox width={90}>
-              <TextField
-                title="20"
-                value={p.refreshChatsCount}
-                onChanged={p.setRefreshChatsCount}
-                frame={{ maxWidth: "infinity" }}
-              />
-            </FieldBox>
-          }
+          value={p.refreshChatsCount}
+          action={async () => {
+            const v = await Dialog.prompt({
+              title: "本轮会话数上限",
+              message: "「刷新全部已同步会话」本轮最多遍历的会话数量",
+              defaultValue: p.refreshChatsCount,
+              keyboardType: "numberPad",
+              confirmLabel: "确定",
+            })
+            if (v === null) return
+            const n = v.replace(/[^0-9]/g, "").slice(0, 6)
+            if (n !== "") p.setRefreshChatsCount(n)
+          }}
         />
         <SettingsRow
           icon="magnifyingglass"
           color="#2AABEE"
-          chevron={false}
           title="按名字同步"
-          trailing={
-            <HStack spacing={6}>
-              <FieldBox width={80}>
-                <TextField
-                  title="@用户名/群名"
-                  value={p.syncChat}
-                  onChanged={p.setSyncChat}
-                  frame={{ maxWidth: "infinity" }}
-                />
-              </FieldBox>
-              <RowButton
-                title="同步"
-                filled
-                disabled={p.busy !== null}
-                action={p.doSyncOne}
-              />
-            </HStack>
-          }
+          value={p.syncChat || undefined}
+          action={async () => {
+            if (p.busy !== null) return
+            const v = await Dialog.prompt({
+              title: "按名字同步",
+              message: "同步单个会话的最近消息（@用户名或群名）",
+              defaultValue: p.syncChat,
+              placeholder: "@用户名 / 群名",
+              confirmLabel: "同步",
+            })
+            if (v === null || v.trim() === "") return
+            p.setSyncChat(v.trim())
+            await p.doSyncOne(v.trim())
+          }}
         />
-        {p.syncResult ? (
-          <Hint
-            tone="muted"
-            text={`上次刷新 ${fmtTime(p.syncResult.at)} · 新增 ${fmtNum(p.syncResult.total)} 条${
-              p.syncResult.capped?.length ? ` · ${p.syncResult.capped.length} 个首次截断` : ""
-            }`}
-          />
-        ) : null}
 
         {/* 加入群组（邀请链接 / @用户名） */}
         <JoinChatRow p={p} />
@@ -245,46 +229,41 @@ export function SettingsScreen({ p }: { p: PanelCtx }) {
         {/* 显示条数（写入缓存） */}
         <ListLimitRow p={p} />
 
-        {/* API 凭证 */}
-        <Hint
-          tone={p.status?.default_api ? "warn" : "ok"}
-          text={
-            p.status?.default_api
-              ? "当前使用公共凭证（易触发风控），建议填入自定义凭证"
-              : "已使用自定义 API 凭证"
-          }
-        />
+        {/* API 凭证：点行弹窗填写，状态说明在弹窗里 */}
         <SettingsRow
           icon="number"
           color="#8E8E93"
-          chevron={false}
           title="api_id"
-          trailing={
-            <FieldBox width={140}>
-              <TextField
-                title="12345678"
-                value={p.apiId}
-                onChanged={p.setApiId}
-                frame={{ maxWidth: "infinity" }}
-              />
-            </FieldBox>
-          }
+          value={p.apiId || undefined}
+          action={async () => {
+            const v = await Dialog.prompt({
+              title: "API ID",
+              message: `${apiStatusMsg}；填完点下方「${saveRowTitle}」生效`,
+              defaultValue: p.apiId,
+              placeholder: "12345678",
+              keyboardType: "numberPad",
+              confirmLabel: "填写",
+            })
+            if (v === null) return
+            p.setApiId(v.trim())
+          }}
         />
         <SettingsRow
           icon="lock"
           color="#8E8E93"
-          chevron={false}
           title="api_hash"
-          trailing={
-            <FieldBox width={140}>
-              <TextField
-                title="32 位 hash"
-                value={p.apiHash}
-                onChanged={p.setApiHash}
-                frame={{ maxWidth: "infinity" }}
-              />
-            </FieldBox>
-          }
+          value={p.apiHash ? "已填写" : undefined}
+          action={async () => {
+            const v = await Dialog.prompt({
+              title: "API Hash",
+              message: `${apiStatusMsg}；32 位 hash，填完点下方「${saveRowTitle}」生效`,
+              defaultValue: p.apiHash,
+              placeholder: "32 位 hash",
+              confirmLabel: "填写",
+            })
+            if (v === null) return
+            p.setApiHash(v.trim())
+          }}
         />
         <SettingsRow
           icon="key.fill"
@@ -299,10 +278,17 @@ export function SettingsScreen({ p }: { p: PanelCtx }) {
             icon="xmark.bin"
             color="#FF3B30"
             danger
-            chevron={false}
             disabled={p.busy !== null}
             title="清除（恢复公共凭证）"
-            action={p.clearApi}
+            action={async () => {
+              if (p.busy !== null) return
+              const ok = await Dialog.confirm({
+                title: "清除自定义凭证",
+                message: "清除后恢复使用公共凭证（易触发风控），确定清除？",
+                confirmLabel: "清除",
+              })
+              if (ok) await p.clearApi()
+            }}
           />
         )}
 
@@ -325,36 +311,38 @@ export function SettingsScreen({ p }: { p: PanelCtx }) {
           icon="trash"
           color="#FF3B30"
           danger
-          chevron={false}
           disabled={p.busy !== null}
           title="删除本地记录"
-          trailing={
-            <HStack spacing={6}>
-              <FieldBox width={64}>
-                <TextField
-                  title="群名"
-                  value={p.delChat}
-                  onChanged={p.setDelChat}
-                  frame={{ maxWidth: "infinity" }}
-                />
-              </FieldBox>
-              <RowButton
-                title="删除"
-                color="#FF3B30"
-                disabled={p.busy !== null}
-                action={() => p.doDeleteChat()}
-              />
-            </HStack>
-          }
+          value={p.delChat || undefined}
+          action={async () => {
+            if (p.busy !== null) return
+            const v = await Dialog.prompt({
+              title: "删除本地记录",
+              message: "输入要删除本地记录的会话名（仅本地数据库，不影响 Telegram）",
+              defaultValue: p.delChat,
+              placeholder: "群名",
+              confirmLabel: "删除",
+            })
+            if (v === null || v.trim() === "") return
+            p.setDelChat(v.trim())
+            await p.doDeleteChat(v.trim())
+          }}
         />
         <SettingsRow
           icon="power"
           color="#FF3B30"
           danger
-          chevron={false}
           disabled={p.busy !== null}
           title="退出登录"
-          action={p.doLogout}
+          action={async () => {
+            if (p.busy !== null) return
+            const ok = await Dialog.confirm({
+              title: "退出登录",
+              message: "仅退出本机登录（同时清除会话列表缓存），不影响手机等其他设备。",
+              confirmLabel: "退出",
+            })
+            if (ok) await p.doLogout()
+          }}
         />
       </Section>
     </List>

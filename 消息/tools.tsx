@@ -5,6 +5,7 @@ import {
   List,
   Picker,
   ProgressView,
+  Rectangle,
   RoundedRectangle,
   Section,
   Spacer,
@@ -13,6 +14,7 @@ import {
   VStack,
   ZStack,
   useEffect,
+  useMemo,
   useState,
 } from "scripting"
 import { fmtNum, fmtTime } from "./api"
@@ -28,7 +30,13 @@ import {
   StatCard,
   TimelineRow,
 } from "./components"
-import { AiGlobalSection } from "./ai_panel"
+import {
+  AiGlobalSection,
+  EMPTY_AI_RESULT,
+  ResultSheet,
+  type AiResult,
+  type SetAiResult,
+} from "./ai_panel"
 import type { PanelCtx } from "./ctx"
 
 /**
@@ -47,6 +55,11 @@ const TAB_ITEMS = [
 
 export function ToolsScreen({ p }: { p: PanelCtx }) {
   const [tab, setTab] = useState<Tab>("msg")
+  // AI 结果临时窗口：结果状态由本页持有（页面浮层展示）；离开/重开即空白
+  const [aiRes, setAiResRaw] = useState<AiResult>(EMPTY_AI_RESULT)
+  const [aiSheet, setAiSheet] = useState(false)
+  const patchAi: SetAiResult = patch =>
+    setAiResRaw(r => ({ ...r, ...(typeof patch === "function" ? patch(r) : patch) }))
 
   const switchTab = (tag: string) => {
     withAnimation(Animation.smooth({ duration: 0.28 }), () => setTab(tag as Tab))
@@ -70,16 +83,18 @@ export function ToolsScreen({ p }: { p: PanelCtx }) {
   }
 
   const localChats = p.stats?.chats || []
-  const maxTimeline = p.timeline.reduce(
-    (a: number, r: any) => Math.max(a, r.msg_count || 0),
-    0
+  // 条形图只需一个最大值，只在数据真的变了时重算（每次 busy 起落都会重渲染）
+  const maxTimeline = useMemo(
+    () => p.timeline.reduce((a: number, r: any) => Math.max(a, r.msg_count || 0), 0),
+    [p.timeline],
   )
-  const maxRank = (p.ranking || []).reduce(
-    (a: number, r: any) => Math.max(a, r.msg_count || 0),
-    0
+  const maxRank = useMemo(
+    () => (p.ranking || []).reduce((a: number, r: any) => Math.max(a, r.msg_count || 0), 0),
+    [p.ranking],
   )
 
   return (
+    <ZStack frame={{ maxWidth: "infinity", maxHeight: "infinity" }}>
     <List
       listStyle="plain"
       listRowInsets={{ top: 0, bottom: 0, leading: 16, trailing: 16 }}
@@ -121,13 +136,18 @@ export function ToolsScreen({ p }: { p: PanelCtx }) {
         </HStack>
       </Section>
 
-      {/* AI 总结：常驻页面顶部（不再是底部标签里的一个页签） */}
-      <AiGlobalSection p={p} />
+      {/* AI 总结：常驻页面顶部（不再是底部标签里的一个页签）；
+          结果在 ResultSheet 弹窗里看，行内不插结果卡片 */}
+      <AiGlobalSection
+        p={p}
+        res={aiRes}
+        setRes={patchAi}
+        openSheet={() => setAiSheet(true)}
+      />
 
       {tab === "msg" ? (
         <>
           <Section title="消息查询">
-            <Hint tone="muted" text="关键词 / 今日 / 最近，全部查询本地库，不联网。" />
             <Picker
               title="模式"
               value={p.msgMode}
@@ -208,7 +228,6 @@ export function ToolsScreen({ p }: { p: PanelCtx }) {
       {tab === "rank" ? (
         <>
           <Section title="发言排行">
-            <Hint tone="muted" text="按本地消息库统计，可限定时间窗口。" />
             <Picker
               title="时间窗口"
               value={p.rankHours}
@@ -294,7 +313,6 @@ export function ToolsScreen({ p }: { p: PanelCtx }) {
                 colors={["#7B8FF7", "#4B5EF7"]}
               />
             </HStack>
-            <Hint tone="muted" text="查询全部走本地 SQLite：毫秒级、离线可用。" />
           </Section>
 
           <Section title="最近 7 天消息量">
@@ -309,5 +327,19 @@ export function ToolsScreen({ p }: { p: PanelCtx }) {
         </>
       ) : null}
     </List>
+
+    {/* AI 结果临时窗口：页面内浮层（遮罩 + 居中动态卡片），不弹全屏 sheet 二级页；
+        点遮罩或「关闭」即收起，生成中也一样（后台继续跑，动作行再点重开） */}
+    {aiSheet ? (
+      <ZStack alignment="center" frame={{ maxWidth: "infinity", maxHeight: "infinity" }}>
+        <Rectangle
+          fill="rgba(0,0,0,0.32)"
+          frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
+          onTapGesture={() => setAiSheet(false)}
+        />
+        <ResultSheet res={aiRes} setRes={patchAi} onClose={() => setAiSheet(false)} p={p} />
+      </ZStack>
+    ) : null}
+    </ZStack>
   )
 }
