@@ -39,8 +39,14 @@ CREATE TABLE IF NOT EXISTS messages (
 
 _CREATE_INDEX = """
 CREATE INDEX IF NOT EXISTS idx_messages_chat_ts ON messages(chat_id, timestamp);
-CREATE INDEX IF NOT EXISTS idx_messages_content ON messages(content);
+-- 2026-10-07 审计新增：时间范围查询（timeline/top_senders/get_recent/get_today）
+-- 都是 `WHERE timestamp >= ?`（不带 chat_id），旧索引最左列是 chat_id 用不上，
+-- 全部退化成全表扫描 + 临时排序。补一条 timestamp 单列索引覆盖 range 扫描。
+CREATE INDEX IF NOT EXISTS idx_messages_ts ON messages(timestamp);
 CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_name);
+-- 2026-10-07 审计移除：search 是 `content LIKE '%kw%'`（前后通配），B-tree
+-- 索引永远用不上，纯写放大；要提速得上 FTS5，这里先删掉。
+DROP INDEX IF EXISTS idx_messages_content;
 """
 
 
@@ -127,16 +133,32 @@ class MessageDB:
 
     def find_chats(self, chat_str: str) -> list[dict]:
         """Return chats matching a numeric ID, exact name, or partial name."""
-        chats = self.get_chats()
+        # 空串守卫（2026-10-07 审计）：`"" in 任意名字` 恒为 True，空 chat 会把
+        # 部分匹配变成“命中全部会话”，delete_chat 喂空串时会误删整库唯一会话。
+        chat_str = str(chat_str or "").strip()
+        if not chat_str:
+            return []
 
+        # 数字 ID 快路径：以前无条件先跑 get_chats()（全表 GROUP BY 聚合），
+        # 可是数字 ID 本可以一条点查搞定——search/filter/recent/today/
+        # top_senders/timeline/delete_chat 每次调用都在付这笔全表聚合。
         try:
-            numeric_id = _canonical_chat_id(int(chat_str))
-            exact_id_matches = [c for c in chats if c["chat_id"] == numeric_id]
-            if exact_id_matches:
-                return exact_id_matches
+            numeric_id: int | None = _canonical_chat_id(int(chat_str))
         except ValueError:
-            pass
+            numeric_id = None
+        if numeric_id is not None:
+            row = self._fetchone(
+                """SELECT chat_id, chat_name, COUNT(*) as msg_count,
+                          MIN(timestamp) as first_msg, MAX(timestamp) as last_msg
+                   FROM messages WHERE chat_id = ?
+                   GROUP BY chat_id""",
+                (numeric_id,),
+            )
+            if row:
+                return [dict(row)]
 
+        # 名字匹配（精确 → 部分）才需要完整的会话列表
+        chats = self.get_chats()
         exact_name_matches = [
             c
             for c in chats
@@ -408,6 +430,21 @@ class MessageDB:
             "SELECT MAX(msg_id) FROM messages WHERE chat_id = ?", (chat_id,)
         )
         return row[0] if row and row[0] is not None else None
+
+    def get_last_msg_ids(self) -> dict[int, int]:
+        """一次拿齐所有会话的最新 msg_id（refresh 用，避免逐会话点查）。
+
+        旧实现 _sync_all 里每个会话调一次 get_last_msg_id，300 个会话 = 300 次
+        `sqlite3.connect` + `MAX(msg_id)`（审计 #27 的 N+1）；一条 GROUP BY 即可。
+        """
+        rows = self._fetchall(
+            "SELECT chat_id, MAX(msg_id) as last_id FROM messages GROUP BY chat_id"
+        )
+        return {
+            int(r["chat_id"]): int(r["last_id"])
+            for r in rows
+            if r["last_id"] is not None
+        }
 
     def count(self, chat_id: int | None = None) -> int:
         if chat_id:

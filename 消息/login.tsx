@@ -43,10 +43,18 @@ function useScreenSize() {
 
   useEffect(() => {
     if (typeof Device === "undefined" || typeof Device.addOrientationListener !== "function") return
-    const update = () => setSize({ width: Device.screen.width, height: Device.screen.height })
+    const update = () => {
+      const w = Device.screen?.width
+      const h = Device.screen?.height
+      if (w && h) setSize({ width: w, height: h })
+    }
     Device.addOrientationListener(update)
     return () => {
-      Device.removeOrientationListener(update)
+      // 与 add 同样做存在性校验：宿主若只实现 add（或版本移除了 remove），
+      // 卸载时裸调会抛 TypeError。
+      if (typeof Device.removeOrientationListener === "function") {
+        Device.removeOrientationListener(update)
+      }
     }
   }, [])
 
@@ -279,6 +287,9 @@ export function LoginScreen(props: {
   doPassword: () => void
   restart: () => void
   dismiss: () => void
+  /** 正在“添加账号”（多账号）：顶部出「取消」回滚到原账号，而非关闭脚本 */
+  adding?: boolean
+  onCancelAdd?: () => void
 }) {
   const step =
     props.apiPhase === "id"
@@ -297,7 +308,9 @@ export function LoginScreen(props: {
       : step === "apiHash"
         ? "再填写对应的 API Hash（32 位）"
         : step === "phone"
-          ? "输入手机号，获取登录验证码"
+          ? props.adding
+            ? "输入新账号手机号，登录后可随时切换"
+            : "输入手机号，获取登录验证码"
           : step === "code"
             ? "验证码已发送，查收后输入即可登录"
             : "该账号开启了两步验证"
@@ -315,7 +328,11 @@ export function LoginScreen(props: {
       ignoresSafeArea={true}
       preferredColorScheme="light"
       toolbar={{
-        cancellationAction: <Button title="关闭" action={props.dismiss} />,
+        cancellationAction: props.adding ? (
+          <Button title="取消" action={props.onCancelAdd ?? props.dismiss} />
+        ) : (
+          <Button title="关闭" action={props.dismiss} />
+        ),
       }}
     >
       <TgFluidBackground />

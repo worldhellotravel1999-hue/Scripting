@@ -51,6 +51,19 @@ try:
         _spec.loader.exec_module(_new_html)
         _sys.modules["telethon.extensions.html"] = _new_html
         _tele_extensions.html = _new_html
+    # 审计 #9：真正调用 parse 的是 `utils.sanitize_parse_mode('html')` → 返回
+    # `telethon/utils.py` 顶部 `from .extensions import html` 首次导入时绑定的
+    # **模块对象**。若常驻解释器先加载了另一副本的 utils，它的 `html` 还是
+    # 旧模块，上面的锁定对 send_message(parse_mode='html') 不生效（遮罩/水印
+    # 静默降级）。这里把已加载的 utils.html 也指回本副本。
+    _utils = _sys.modules.get("telethon.utils")
+    if _utils is not None:
+        _u_html = getattr(_utils, "html", None)
+        _u_file = os.path.realpath(str(getattr(_u_html, "__file__", "") or ""))
+        if _u_file != _html_file:
+            _cur2 = _sys.modules.get("telethon.extensions.html")
+            if _cur2 is not None and os.path.realpath(str(getattr(_cur2, "__file__", "") or "")) == _html_file:
+                _utils.html = _cur2
 except Exception:  # noqa: BLE001 锁定失败不影响纯文本发送
     pass
 
@@ -66,17 +79,44 @@ logging.getLogger("telethon").addHandler(logging.NullHandler())
 
 def emit(obj: dict) -> None:
     try:
-        line = SENTINEL + json.dumps(obj, ensure_ascii=False, default=str)
+        # allow_nan=False：裸 NaN/Infinity 是非法 JSON，前端 JSON.parse 会直接抛；
+        # 走 _sanitize 重写成 null，比让面板拿到 ParseError 强。
+        line = SENTINEL + json.dumps(obj, ensure_ascii=False, default=str, allow_nan=False)
+    except (ValueError, TypeError):
+        try:
+            line = SENTINEL + json.dumps(_sanitize(obj), ensure_ascii=False, default=str)
+        except Exception:
+            line = SENTINEL + '{"ok": false, "error": "result not serializable"}'
+    try:
+        print(line, flush=True)
     except Exception:
-        line = SENTINEL + json.dumps({"ok": False, "error": "result not serializable"})
-    print(line, flush=True)
+        # 孤立代理符等导致 print 编码失败时，至少把结构化错误吐出去，
+        # 否则 api.ts 扫不到哨兵行 → 报「无响应」。
+        try:
+            print(SENTINEL + '{"ok": false, "error": "result not printable", "etype": "EncodeError"}', flush=True)
+        except Exception:
+            pass
+
+
+def _sanitize(obj):
+    """json.dumps(allow_nan=False) 失败后的降级：把 NaN/Inf 折成 null。"""
+    if isinstance(obj, float):
+        return None if (obj != obj or obj in (float("inf"), float("-inf"))) else obj
+    if isinstance(obj, dict):
+        return {k: _sanitize(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_sanitize(v) for v in obj]
+    return obj
 
 
 # ── 通用工具 ─────────────────────────────────────────────────────────────────
 
 def _state_path() -> Path:
-    from scripts.config import get_data_dir
-    return get_data_dir() / "login_state.json"
+    # 登录态缓存（me / phone_code_hash）按「当前账号」隔离：
+    # default 账号沿用 login_state.json（老用户零迁移），其他账号各自一个文件。
+    from scripts.config import active_sid, state_path_for
+
+    return state_path_for(active_sid())
 
 
 def _load_state() -> dict:
@@ -91,7 +131,8 @@ def _load_state() -> dict:
 
 def _save_state(state: dict) -> None:
     p = _state_path()
-    tmp = p.parent / (p.name + ".tmp")
+    # tmp 加唯一后缀：固定 tmp 名在并发写时会交错截断（见 config.save_accounts）
+    tmp = p.with_name(f"{p.name}.{os.getpid()}-{time.time_ns()}.tmp")
     tmp.write_text(json.dumps(state, ensure_ascii=False))
     try:
         os.chmod(tmp, 0o600)
@@ -104,6 +145,17 @@ def _clear_state() -> None:
     try:
         _state_path().unlink(missing_ok=True)
     except Exception:
+        pass
+
+
+def _sync_account(me: dict | None) -> None:
+    """探测/登录拿到 me → 回写多账号注册表（顺带清掉指向本账号的 pending）。"""
+    if not me:
+        return
+    try:
+        from scripts.config import upsert_account
+        upsert_account(me)
+    except Exception:  # noqa: BLE001 — 注册表失败不影响登录主流程
         pass
 
 
@@ -138,6 +190,39 @@ def _me_dict(m) -> dict:
 
 async def _me(c) -> dict:
     return _me_dict(await c.get_me())
+
+
+async def _me_avatar(c, user) -> str:
+    """当前账号头像 → 本地路径（面板用它替换默认小人图标）。
+
+    缓存：~/.tg-hub/avatars/<photo_id>.jpg（与会话列表同一套缓存，
+    换头像会换 photo_id → 自动重新下载）；未缓存则现场下载一次。
+    头像是锦上添花：任何失败/超时都返回 ""，绝不影响 status 主流程。
+    """
+    try:
+        from scripts.client import _avatar_target
+
+        cached, todo = _avatar_target(user)
+        if cached:
+            return cached
+        if not todo:
+            return ""
+        tmp = todo + ".tmp"
+        try:
+            # 先下到临时文件再原子改名：下载中途被取消/断网不会留下半个文件，
+            # 否则下次会被当成「已缓存」展示出坏图。
+            await asyncio.wait_for(c.download_profile_photo(user, file=tmp), 15)
+            if os.path.isfile(tmp) and os.path.getsize(tmp) > 0:
+                os.replace(tmp, todo)
+                return todo
+        finally:
+            try:
+                Path(tmp).unlink(missing_ok=True)
+            except OSError:
+                pass
+    except Exception:  # noqa: BLE001 —— 头像失败只表现为继续用默认图标
+        return ""
+    return ""
 
 
 def _err(e: BaseException) -> dict:
@@ -235,12 +320,16 @@ async def _probe_session() -> tuple[str, dict | None, str | None]:
                 c.get_me(),
                 return_exceptions=True,
             )
-            for r in (state_r, me_r):
-                if isinstance(r, BaseException):
-                    if _is_revoked(r):
-                        revoked = True
-                    else:
-                        raise r  # 非吊销错误 → 外层按 offline 处理
+            # 审计 #11：先**收集完**两个结果再定性——以前逐个 raise，前一个
+            # 已命中吊销、后一个恰好是网络错时会被 raise 覆盖成 offline，
+            # 死会话继续当已登录（弱网下两结果一吊销一网络错并不罕见）。
+            # 吊销是服务端的确定性结论，优先于网络层猜测。
+            errors = [r for r in (state_r, me_r) if isinstance(r, BaseException)]
+            for r in errors:
+                if _is_revoked(r):
+                    revoked = True
+            if not revoked and errors:
+                raise errors[0]  # 非吊销错误 → 外层按 offline 处理
             # 2026-10-06 修复：以前这里直接 return "valid", _me_dict(me_r)——
             # 当密钥已被服务端注销时 GetState 抛 AuthKeyUnregisteredError 而
             # get_me() 返回 None，`_me_dict(None)` 的 AttributeError 会被外层
@@ -252,7 +341,9 @@ async def _probe_session() -> tuple[str, dict | None, str | None]:
                 # 连得上、请求也正常返回，却拿不到自己 → 服务端不认这把密钥
                 revoked = True
             else:
-                return "valid", _me_dict(me_r), None
+                me = _me_dict(me_r)
+                me["avatar"] = await _me_avatar(c, me_r)  # 缓存命中时零成本
+                return "valid", me, None
     except (asyncio.CancelledError, KeyboardInterrupt, SystemExit):
         raise
     except BaseException as e:  # noqa: BLE001
@@ -267,11 +358,24 @@ async def _probe_session() -> tuple[str, dict | None, str | None]:
 
 # ── 在线命令 ─────────────────────────────────────────────────────────────────
 
-async def _c_status(_args: dict) -> dict:
-    from scripts.config import api_configured, get_db_path, get_data_dir, get_session_path
+async def _c_status(args: dict) -> dict:
+    from scripts.config import (
+        active_sid,
+        api_configured,
+        get_db_path,
+        get_data_dir,
+        get_session_path,
+        load_accounts,
+    )
+
+    # local=true：启动路径专用——只做本地判定（凭证/密钥/登录缓存），
+    # **不发任何网络请求**，毫秒级返回。联网复核（吊销/离线检测）由前端
+    # 在进入主界面后用普通 status 后台补跑，慢网络不再卡启动遮罩。
+    local_only = bool(args.get("local"))
 
     has_key = tg_net.local_auth_key()
     has_api = api_configured()
+    reg = load_accounts()  # 多账号注册表（一次读取）
     info = {
         "session_path": get_session_path() + ".session",
         "session_exists": Path(get_session_path() + ".session").exists(),
@@ -281,6 +385,10 @@ async def _c_status(_args: dict) -> dict:
         "data_dir": str(get_data_dir()),
         "has_api": has_api,  # 是否已配置自己的 api_id/api_hash（公共凭证已移除）
         "has_login_state": _state_path().exists(),
+        # 多账号：当前 sid + 账号列表（含 has_session 标记）+ 是否处于“添加账号”中途
+        "account_sid": active_sid(),
+        "accounts": _accounts_info(),
+        "adding": reg.get("pending") is not None,
     }
 
     # 没有凭证就无法连接 Telegram（公共凭证已删除）→ 先要求在登录页填凭证，
@@ -301,13 +409,48 @@ async def _c_status(_args: dict) -> dict:
     if st.get("phone_code_hash") and not st.get("me"):
         return {**info, "ok": True, "authorized": False, "me": None, "logging_in": True}
 
+    # 本地模式 + 本地明确有密钥 → 直接按已登录返回（me 用登录缓存），
+    # 密钥文件读不出来（None）时仍需联网探测才能定论。
+    if local_only and has_key is True:
+        _sync_account(st.get("me"))  # 本地快路径也回写注册表（老用户首次迁移）
+        return {
+            **info,
+            "ok": True,
+            "authorized": True,
+            "me": st.get("me"),
+            "local_only": True,
+        }
+
     outcome, me, net_err = await _probe_session()
     if outcome == "valid":
         _save_state({**_load_state(), "me": me})
+        _sync_account(me)
         return {**info, "ok": True, "authorized": True, "me": me}
     if outcome == "revoked":
-        # 服务端明确注销了本会话（已清本地）→ 这时才需要重新登录
-        return {**info, "ok": True, "authorized": False, "me": None, "revoked": True}
+        # 服务端明确注销了本会话（已清本地）→ 从注册表移除本账号并回落：
+        # 还有其他账号 → 自动切到下一个再探一次（每次回落注册表都变短，必然终止）；
+        # 没有其他账号 → 回登录页。
+        from scripts.config import unregister_current
+
+        fallback = unregister_current()
+        if fallback:
+            return await _c_status(args)
+        # 审计 #10：info 是探测**前**的快照，此刻 session 已删、注册表已更新，
+        # 原样返回会把 session_exists=True / 刚被移除的账号列表原封不动带给前端。
+        st2 = _load_state()
+        return {
+            **info,
+            "session_exists": Path(get_session_path() + ".session").exists(),
+            "local_session": tg_net.local_auth_key(),
+            "has_login_state": _state_path().exists(),
+            "account_sid": active_sid(),
+            "accounts": _accounts_info(),
+            "adding": load_accounts().get("pending") is not None,
+            "ok": True,
+            "authorized": False,
+            "me": None,
+            "revoked": True,
+        }
     # offline：网络不可用 → **信任本地会话**，保持已登录（不误踢回登录页）
     return {
         **info,
@@ -383,6 +526,7 @@ async def _c_sign_in(args: dict) -> dict:
             return {"ok": True, "need_password": True}
         me = await _me(c)
     _save_state({"me": me})  # 只留登录态缓存（验证码 hash 已作废）
+    _sync_account(me)
     return {"ok": True, "signed_in": True, "me": me}
 
 
@@ -400,6 +544,7 @@ async def _c_password(args: dict) -> dict:
         await c.sign_in(password=password)
         me = await _me(c)
     _save_state({"me": me})
+    _sync_account(me)
     return {"ok": True, "signed_in": True, "me": me}
 
 
@@ -412,16 +557,31 @@ async def _c_list_chats(args: dict) -> dict:
     return {"ok": True, "chats": await asyncio.to_thread(_go)}
 
 
+# sync 与 refresh 共用一个单飞名额（写同一批本地库、拉同一段历史）：
+# 超时后台命令还在跑时，再来一条同类直接报 Busy，不并行。
+_SYNC_GROUP = "sync-refresh"
+
+
 async def _c_sync(args: dict) -> dict:
     from scripts.client import TGClient
 
     chat = args.get("chat")
     limit = int(args.get("limit") or 1000)
 
+    if not tg_net.try_hold(_SYNC_GROUP):
+        return {
+            "ok": False,
+            "error": "上一条同步/刷新仍在后台执行，请稍后再试",
+            "etype": "Busy",
+        }
+
     def _go():
         return TGClient().sync(chat, limit=limit)
 
-    added = await asyncio.to_thread(_go)
+    try:
+        added = await asyncio.to_thread(_go)
+    finally:
+        tg_net.release_hold(_SYNC_GROUP)
     return {"ok": True, "chat": chat, "added": added}
 
 
@@ -433,6 +593,13 @@ async def _c_refresh(args: dict) -> dict:
     max_chats = args.get("max_chats")
     max_chats = int(max_chats) if max_chats not in (None, "", 0) else None
 
+    if not tg_net.try_hold(_SYNC_GROUP):
+        return {
+            "ok": False,
+            "error": "上一条同步/刷新仍在后台执行，请稍后再试",
+            "etype": "Busy",
+        }
+
     capped: list[str] = []
 
     def _go():
@@ -440,20 +607,35 @@ async def _c_refresh(args: dict) -> dict:
             limit_per_chat=limit, delay=delay, max_chats=max_chats, capped_out=capped
         )
 
-    result = await asyncio.to_thread(_go)
+    try:
+        result = await asyncio.to_thread(_go)
+    finally:
+        tg_net.release_hold(_SYNC_GROUP)
     total = sum(result.values())
     return {"ok": True, "total": total, "chats": result, "capped": capped}
 
 
 async def _c_logout(args: dict) -> dict:
-    """退出登录：**只清理本机**（断开常驻连接 + 删 session 文件 + 清登录缓存）。
+    """退出**当前账号**：只清理本机（断常驻连接 + 删该账号 session/state + 注销册表项）。
 
     刻意不调用 auth.logOut —— 脚本永远不在服务端做任何终止操作，
     从机制上保证不会波及手机等其他已登录设备。
-    （手机端“活跃会话”里可能残留一条本脚本的旧记录，可随时在手机上手动终止。）
+    多账号（2026-10-07）：若还有其他已注册账号则自动切回第一个（返回 switched_to），
+    否则落到 default 未登录态（回登录页）。
+    本地消息库跨账号共用，不随退出删除。
     """
-    await _drop_session()
-    return {"ok": True, "logged_out": True, "scope": "local"}
+    from scripts.config import load_accounts, unregister_current
+
+    sid_before = load_accounts().get("current")
+    await _drop_session()  # 删**当前 sid** 的 session 文件 + 其 state（此时 current 仍是它）
+    unregister_current()  # 从注册表移除，current 回落到第一个剩余账号或 default
+    remaining = [a for a in (load_accounts().get("list") or []) if a.get("sid") != sid_before]
+    return {
+        "ok": True,
+        "logged_out": True,
+        "scope": "local",
+        "switched_to": remaining[0].get("sid") if remaining else None,
+    }
 
 
 # ── 离线命令（本地 SQLite）─────────────────────────────────────────────────
@@ -501,12 +683,19 @@ def _read_missing_sync(key: str, chat: str, note: str, *, with_count: bool = Tru
 
 
 def _guard_chat(runner, key: str, chat, *, with_count: bool = True, limit: int | None = None) -> dict:
-    """执行本地读命令；ChatNotFoundError → needs_sync 空结果（见上）。"""
-    from scripts.exceptions import ChatNotFoundError
+    """执行本地读命令；ChatNotFoundError → needs_sync 空结果（见上）。
 
+    按**类名**捕获而不是按类对象：scripts.db 在 reload 时绑定异常类，指纹
+    重载一旦把 exceptions 排到 db 之后（2026-10-07 实测 api.ts 就是这个顺序），
+    两代 ChatNotFoundError 身份不同，`except ChatNotFoundError` 永远匹配不上，
+    needs_sync 降级静默失效、前端直接弹「本地库中没有会话」硬错误。
+    顺序已修，这里再兑一道（类名判定对类身份错位免疫）。
+    """
     try:
         rows = runner()
-    except ChatNotFoundError as e:
+    except Exception as e:  # noqa: BLE001
+        if type(e).__name__ != "ChatNotFoundError":
+            raise
         return _read_missing_sync(key, str(chat or ""), str(e), with_count=with_count)
     return _read_ok(key, rows, chat, with_count=with_count, limit=limit)
 
@@ -588,7 +777,12 @@ def _c_timeline(args: dict) -> dict:
 
 
 def _c_delete_chat(args: dict) -> dict:
-    removed = _client().delete_chat(str(args.get("chat") or ""))
+    # 空串守卫：db.find_chats 对空串的部分匹配会命中全部会话，库里只有 1 个时
+    # 就是把它整个删掉（审计 #8）。这里直接拒绝空值，不给它进 resolve 的机会。
+    chat = str(args.get("chat") or "").strip()
+    if not chat:
+        raise ValueError("请提供要删除本地记录的会话名（或 chat_id）")
+    removed = _client().delete_chat(chat)
     return {"ok": True, "removed": removed}
 
 
@@ -1175,6 +1369,432 @@ def _c_shutdown(_args: dict) -> dict:
     return {"ok": True, "shutdown": True}
 
 
+# ── 多账号（2026-10-07，学 IPA-Tool 账号切换）────────────────────────────
+
+def _sid_has_key(sid: str) -> bool:
+    """只读探测某账号的 session 文件是否存有登录密钥（不联网）。"""
+    import sqlite3
+
+    from scripts.config import session_path_for
+
+    p = Path(session_path_for(str(sid)) + ".session")
+    if not p.exists():
+        return False
+    try:
+        con = sqlite3.connect(f"file:{p}?mode=ro", uri=True)
+        try:
+            row = con.execute("SELECT auth_key FROM sessions LIMIT 1").fetchone()
+        finally:
+            con.close()
+        return bool(row and row[0])
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _accounts_info() -> list[dict]:
+    """注册表账号列表 + current/has_session 标记（前端菜单/账号页用）。"""
+    from scripts.config import load_accounts
+
+    reg = load_accounts()
+    cur = reg.get("current")
+    return [
+        {**a, "current": a.get("sid") == cur, "has_session": _sid_has_key(a.get("sid"))}
+        for a in (reg.get("list") or [])
+    ]
+
+
+def _accounts_payload() -> dict:
+    from scripts.config import load_accounts
+
+    reg = load_accounts()
+    return {
+        "account_sid": reg.get("current"),
+        "accounts": _accounts_info(),
+        "adding": reg.get("pending") is not None,
+    }
+
+
+def _purge_account_files(sid: str) -> None:
+    """删除某账号的 session / 登录态（含 sqlite 伴生文件）。
+
+    本地消息库**不删**（与旧版 logout 语义一致：退出只掉登录，
+    同步过的数据保留；误删不可恢复）。
+    """
+    from scripts.config import session_path_for, state_path_for
+
+    bases = [
+        Path(session_path_for(str(sid)) + ".session"),
+        state_path_for(str(sid)),
+    ]
+    for base in bases:
+        for p in (base, Path(str(base) + "-wal"), Path(str(base) + "-shm"), Path(str(base) + "-journal")):
+            try:
+                p.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+
+def _drop_pending(reg: dict) -> dict:
+    """放弃 pending：slot（未注册，不在 list）删残留文件；
+    list 内的真实账号（重登中途）只回滚标记、保留登录态缓存。"""
+    pend = reg.get("pending")
+    if not pend:
+        return reg
+    psid = str(pend.get("sid"))
+    known = {str(a.get("sid")) for a in (reg.get("list") or [])}
+    if psid not in known:
+        _purge_account_files(psid)
+    reg["pending"] = None
+    return reg
+
+
+async def _c_account_switch(args: dict) -> dict:
+    """切换到注册表里的另一个账号（丢弃常驻连接，下次按新 session 建链）。
+
+    · 切到**有效**账号：直接换；若有 pending（添加中途 slot）先丢弃。
+    · 切到**会话已失效**的账号：进入“重新登录”态（pending{sid, prev}）——
+      登录成功自动注册回列表；登录页的「取消」可回滚到 prev，不会把人困死。
+    """
+    from scripts.config import load_accounts, save_accounts
+
+    sid = str(args.get("sid") or "").strip()
+    reg = load_accounts()
+    if not sid:
+        return {"ok": False, "error": "缺少账号 sid", "etype": "ValueError"}
+    known = {str(a.get("sid")) for a in (reg.get("list") or [])}
+    if sid not in known:
+        return {"ok": False, "error": "账号不存在", "etype": "ValueError"}
+
+    _drop_pending(reg)  # 放弃未完成的添加（slot 删文件；真实账号只回标记）
+
+    if sid == reg.get("current"):
+        save_accounts(reg)
+        return {"ok": True, "noop": True, **_accounts_payload()}
+
+    if not _sid_has_key(sid):
+        # 会话已失效 → 置为 pending 进入重登流程（登录页出「取消」可回 prev）
+        reg["pending"] = {"sid": sid, "prev": reg.get("current"), "at": int(time.time())}
+        reg["current"] = sid
+        save_accounts(reg)
+        await tg_net.reset()
+        return {"ok": True, "relogin": True, "account_sid": sid, **_accounts_payload()}
+
+    reg["current"] = sid
+    save_accounts(reg)
+    await tg_net.reset()  # 旧账号连接必须先断，否则新命令会拿到旧 session 的客户端
+    return {"ok": True, "account_sid": sid, **_accounts_payload()}
+
+
+async def _c_account_add_begin(_args: dict) -> dict:
+    """开始“添加账号”：开一个全新空 slot 并设为当前，丢弃旧连接。
+
+    随后的 send_code/sign_in/password 都落在新 slot 的 session 上；
+    登录成功后 _sync_account 把它注册进列表并清掉 pending。
+    失败/中途退出 → account_cancel_add 回滚到 prev。
+    """
+    from scripts.config import load_accounts, save_accounts, session_path_for
+
+    reg = load_accounts()
+    if reg.get("pending"):
+        # 上次添加中途退出（重启后仍在）→ 复用现有 slot，不重复开
+        return {"ok": True, "already": True, **_accounts_payload()}
+    base = f"acc{int(time.time())}"
+    sid = base
+    taken = {str(a.get("sid")) for a in (reg.get("list") or [])}
+    n = 1
+    while sid in taken or Path(session_path_for(sid) + ".session").exists():
+        n += 1
+        sid = f"{base}_{n}"
+    reg["pending"] = {"sid": sid, "prev": reg.get("current"), "at": int(time.time())}
+    reg["current"] = sid
+    save_accounts(reg)
+    await tg_net.reset()
+    return {"ok": True, "account_sid": sid, **_accounts_payload()}
+
+
+async def _c_account_add_cancel(_args: dict) -> dict:
+    """取消“添加账号”/ 中止重登：回到 prev 账号。
+
+    slot（未注册）连文件一起删；list 内的重登账号只回滚标记（保留其缓存）。
+    """
+    from scripts.config import load_accounts, save_accounts
+
+    reg = load_accounts()
+    pend = reg.get("pending")
+    if not pend:
+        return {"ok": True, "noop": True, **_accounts_payload()}
+    prev = str(pend.get("prev") or "default")
+    known = {str(a.get("sid")) for a in (reg.get("list") or [])}
+    if prev not in known and prev != "default":
+        prev = reg["list"][0].get("sid") if reg.get("list") else "default"
+    _drop_pending(reg)
+    reg["current"] = prev
+    save_accounts(reg)
+    await tg_net.reset()
+    return {"ok": True, "account_sid": prev, **_accounts_payload()}
+
+
+async def _c_account_remove(args: dict) -> dict:
+    """移除非当前账号：删注册表项 + session/登录态/本地库文件（需前端确认）。"""
+    from scripts.config import load_accounts, save_accounts
+
+    sid = str(args.get("sid") or "").strip()
+    reg = load_accounts()
+    if not sid:
+        return {"ok": False, "error": "缺少账号 sid", "etype": "ValueError"}
+    if sid == reg.get("current"):
+        return {"ok": False, "error": "当前账号请用「退出登录」移除", "etype": "ValueError"}
+    if sid not in {str(a.get("sid")) for a in (reg.get("list") or [])}:
+        return {"ok": False, "error": "账号不存在", "etype": "ValueError"}
+    if reg.get("pending") and str(reg["pending"].get("sid")) == sid:
+        reg["pending"] = None
+    reg["list"] = [a for a in (reg.get("list") or []) if str(a.get("sid")) != sid]
+    save_accounts(reg)
+    _purge_account_files(sid)
+    # 移除的是非当前账号 → 常驻连接不受影响，无需 reset
+    return {"ok": True, **_accounts_payload()}
+
+
+# ── 机器人签到（AI 视觉模拟点击，娱乐功能）────────────────────────────────────
+#
+# 本地库同步只存纯文本（scripts/client.py::_fetch_history 跳过无 caption 的图片，
+# 也不存 reply_markup），而签到要看的恰恰是机器人回复里的**图片 + 内联按钮**，
+# 所以走实时抓取：
+#   bot_checkin_probe  发一条指令（默认 /start）→ 等机器人回复 → 返回文本 /
+#                      图片（base64）/ 内联按钮（callback data 用 base64 透传）
+#   bot_checkin_act    按 AI 的决策点内联按钮（GetBotCallbackAnswer）或补发一条
+#                      文本，再抓后续回复
+# 「哪个是签到按钮」「签到是否成功」全部由前端 AI 看图判断，后端不写死业务。
+
+_BOT_IMG_BYTES_MAX = 4 * 1024 * 1024   # 单张图片回传上限（超过只报 skipped）
+_BOT_WAIT_GRACE = 1.5                  # 收到回复后再静默这么久才提前收口
+
+
+def _bot_has_image(m) -> bool:
+    """这条消息是否带可看图的媒体（照片 / 图片类文档）。"""
+    try:
+        if m.photo is not None:
+            return True
+        f = m.file
+        mime = (getattr(f, "mime_type", "") or "") if f is not None else ""
+        return mime.startswith("image/")
+    except Exception:  # noqa: BLE001 媒体探测失败按无图处理
+        return False
+
+
+def _bot_buttons(m) -> list:
+    """内联键盘 → [[{text,kind,data|url}…]…]；callback data 走 base64 透传。"""
+    import base64 as _b64
+
+    from telethon import types
+
+    rm = getattr(m, "reply_markup", None)
+    out = []
+    for row in getattr(rm, "rows", None) or []:
+        cells = []
+        for b in getattr(row, "buttons", None) or []:
+            text = str(getattr(b, "text", "") or "").strip()
+            if isinstance(b, types.KeyboardButtonCallback):
+                cells.append({
+                    "text": text,
+                    "kind": "callback",
+                    "data": _b64.b64encode(bytes(b.data or b"")).decode(),
+                })
+            elif isinstance(b, types.KeyboardButtonUrl):
+                cells.append({"text": text, "kind": "url", "url": str(b.url or "")})
+            else:
+                # 回复键盘（点了等于把文字发出去）→ 前端走 mode=text
+                cells.append({"text": text, "kind": "text"})
+        if cells:
+            out.append(cells)
+    return out
+
+
+async def _bot_payload(c, m, with_image: bool) -> dict:
+    """单条机器人消息 → 面板可直接消费的字典。"""
+    import base64 as _b64
+
+    img = None
+    if with_image and not m.out and _bot_has_image(m):
+        try:
+            size = int(getattr(m.file, "size", 0) or 0) if m.file else 0
+        except Exception:  # noqa: BLE001
+            size = 0
+        if size > _BOT_IMG_BYTES_MAX:
+            img = {"mime": "image/*", "data": "", "skipped": True}
+        else:
+            try:
+                raw = await c.download_media(m, bytes)
+            except Exception:  # noqa: BLE001 图片失败不影响文本/按钮
+                raw = None
+            if raw:
+                if len(raw) > _BOT_IMG_BYTES_MAX:
+                    img = {"mime": "image/*", "data": "", "skipped": True}
+                else:
+                    mime = None
+                    try:
+                        mime = m.file and m.file.mime_type
+                    except Exception:  # noqa: BLE001
+                        mime = None
+                    img = {
+                        "mime": str(mime or "image/jpeg"),
+                        "data": _b64.b64encode(bytes(raw)).decode(),
+                    }
+    return {
+        "id": int(m.id),
+        "text": str(m.message or ""),
+        "out": bool(m.out),
+        "buttons": _bot_buttons(m),
+        "image": img,
+    }
+
+
+async def _bot_wait(c, entity, min_id: int, wait) -> list[dict]:
+    """等 min_id 之后的新消息：有回复就再静默 _BOT_WAIT_GRACE 秒收口，
+    没回复最多等 wait 秒（1~30）。图片最多回传 2 张（按最新优先）。"""
+    try:
+        wait_s = float(wait)
+    except (TypeError, ValueError):
+        wait_s = 6.0
+    wait_s = min(max(wait_s, 1.0), 30.0)
+    deadline = time.time() + wait_s
+    got: dict[int, object] = {}
+    last_new = 0.0
+    while True:
+        try:
+            fresh = [m async for m in c.iter_messages(entity, min_id=min_id, limit=10)]
+        except Exception:  # noqa: BLE001 单次轮询失败 → 重试到超时
+            fresh = []
+        added = 0
+        for m in fresh:
+            if m.id not in got:
+                got[m.id] = m
+                added += 1
+        if added:
+            last_new = time.time()
+        now = time.time()
+        if got and last_new and now - last_new >= _BOT_WAIT_GRACE:
+            break
+        if now >= deadline:
+            break
+        await asyncio.sleep(0.35)
+    # 最新在前下载图片（预算 2 张），最后翻回时间正序
+    budget = 2
+    out = []
+    for m in sorted(got.values(), key=lambda x: x.id, reverse=True):
+        want = budget > 0 and not m.out and _bot_has_image(m)
+        p = await _bot_payload(c, m, want)
+        if want and p["image"] and p["image"].get("data"):
+            budget -= 1
+        out.append(p)
+    out.reverse()
+    return out
+
+
+async def _c_bot_checkin_probe(args: dict) -> dict:
+    """向机器人发指令（默认 /start）并抓取它的回复（文本/图片/内联按钮）。"""
+    chat = str(args.get("chat") or "").strip()
+    text = str(args.get("text") or "/start").strip() or "/start"
+    if not chat:
+        return {"ok": False, "error": "缺少机器人用户名", "etype": "ValueError"}
+    async with _online() as c:
+        entity = await _resolve_send_entity(c, chat, None)
+        sent = await c.send_message(entity, text, parse_mode=None)
+        msgs = await _bot_wait(c, entity, int(sent.id), args.get("wait", 6))
+    return {
+        "ok": True,
+        "chat": str(getattr(entity, "username", None) or getattr(entity, "title", None) or chat),
+        "sent_id": int(sent.id),
+        "messages": msgs,
+    }
+
+
+async def _c_bot_checkin_read(args: dict) -> dict:
+    """只读抓取：after_id 之后的最新消息（什么都不发）。
+
+    probe/act 的结果在传输层丢失时（Python.run 偶发拿不到哨兵行 → 前端报
+    「无响应」）用它恢复现场：不重发 /start、不重复点击，直接把机器人最新
+    回复交给 AI 继续判。
+    """
+    chat = str(args.get("chat") or "").strip()
+    if not chat:
+        return {"ok": False, "error": "缺少机器人用户名", "etype": "ValueError"}
+    try:
+        after_id = int(args.get("after_id"))
+    except (TypeError, ValueError):
+        after_id = 0
+    async with _online() as c:
+        entity = await _resolve_send_entity(c, chat, None)
+        msgs = await _bot_wait(c, entity, after_id, args.get("wait", 10))
+    return {
+        "ok": True,
+        "chat": str(getattr(entity, "username", None) or getattr(entity, "title", None) or chat),
+        "messages": msgs,
+    }
+
+
+async def _c_bot_checkin_act(args: dict) -> dict:
+    """执行 AI 决策的一步：mode=click 点内联按钮，mode=text 发送文本回复。"""
+    from telethon import functions
+
+    chat = str(args.get("chat") or "").strip()
+    mode = str(args.get("mode") or "click").strip().lower()
+    if not chat:
+        return {"ok": False, "error": "缺少机器人用户名", "etype": "ValueError"}
+    answer: dict | None = None
+    msgs: list[dict] = []
+    async with _online() as c:
+        entity = await _resolve_send_entity(c, chat, None)
+        if mode == "click":
+            import base64 as _b64
+
+            try:
+                msg_id = int(args.get("msg_id"))
+                data = _b64.b64decode(str(args.get("data") or ""), validate=True)
+            except (TypeError, ValueError):
+                return {"ok": False, "error": "按钮参数无效（msg_id/data）", "etype": "ValueError"}
+            try:
+                ans = await c(functions.messages.GetBotCallbackAnswerRequest(
+                    peer=entity, msg_id=msg_id, data=data))
+            except Exception as e:  # noqa: BLE001 按钮过期/机器人超时也算一步结果
+                answer = {"error": str(e) or type(e).__name__}
+            else:
+                answer = {
+                    "message": str(getattr(ans, "message", None) or ""),
+                    "url": str(getattr(ans, "url", None) or ""),
+                }
+            try:
+                min_id = int(args.get("after_id"))
+            except (TypeError, ValueError):
+                min_id = 0
+            msgs = await _bot_wait(c, entity, min_id or msg_id, args.get("wait", 4))
+            # 机器人常靠**编辑原消息**反馈结果（不发新消息）：按 id 回读一次，
+            # 让 AI 能看到点完之后的最新文案/按钮。
+            try:
+                ref = await c.get_messages(entity, ids=msg_id)
+            except Exception:  # noqa: BLE001
+                ref = None
+            if ref is not None:
+                by_id = {p["id"]: p for p in msgs}
+                p = await _bot_payload(c, ref, not ref.out and _bot_has_image(ref))
+                p["refetched"] = True
+                by_id[p["id"]] = p
+                msgs = [by_id[k] for k in sorted(by_id)]
+        else:
+            text = str(args.get("text") or "").strip()
+            if not text:
+                return {"ok": False, "error": "回复内容不能为空", "etype": "ValueError"}
+            sent = await c.send_message(entity, text, parse_mode=None)
+            msgs = await _bot_wait(c, entity, int(sent.id), args.get("wait", 6))
+    return {
+        "ok": True,
+        "mode": mode,
+        "chat": str(getattr(entity, "username", None) or getattr(entity, "title", None) or chat),
+        "answer": answer,
+        "messages": msgs,
+    }
+
+
 # ── 分发 ─────────────────────────────────────────────────────────────────────
 
 _ONLINE = {
@@ -1193,6 +1813,13 @@ _ONLINE = {
     "bulk_leave": _c_bulk_leave,
     "join_chat": _c_join_chat,
     "logout": _c_logout,
+    "account_switch": _c_account_switch,
+    "account_add_begin": _c_account_add_begin,
+    "account_add_cancel": _c_account_add_cancel,
+    "account_remove": _c_account_remove,
+    "bot_checkin_probe": _c_bot_checkin_probe,
+    "bot_checkin_act": _c_bot_checkin_act,
+    "bot_checkin_read": _c_bot_checkin_read,
 }
 
 _OFFLINE = {
@@ -1228,6 +1855,13 @@ _DEFAULT_TIMEOUTS: dict[str, float] = {
     "destroy_chat": 60,
     "bulk_leave": 600,
     "join_chat": 120,
+    "account_switch": 60,
+    "account_add_begin": 60,
+    "account_add_cancel": 60,
+    "account_remove": 60,
+    "bot_checkin_probe": 60,
+    "bot_checkin_act": 60,
+    "bot_checkin_read": 60,
     "shutdown": 20,
 }
 

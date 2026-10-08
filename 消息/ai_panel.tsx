@@ -40,9 +40,11 @@ import {
   maskActionsForDisplay,
   parseActionBlocks,
   requestAiStream,
+  splitChatTargets,
 } from "./ai"
 import type { PanelCtx } from "./ctx"
 import { Hint, RowButton, SettingsRow, labelWidth, type HintTone } from "./components"
+import { promptInput } from "./prompt"
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
@@ -151,6 +153,7 @@ export function ResultSheet({
   onClose,
   chat,
   p,
+  pageAlive,
 }: {
   res: AiResult
   setRes: SetAiResult
@@ -159,11 +162,18 @@ export function ResultSheet({
   chat?: any
   /** 发送成功后静默补刷统计 */
   p?: PanelCtx
+  /**
+   * 结果状态是**页面级 lifted state**（detail.tsx 持有），关窗后异步回调
+   * 仍要写回它（否则 sending/sendHint 永久卡死）。所以守卫必须用页面的
+   * 存活判断，而不是本窗自身的卸载——窗口关了页面还在，照样写。
+   */
+  pageAlive?: () => boolean
 }) {
   const { phase, output, errorMsg, heading, isAsk, sending } = res
   const running = phase === "loading" || phase === "streaming"
-  // 卸载守卫：复制/发送的 await 与计时器回来时页面可能已退出，直接 setState 会崩
-  const mountedRef = useMounted()
+  const alive = () => (pageAlive ? pageAlive() : true)
+  // 发送防重入：sending 是页面 state，双击窗口内读到的还是旧值，用 ref 兼底
+  const sendingRef = useRef(false)
   // 解析只跟输出文本有关：busy 等无关状态引起的重渲染不重跑分块
   const blocks = useMemo(() => (output !== "" ? parseBlocks(output) : []), [output])
   const hint = res.sendHint !== "" ? res.sendHint : res.copyHint
@@ -202,23 +212,25 @@ export function ResultSheet({
     if (output.trim() === "") return
     try {
       await Clipboard.copyText(output)
-      if (!mountedRef.current) return
+      if (!alive()) return
       setRes({ copyHint: msg })
     } catch {
-      if (!mountedRef.current) return
+      if (!alive()) return
       setRes({ copyHint: "复制失败" })
       return
     }
-    setTimeout(() => mountedRef.current && setRes(r => (r.copyHint === msg ? { copyHint: "" } : {})), 3000)
+    setTimeout(() => alive() && setRes(r => (r.copyHint === msg ? { copyHint: "" } : {})), 3000)
   }
 
   async function send() {
-    if (!chat || sending || output.trim() === "") return
+    if (!chat || sendingRef.current || sending || output.trim() === "") return
+    sendingRef.current = true
     setRes({ sending: true, sendHint: "" })
     const done = (msg: string) => {
-      if (!mountedRef.current) return
+      sendingRef.current = false
+      if (!alive()) return
       setRes({ sending: false, sendHint: msg })
-      setTimeout(() => mountedRef.current && setRes(r => (r.sendHint === msg ? { sendHint: "" } : {})), 5000)
+      setTimeout(() => alive() && setRes(r => (r.sendHint === msg ? { sendHint: "" } : {})), 5000)
     }
     try {
       const ret = await tg(
@@ -226,9 +238,8 @@ export function ResultSheet({
         { chat: chat.name || String(chat.id), chat_id: chat.id, text: output },
         90,
       )
-      if (!mountedRef.current) return
       // 后台补刷统计：不该在页面上闪“读取时间线…”转圈
-      if (ret.ok) p?.loadOverview({ quiet: true })
+      if (ret.ok && alive()) p?.loadOverview({ quiet: true })
       done(ret.ok ? "已发送 ✓" : ret.error || "发送失败")
     } catch (e) {
       done(errorMessage(e))
@@ -471,14 +482,21 @@ export function AiActionsSection({
       let transcript = ""
       try {
         transcript = await fetchTranscript(6000)
-      } catch {
-        transcript = "（本地暂无该会话的聊天记录）"
+      } catch (e) {
+        // 不再静默吞成「暂无记录」：同步失败/BusyTimeout 等真实错误也要透出，
+        // 否则 AI 在“无记录”前提下作答，用户完全不知道是读取失败
+        transcript = `（读取该会话的聊天记录失败：${errorMessage(
+          e,
+        )}；AI 可能无法结合上下文作答）`
       }
       // 第一轮：AI 决定直接回答，还是输出发送动作块
       const first = buildInstructRequest(transcript, ask, {
         ...meta,
         catalog: buildChatCatalog(p.chats),
       })
+      // fetchTranscript 是秒级本地/网络请求（含自动同步），
+      // 回来时可能已被新一轮作废——不判活就会覆盖新结果、把窗口卡在“生成中”
+      if (stale()) return
       setRes({ phase: "streaming" })
       const stream = await requestAiStream(first.systemPrompt, first.userContent)
       let raw = ""
@@ -506,7 +524,7 @@ export function AiActionsSection({
       // 执行动作（按会话分组、每组一次批量发送），随后本地生成汇报——
       // 不再跑第二轮 AI 汇报，反馈时间少一整轮模型延迟
       setRes({ output: "" })
-      const report = await runActions(actions)
+      const report = await runActions(actions, stale)
       if (stale()) return
       setRes({ output: clean ? `${clean}\n\n${report}` : report, phase: "done" })
     } catch (e) {
@@ -526,34 +544,47 @@ export function AiActionsSection({
    * 批量执行 AI 输出的发送动作：按目标会话分组，每组一次 send_messages
    * （后端单连接循环发 + 0.15s 限速，远快于逐条 dispatch），返回本地拼好的汇报。
    */
-  async function runActions(actions: AiActionBlock[]): Promise<string> {
+  async function runActions(actions: AiActionBlock[], isStale?: () => boolean): Promise<string> {
     type Group = { chat: any; chatId: any; texts: string[] }
     const groups = new Map<string, Group>()
+    const findTarget = (name: string) =>
+      name === ""
+        ? null
+        : (p.chats || []).find(
+            (c: any) => String(c.name || "").trim().toLowerCase() === name.toLowerCase(),
+          )
     for (const a of actions) {
       const nm = a.chat.trim()
-      const target =
-        nm === ""
-          ? null
-          : (p.chats || []).find(
-              (c: any) => String(c.name || "").trim().toLowerCase() === nm.toLowerCase(),
-            )
-      const key = String(target?.id ?? nm)
-      let g = groups.get(key)
-      if (!g) {
-        g = {
-          chat: target?.name || nm || chat.name || String(chat.id),
-          chatId: nm === "" ? chat.id : target?.id,
-          texts: [],
+      // 整串命中会话名 → 单目标；否则模型可能把多个收件人塞进了同一个 chat
+      // （“@a @b”、“@a，@b”），拆开后每个收件人独立成组、分别发送
+      const names = nm !== "" && findTarget(nm) ? [nm] : splitChatTargets(nm)
+      for (const one of names) {
+        const target = findTarget(one)
+        const key = String(target?.id ?? one)
+        let g = groups.get(key)
+        if (!g) {
+          g = {
+            chat: target?.name || one || chat.name || String(chat.id),
+            chatId: one === "" ? chat.id : target?.id,
+            texts: [],
+          }
+          groups.set(key, g)
         }
-        groups.set(key, g)
+        g.texts.push(a.text)
       }
-      g.texts.push(a.text)
     }
 
     let ok = 0
     let firstLabel = ""
     const failLines: string[] = []
     for (const g of groups.values()) {
+      // 每组发送前判活（2026-10-07 审计）：以前只有 UI 写回判 stale，
+      // 作废本轮/关掉页面后后台仍在继续发消息 —— 用户看“没反应”再点一次
+      // 就是重复发送。执行段一旦失效立即停手（已发的不撤）。
+      if (isStale && isStale()) {
+        failLines.push("⚠️ 本轮已被作废，剩余动作已中止（已发出的不撤回）")
+        break
+      }
       try {
         const res = await tg(
           "send_messages",
@@ -674,14 +705,15 @@ export function AiActionsSection({
             openSheet()
             return
           }
-          const v = await Dialog.prompt({
+          const v = await promptInput("askText", {
             title: "自由提问 / 发送指令",
             message: "输入任意问题或指令，AI 结合本群记录作答；可要求向某个会话发送消息",
             defaultValue: askText,
             placeholder: "输入问题或指令",
             confirmLabel: "提问",
           })
-          if (v === null || v.trim() === "") return
+          if (v == null || v.trim() === "") return
+          if (!mountedRef.current) return
           setAskText(v.trim())
           await runAsk(v.trim())
         }}
@@ -706,8 +738,8 @@ export function AiActionsSection({
             placeholder: "动作名称",
             confirmLabel: "下一步",
           })
-          if (name === null) return
-          if (name.trim() === "") {
+          if (name == null || String(name).trim() === "") {
+            if (name == null) return
             flashFormHint("请输入动作名称")
             return
           }
@@ -717,12 +749,13 @@ export function AiActionsSection({
             placeholder: "用简体中文输出…",
             confirmLabel: "保存",
           })
-          if (prompt === null) return
-          if (prompt.trim() === "") {
+          if (prompt == null || String(prompt).trim() === "") {
+            if (prompt == null) return
             flashFormHint("请输入提示词")
             return
           }
-          saveAction(name.trim(), prompt.trim())
+          if (!mountedRef.current) return
+          saveAction(String(name).trim(), String(prompt).trim())
         }}
       />
     </>

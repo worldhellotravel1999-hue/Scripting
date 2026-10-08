@@ -158,8 +158,13 @@ async def _download_avatars(
             if time.monotonic() >= deadline:
                 return
             try:
-                await client.download_profile_photo(entity, file=path)
-                if os.path.isfile(path):
+                # 与 _me_avatar 同款：先写 .tmp 再原子替换。直接写最终路径时，
+                # 下载中断（20s 预算到期/断网）会留下半截文件，photo_id 不变
+                # 就会被永久当成已缓存展示坏图。
+                tmp = f"{path}.tmp"
+                await client.download_profile_photo(entity, file=tmp)
+                if os.path.isfile(tmp):
+                    os.replace(tmp, path)
                     results[idx]["avatar"] = path
             except Exception:  # noqa: BLE001
                 pass
@@ -347,6 +352,9 @@ async def _sync_all(
 ) -> dict[str, int]:
     results: dict[str, int] = {}
     stored = {c["chat_id"]: c for c in db.get_chats()}
+    # 一次拿齐所有会话的最新 msg_id：旧写法在循环里逐会话 get_last_msg_id，
+    # 300 个会话 = 300 次 sqlite3.connect + MAX()（审计 #27 的 N+1）。
+    last_ids = db.get_last_msg_ids()
     dialog_cache: dict[int, tuple[Any, str]] = {}
     async for dialog in client.iter_dialogs():
         entity = dialog.entity
@@ -362,7 +370,7 @@ async def _sync_all(
         chat_name = chat_info.get("chat_name") or dialog_name or str(chat_id)
         # 同名会话用 chat_id 后缀去重，避免结果 dict 互相覆盖
         key = chat_name if chat_name not in results else f"{chat_name} ({chat_id})"
-        last_id = db.get_last_msg_id(chat_id) or 0
+        last_id = last_ids.get(chat_id) or 0
         effective_limit = limit_per_chat
         if last_id == 0 and limit_per_chat > _FIRST_SYNC_LIMIT:
             effective_limit = _FIRST_SYNC_LIMIT

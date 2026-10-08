@@ -93,9 +93,13 @@ async function execute(cmd: string, args: Record<string, any>, timeout: number):
     "    pass",
     "_fp = tuple(_fps)",
     "if getattr(sys, '__tghub_fp__', None) != _fp:",
-    // 重载自有模块：子模块在前、父包在后（父包 __init__ 从子模块拿新对象）；
+    // 重载自有模块：子模块在前、父包在后（父包 __init__ 从子模块拿新对象）。
+    // **scripts.exceptions 必须排在 scripts.db 之前**：db 里 `from .exceptions
+    // import ChatNotFoundError` 是绑类对象，exceptions 后重载会让 db 握着
+    // 上一代的类，而 tg_api 的 `_guard_chat` except 拿的是新一代 —— 永远匹配
+    // 不上，needs_sync 降级静默失效（表现为“本该自动同步的会话直接弹错误”）。
     // 失败打到 stderr（会进返回的 output），不再静默吞掉。
-    "    for _n in ('scripts.config', 'scripts.db', 'scripts.exceptions', 'scripts.client', 'scripts', 'tg_session', 'tg_api'):",
+    "    for _n in ('scripts.config', 'scripts.exceptions', 'scripts.db', 'scripts.client', 'scripts', 'tg_session', 'tg_api'):",
     "        _m = sys.modules.get(_n)",
     "        if _m is not None:",
     "            try:",
@@ -186,10 +190,21 @@ export async function tg(
 
 const pad = (n: number) => (n < 10 ? `0${n}` : String(n))
 
+/**
+ * 后端时间串 → Date：**无时区偏移的裸 ISO 按 UTC 解释**（补 'Z'）。
+ * 后端返回 Telethon 的 naive UTC ISO（无后缀），裸 `new Date(iso)` 会把它
+ * 当本地时间解析（整体偏 8 小时）。chats.tsx.chatTime 早有同样防护，这里
+ * 收敛成公共实现，ai.ts.localStamp 同用，三处口径一致。
+ */
+export function parseBackendDate(iso: string): Date {
+  const s = /[zZ]$|[+-]\d\d:\d\d$/.test(iso) ? iso : `${iso}Z`
+  return new Date(s)
+}
+
 /** ISO 时间 → 本地 "MM-dd HH:mm" */
 export function fmtTime(iso?: string | null): string {
   if (!iso) return "—"
-  const d = new Date(iso)
+  const d = parseBackendDate(String(iso))
   if (isNaN(d.getTime())) return String(iso).slice(5, 16)
   return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }

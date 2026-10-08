@@ -48,6 +48,12 @@ CASES = [
     ("destroy_chat", {}),
     ("bulk_leave", {}),
     ("join_chat", {}),
+    # 机器人签到：空参数必须在触网前报参数错（真正发 /start / 点按钮不进 smoke）
+    ("bot_checkin_probe", {}),
+    ("bot_checkin_act", {}),
+    ("bot_checkin_read", {}),
+    # 多账号：只加**纯只读/无副作用**的（有 pending 才写盘；begin/switch/remove 会改真实注册表，不进 smoke）
+    ("account_add_cancel", {}),
     ("unknown_cmd", {}),
     ("refresh", {"limit_per_chat": 1, "max_chats": 1, "delay": 0}),
 ]
@@ -69,6 +75,10 @@ for cmd, args in CASES:
     ok = payload.get("ok")
     if cmd == "status":
         authorized = bool(payload.get("authorized"))
+        # 多账号字段必须始终存在（前端账号页/菜单依赖）
+        if "account_sid" not in payload or "accounts" not in payload or "adding" not in payload:
+            print("   !! status 缺多账号字段")
+            failed += 1
         if not authorized:
             print("   （未登录：refresh 的必过断言本次跳过）")
     required = cmd in REQUIRED_OK or (cmd == "refresh" and authorized)

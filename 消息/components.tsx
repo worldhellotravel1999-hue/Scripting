@@ -54,7 +54,7 @@ export function darken(hex: string, blackRatio = 0.16): `#${string}` {
 }
 
 /**
- * 文本自然宽度估算（CJK 全角按 font 宽，西文/数字按 0.6）。
+ * 文本自然宽度估算（CJK 全角 / emoji（>0xFFFF）按 font 宽，西文/数字按 0.6）。
  * 用于给行内 chip 算出**固定宽度**：SwiftUI 压缩从最后一个子视图开始，
  * 弹性（带 padding）的 chip 会被挤成色块，固定 frame 则受保护。
  */
@@ -62,7 +62,7 @@ export function labelWidth(label: string, font: number): number {
   let w = 0
   for (const ch of label) {
     const c = ch.codePointAt(0) ?? 0
-    w += c >= 0x2e80 && c <= 0xffff ? font : font * 0.6
+    w += c >= 0x2e80 || c > 0xffff ? font : font * 0.6
   }
   return Math.ceil(w)
 }
@@ -118,8 +118,10 @@ export function Avatar({
 }
 
 /**
- * Telegram 设置页风格行（参考官方设置截图）：圆角彩色图标 + 标题 +
- * 右侧值/控件 + chevron。传 action 即整行可点（点图标/点行都触发）；
+ * 菜单行（设置/账号/详情页用）：2026-10-07 起与首页会话卡同风格——
+ * 每行一张独立白卡（圆角 16 + 投影）+ 左侧 48×48 同色系渐变块，
+ * 行级 listRowInsets 归零（List 级垂直值不生效）、分隔线隐藏，
+ * 卡间由 List 的 listRowSpacing 控制。传 action 即整行可点（点图标/点行都触发）；
  * danger 标题变红；onLongPress 提供长按入口（如自定义动作删除），
  * 长按后 700ms 内的 tap 会被屏蔽，避免“长按被当成点一下”。
  * 2026-10-06：新增 hint —— 行内临时提示直接显示在本行空白处（行内小字，
@@ -127,11 +129,13 @@ export function Avatar({
  */
 export function SettingsRow({
   icon,
+  iconSrc,
   color = "#2AABEE",
   title,
   value,
   hint,
   hintTone = "info",
+  hintMax,
   trailing,
   chevron = true,
   danger = false,
@@ -140,12 +144,16 @@ export function SettingsRow({
   onLongPress,
 }: {
   icon: string
+  /** 真实图片头像（本地文件路径）：有则直接用照片，否则用 icon 渐变块 */
+  iconSrc?: string
   color?: `#${string}`
   title: string
   value?: string
   /** 行内临时提示（显示在标题右侧空白处，超长截断）；不再用行下气泡 */
   hint?: string
   hintTone?: HintTone
+  /** hint 宽度上限（默认 150）：同行还有转圈/按钮时调小，免得标题被挤成一个字 */
+  hintMax?: number
   /** 右侧额外内容（TextField / ProgressView / 小按钮） */
   trailing?: any
   chevron?: boolean
@@ -159,9 +167,13 @@ export function SettingsRow({
   const lastLongPress = useRef(0)
   return (
     <HStack
-      spacing={12}
-      padding={{ vertical: 9 }}
+      spacing={10}
+      padding={{ horizontal: 10, vertical: 7 }}
       frame={{ maxWidth: "infinity", alignment: "leading" }}
+      background={<RoundedRectangle fill="#FFFFFF" cornerRadius={16} />}
+      shadow={{ color: "rgba(0,0,0,0.08)", radius: 6, y: 2 }}
+      listRowInsets={{ top: 0, bottom: 0, leading: 16, trailing: 16 }}
+      listRowSeparator={{ visibility: "hidden", edges: "all" }}
       onTapGesture={
         tappable
           ? () => {
@@ -179,12 +191,35 @@ export function SettingsRow({
           : undefined
       }
     >
-      <ZStack alignment="center" frame={{ width: 30, height: 30 }}>
-        <RoundedRectangle fill={color} cornerRadius={7} frame={{ width: 30, height: 30 }} />
-        <Image systemName={icon} foregroundStyle="white" frame={{ width: 17, height: 17 }} />
-      </ZStack>
+      {iconSrc ? (
+        // 与会话列表头像同款：彩色渐变圆角方块（48×48 r12）里嵌一张 40×40 圆形照片
+        <ZStack alignment="center" frame={{ width: 48, height: 48 }}>
+          <RoundedRectangle
+            fill={{ colors: [color, fade(color, 0.68)], startPoint: "topLeading", endPoint: "bottomTrailing" }}
+            cornerRadius={12}
+            frame={{ width: 48, height: 48 }}
+          />
+          <Image
+            filePath={iconSrc}
+            resizable
+            scaleToFill
+            clipShape="circle"
+            frame={{ width: 40, height: 40 }}
+          />
+        </ZStack>
+      ) : (
+        <ZStack alignment="center" frame={{ width: 48, height: 48 }}>
+          <RoundedRectangle
+            fill={{ colors: [color, fade(color, 0.68)], startPoint: "topLeading", endPoint: "bottomTrailing" }}
+            cornerRadius={12}
+            frame={{ width: 48, height: 48 }}
+          />
+          <Image systemName={icon} foregroundStyle="white" frame={{ width: 21, height: 21 }} />
+        </ZStack>
+      )}
       <Text
         font={15}
+        fontWeight="semibold"
         lineLimit={1}
         foregroundStyle={danger ? "#FF3B30" : disabled ? "#C7C7CC" : "#000000"}
         frame={{ maxWidth: "infinity", alignment: "leading" }}
@@ -197,13 +232,17 @@ export function SettingsRow({
           fontWeight="medium"
           foregroundStyle={hintColor(hintTone)}
           lineLimit={1}
-          // 固定宽度 = 文字自然宽（封顶 150）：压缩时先让标题退让，提示不被挤掉
-          frame={{ width: Math.min(150, labelWidth(hint, 11) + 6) }}
+          // 固定宽度 = 文字自然宽（封顶 hintMax）：压缩时先让标题退让，提示不被挤掉
+          frame={{ width: Math.min(hintMax ?? 150, labelWidth(hint, 11) + 6) }}
         >
           {hint}
         </Text>
       ) : null}
-      {value ? <Text font="subheadline" foregroundStyle="#8E8E93">{value}</Text> : null}
+      {value ? (
+        <Text font="subheadline" foregroundStyle="#8E8E93" lineLimit={1}>
+          {value}
+        </Text>
+      ) : null}
       {trailing}
       {chevron ? (
         <Image systemName="chevron.right" foregroundStyle="#C7C7CC" frame={{ width: 13, height: 13 }} />
@@ -244,12 +283,14 @@ export function PrimaryButton(props: {
  * 原生 Button 在 HStack 里理想宽度被算成 ~0，自绘 chip 占位才稳定。
  * 现代化改版：胶囊浅色底 + 同色系深字（不再是一行裸文字）；
  * filled=true 时为实心主按钮（白字）。
+ * small=true 时为小一号变体（格式面板等空间紧张处）。
  */
 export function RowButton({
   title,
   color = ACCENT,
   disabled = false,
   filled = false,
+  small = false,
   action,
 }: {
   title: string
@@ -257,21 +298,28 @@ export function RowButton({
   disabled?: boolean
   /** 实心样式（白字），用于主操作如「发送」 */
   filled?: boolean
+  /** 小一号（字 11 / 高 24 / 圆角 12），与常规 chip 同款 UI */
+  small?: boolean
   action: () => void
 }) {
   const bg: `#${string}` = disabled ? "#EFEFF1" : filled ? color : fade(color)
   const fg: `#${string}` = disabled ? "#B9BCC2" : filled ? "#FFFFFF" : darken(color)
   // 固定宽度 = 文字自然宽 + 左右 padding：同行被压缩时 chip 不会被挤成色块
-  const width = Math.max(44, labelWidth(title, 13) + 28)
+  const width = Math.max(small ? 34 : 44, labelWidth(title, small ? 11 : 13) + (small ? 16 : 28))
   return (
     <HStack
       spacing={0}
-      padding={{ horizontal: 11, vertical: 6 }}
-      frame={{ width, minHeight: 30 }}
-      background={<RoundedRectangle fill={bg} cornerRadius={15} />}
+      padding={{ horizontal: small ? 8 : 11, vertical: small ? 3 : 6 }}
+      frame={{ width, minHeight: small ? 24 : 30 }}
+      background={<RoundedRectangle fill={bg} cornerRadius={small ? 12 : 15} />}
       onTapGesture={disabled ? undefined : action}
     >
-      <Text font="footnote" fontWeight="semibold" foregroundStyle={fg} lineLimit={1}>
+      <Text
+        font={small ? 11 : "footnote"}
+        fontWeight="semibold"
+        foregroundStyle={fg}
+        lineLimit={1}
+      >
         {title}
       </Text>
     </HStack>
@@ -397,8 +445,9 @@ function GlassDockCapsule({ children }: { children: any }) {
 }
 
 /**
- * 分段标签（底部停靠栏用，替代页面顶部的 segmented Picker）：
- * 灰轨道 + 白色滑块，选中态用 animation(value:) 平滑过渡（颜色 + 滑块交叉淡化）。
+ * 分段标签（页面顶部工具行用，GlassCapsule 样式）：整条 Liquid Glass 胶囊
+ * （glassEffect + 半透明白底 + 投影，与下方 RowButton 胶囊语言统一），
+ * 选中态白色滑块平滑过渡；trailing 可挂右侧附属按钮（如刷新）。
  */
 export interface SegItem {
   tag: string
@@ -409,14 +458,19 @@ export function SegmentedTabs(props: {
   items: ReadonlyArray<SegItem>
   value: string
   onChanged: (tag: string) => void
+  /** 玻璃条右端附加内容（固定宽度，受 HStack 压缩保护） */
+  trailing?: any
 }) {
   const anim = Animation.smooth({ duration: 0.26 })
   return (
     <HStack
-      spacing={0}
+      spacing={2}
       padding={4}
       frame={{ maxWidth: "infinity", height: 46 }}
-      background={<RoundedRectangle fill="rgba(118,118,128,0.12)" cornerRadius={14} />}
+      glassEffect="capsule"
+      contentShape="capsule"
+      background={<RoundedRectangle fill="rgba(255,255,255,0.72)" cornerRadius={23} />}
+      shadow={{ color: "rgba(0,0,0,0.12)", radius: 14, y: 5 }}
     >
       {props.items.map(item => {
         const selected = item.tag === props.value
@@ -434,12 +488,12 @@ export function SegmentedTabs(props: {
               frame={{ maxWidth: "infinity", height: 38 }}
             >
               <RoundedRectangle
-                fill={selected ? "rgba(255,255,255,0.94)" : "rgba(255,255,255,0)"}
-                cornerRadius={11}
+                fill={selected ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0)"}
+                cornerRadius={19}
                 frame={{ maxWidth: "infinity", height: 38 }}
                 shadow={
                   selected
-                    ? { color: "rgba(0,0,0,0.12)", radius: 4, y: 1 }
+                    ? { color: "rgba(0,0,0,0.14)", radius: 5, y: 2 }
                     : undefined
                 }
                 animation={{ animation: anim, value: selected }}
@@ -457,7 +511,40 @@ export function SegmentedTabs(props: {
           </Button>
         )
       })}
+      {props.trailing}
     </HStack>
+  )
+}
+
+/**
+ * 玻璃条右端的圆形小按钮（刷新等）：白色滑块同款材质底 + 语义色图标，
+ * busy 时显示转圈并禁点。固定 frame 防同行压缩。
+ */
+export function GlassIconButton({
+  icon,
+  color = "#34C759",
+  busy = false,
+  action,
+}: {
+  icon: string
+  color?: `#${string}`
+  busy?: boolean
+  action: () => void
+}) {
+  return (
+    <ZStack
+      alignment="center"
+      frame={{ width: 38, height: 38 }}
+      background={<RoundedRectangle fill={busy ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.95)"} cornerRadius={19} />}
+      shadow={busy ? undefined : { color: "rgba(0,0,0,0.14)", radius: 5, y: 2 }}
+      onTapGesture={busy ? undefined : action}
+    >
+      {busy ? (
+        <ProgressView />
+      ) : (
+        <Image systemName={icon} foregroundStyle={color} frame={{ width: 18, height: 18 }} />
+      )}
+    </ZStack>
   )
 }
 
@@ -496,6 +583,36 @@ export function DockIcon({
         frame={{ width: 21, height: 21 }}
       />
     </ZStack>
+  )
+}
+
+/**
+ * 通用白卡容器（2026-10-07 与首页会话卡统一）：圆角 16 + 投影，
+ * 行级 listRowInsets 归零 + 隐藏分隔线，卡间距由所在 List 的 listRowSpacing 控制。
+ * 工具页各 Section 内容、详情页头部/输入行用它包一层即可与首页同风格。
+ */
+export function Card({
+  children,
+  spacing = 8,
+  padding = { horizontal: 12, vertical: 10 },
+}: {
+  children: any
+  spacing?: number
+  padding?: { horizontal: number; vertical: number }
+}) {
+  return (
+    <VStack
+      alignment="leading"
+      spacing={spacing}
+      padding={padding}
+      frame={{ maxWidth: "infinity", alignment: "leading" }}
+      background={<RoundedRectangle fill="#FFFFFF" cornerRadius={16} />}
+      shadow={{ color: "rgba(0,0,0,0.08)", radius: 6, y: 2 }}
+      listRowInsets={{ top: 0, bottom: 0, leading: 16, trailing: 16 }}
+      listRowSeparator={{ visibility: "hidden", edges: "all" }}
+    >
+      {children}
+    </VStack>
   )
 }
 
@@ -578,13 +695,21 @@ export function InfoRow({ label, value }: { label: string; value: any }) {
   )
 }
 
-/** 执行中 / 出错 / 提示 横幅（页面顶部共用）：语义色气泡，不再是裸标题 + 裸文字 */
-export function Banners({ p }: { p: PanelCtx }) {
+/** 执行中 / 出错 / 提示 横幅（页面顶部共用）：语义色气泡，不再是裸标题 + 裸文字。
+ *  hideBusy：命中标签的忙碌横幅不在顶部显示（如设置页刷新 → 进度改在按钮行下） */
+export function Banners({
+  p,
+  hideBusy,
+}: {
+  p: PanelCtx
+  hideBusy?: (label: string) => boolean
+}) {
+  const busy = p.busy && hideBusy && hideBusy(p.busy) ? null : p.busy
   return (
     <>
-      {p.busy ? (
+      {busy ? (
         <Section>
-          <Hint tone="info" spinner text={p.busy} />
+          <Hint tone="info" spinner text={busy} />
         </Section>
       ) : null}
       {p.error ? (
