@@ -7,19 +7,20 @@
   },
   "iconImage" : "",
   "description" : "App Store 应用翻译工具：翻译说明、下载图标、复制链接。",
-  "runInApp" : false,
+  "runInApp" : true,
   "author" : null,
   "icon" : "network",
   "entry" : "index.tsx",
   "color" : "rgba(28, 140, 255, 1)",
   "intentInputTypes" : [
-    "URLs"
+    "URLs",
+    "Images"
   ],
   "name" : "翻译",
   "contributors" : [
 
   ],
-  "version" : "2.4.40",
+  "version" : "2.4.44",
   "localizedNames" : {
     "fr" : "Adult",
     "es" : "Adult",

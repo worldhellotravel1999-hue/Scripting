@@ -1,7 +1,9 @@
 import {
   AppEvents,
+  Button,
   ForEach,
   List,
+  Navigation,
   NavigationStack,
   Section,
   useEffect,
@@ -10,8 +12,10 @@ import {
   useState,
 } from "scripting"
 import { loadPreferences, normalizeTargetSelection, savePreferences } from "../core/preferences"
+import { translateScreenOverlay } from "../core/screen-overlay"
 import { LanguageBar, toggleTargetSelection } from "./common"
 import { TypefaceMenu } from "./font-menu"
+import { ScreenTranslationResult } from "./screen-result"
 import {
   TranslationCard,
   type TranslationCardResult,
@@ -65,6 +69,35 @@ export function TranslationWorkspace() {
   const [sourceCorrectionEnabled, setSourceCorrectionEnabled] = useState(true)
   const [targetLanguages, setTargetLanguages] = useState<string[]>(initialTargets)
   const [translationHost] = useState(() => new Translation())
+  const [screenshotBusy, setScreenshotBusy] = useState(false)
+
+  async function translatePickedScreenshot() {
+    if (screenshotBusy) return
+    setScreenshotBusy(true)
+    try {
+      // 点击脚本的主页不是图片意图：由用户手动选择截图，不自动读取相册。
+      const picked = await Photos.pick({ filter: PHPickerFilter.images(), limit: 1 })
+      if (!picked.length) return
+      const image = await picked[0].uiImage()
+      if (!image) throw new Error("无法读取所选图片，请重新选择截图。")
+      const translated = await translateScreenOverlay(image, { translationHost })
+      // 结果页展示译文覆盖图（原文位置直接显示译文），下方仍保留纯文本可复制。
+      // 不 await，页面关闭前按钮即可再次使用；呈现失败再回退纯文本预览。
+      void Navigation.present({ element: <ScreenTranslationResult image={image} coverImage={translated.image} text={translated.text} /> })
+        .catch(async () => {
+          try {
+            await QuickLook.previewText(translated.text)
+          } catch {
+            try { await Dialog.alert({ title: "截图译文", message: translated.text }) } catch {}
+          }
+        })
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : String(reason)
+      try { await Dialog.alert({ title: "截图翻译失败", message }) } catch {}
+    } finally {
+      setScreenshotBusy(false)
+    }
+  }
   const cards = useObservable<TranslationCardItem[]>(() => [makeCard(initialSource, initialTargets)])
 
   function updateCard(id: string, patch: Partial<TranslationCardItem>) {
@@ -152,7 +185,14 @@ export function TranslationWorkspace() {
       translationHost={translationHost}
       navigationTitle="Translate"
       navigationBarTitleDisplayMode="inline"
-      toolbar={{ principal: <TypefaceMenu /> }}
+      toolbar={{
+        principal: <TypefaceMenu />,
+        topBarTrailing: <Button
+          title={screenshotBusy ? "处理中…" : "截图翻译"}
+          disabled={screenshotBusy}
+          action={() => { void translatePickedScreenshot() }}
+        />,
+      }}
     >
       <Section>
         <LanguageBar

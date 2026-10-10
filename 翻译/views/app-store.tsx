@@ -171,13 +171,12 @@ function AppStoreIcon(props: {
 export { AppStoreIcon }
 
 /** 下载水印图标：应用图标右下角叠一个纯文字「Down」（无胶囊背景，仅轻阴影保证可读），
- *  点击整个图标跳转 App Store 下载页；跳转失败文字短暂变红。 */
+ *  点击整个图标在应用内打开 App Store 页面（不出应用）；失败文字短暂变红。 */
 function DownIconBadge(props: {
   imageUrl?: string
   size: number
   foregroundStyle?: any
-  url: string | null | undefined
-  fallbackUrl?: string
+  appid: string
 }) {
   const [failed, setFailed] = useState(false)
   useEffect(() => {
@@ -187,18 +186,9 @@ function DownIconBadge(props: {
   }, [failed])
 
   async function open() {
-    const link = props.url || props.fallbackUrl || ""
-    if (!link) {
-      setFailed(true)
-      return
-    }
     try {
-      const ok = await Safari.openURL(link)
-      if (ok) {
-        try { HapticFeedback.lightImpact() } catch {}
-      } else {
-        setFailed(true)
-      }
+      await AppStore.presentApp(props.appid)
+      try { HapticFeedback.lightImpact() } catch {}
     } catch {
       setFailed(true)
     }
@@ -1045,8 +1035,7 @@ function AppSearchSection(props: {
               imageUrl={app.artworkUrl}
               size={SEARCH_ICON_SIZE}
               foregroundStyle={props.foregroundStyle}
-              url={app.detail?.trackViewUrl}
-              fallbackUrl={`https://apps.apple.com/us/app/id${app.appid}`}
+              appid={app.appid}
             />
             <VStack alignment="leading" spacing={6} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
               <HStack spacing={8} alignment="firstTextBaseline">
@@ -1538,7 +1527,7 @@ function AppStoreContent(props: {
               {props.identity && info ? (() => {
                 const identity = props.identity
                 const shareLink = info.trackViewUrl || identity.url
-                // 分享按钮（仅触发方式改造）：长按 = 分享（复制链接，原功能）；点击 = 直接跳转当前 App 商店页。
+                // 分享按钮：点击 = 应用内打开当前 App 商店页（不出应用）；长按 = 复制链接（原功能）。
                 // 手势挂 ZStack（同登录页老鹰图标先例，Button 上无挂手势的先例）；长按补出的点按由 shareTapGuardRef 吞掉。
                 return (
                   <ZStack
@@ -1547,10 +1536,8 @@ function AppStoreContent(props: {
                       if (shareTapGuardRef.current) return
                       void (async () => {
                         try {
-                          const ok = await Safari.openURL(shareLink)
-                          if (ok) {
-                            try { HapticFeedback.lightImpact() } catch {}
-                          }
+                          await AppStore.presentApp(identity.appid)
+                          try { HapticFeedback.lightImpact() } catch {}
                         } catch {}
                       })()
                     }}
