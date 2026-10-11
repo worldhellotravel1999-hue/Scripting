@@ -107,6 +107,10 @@ export function TranslationHistoryPanel(props: {
     />
   )
 
+  const toolbarIconColor = items.length > 0
+    ? { light: "#000000", dark: "#FFFFFF" } as const
+    : { light: "rgba(0,0,0,0.35)", dark: "rgba(255,255,255,0.35)" } as const
+
   return (
     <VStack
       alignment="leading"
@@ -150,9 +154,7 @@ export function TranslationHistoryPanel(props: {
             <Image
               systemName="xmark"
               font={14}
-              foregroundStyle={items.length > 0
-                ? { light: "#000000", dark: "#FFFFFF" }
-                : { light: "rgba(0,0,0,0.35)", dark: "rgba(255,255,255,0.35)" }}
+              foregroundStyle={toolbarIconColor}
               frame={{ width: 29, height: 29 }}
               background={{ style: CIRCLE_GRAY_BG, shape: "circle" }}
             />
@@ -161,9 +163,7 @@ export function TranslationHistoryPanel(props: {
           <Text
             font="caption"
             fontWeight="semibold"
-            foregroundStyle={items.length > 0
-              ? { light: "#000000", dark: "#FFFFFF" }
-              : { light: "rgba(0,0,0,0.35)", dark: "rgba(255,255,255,0.35)" }}
+            foregroundStyle={toolbarIconColor}
             frame={{ width: 29, height: 29, alignment: "center" as any }}
             background={{ style: CIRCLE_GRAY_BG, shape: "circle" }}
           >

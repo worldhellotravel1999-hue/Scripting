@@ -2,7 +2,7 @@ import { Canvas, ImageRenderer, type CanvasRenderingContext } from "scripting"
 import { recognizeScreenBlocks, type OCRBlock } from "./screen-ocr"
 import { translateLines, type TranslateTextOptions } from "./translate"
 
-export type ScreenOverlayLine = {
+type ScreenOverlayLine = {
   source: string
   translated: string
   /** Vision 归一化框（原点左下）；无框时只进纯文本、不覆盖。 */
@@ -49,16 +49,22 @@ function mergeLineBlocks(blocks: OCRBlock[]): OCRBlock[] {
   const merged: OCRBlock[] = []
   for (const row of rows.sort((a, b) => a.top - b.top)) {
     const items = row.items.sort((a, b) => a.box!.x - b.box!.x)
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const item of items) {
+      const box = item.box!
+      if (box.x < minX) minX = box.x
+      if (box.y < minY) minY = box.y
+      if (box.x + box.width > maxX) maxX = box.x + box.width
+      if (box.y + box.height > maxY) maxY = box.y + box.height
+    }
     // 同行块之间用空格连接；中英文混排时逐块翻译容易断句，整行一次翻译更连贯。
     merged.push({
       text: items.map((item) => item.text).join(" ").replace(/\s+/g, " ").trim(),
       box: {
-        x: Math.min(...items.map((item) => item.box!.x)),
-        y: Math.min(...items.map((item) => item.box!.y)),
-        width: Math.max(...items.map((item) => item.box!.x + item.box!.width))
-          - Math.min(...items.map((item) => item.box!.x)),
-        height: Math.max(...items.map((item) => item.box!.y + item.box!.height))
-          - Math.min(...items.map((item) => item.box!.y)),
+        x: minX,
+        y: minY,
+        width: maxX - minX,
+        height: maxY - minY,
       },
     })
   }

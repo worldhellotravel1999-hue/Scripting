@@ -24,7 +24,7 @@ export type RegionPrice = {
   inAppLoading?: boolean
 }
 
-export type RegionDefinition = {
+type RegionDefinition = {
   code: string
   name: string
   locale: string
@@ -227,22 +227,29 @@ function formatLocalPrice(price: number, currency: string, locale: string) {
   }
 }
 
+let cnyFormatter: Intl.NumberFormat | null = null
 function formatCny(price: number) {
+  if (cnyFormatter) return cnyFormatter.format(price)
   try {
-    return new Intl.NumberFormat("zh-CN", {
+    cnyFormatter = new Intl.NumberFormat("zh-CN", {
       style: "currency",
       currency: "CNY",
       currencyDisplay: "narrowSymbol",
-    }).format(price)
+    })
+    return cnyFormatter.format(price)
   } catch {
     return `¥${price.toFixed(2)}`
   }
 }
 
+const NUMERIC_STRIP_SPACES = /[\s\u00a0\u202f']/g
+const NUMERIC_STRIP_NON_DIGIT = /[^\d.,]/g
+const NUMERIC_GROUPING_DOT = /\./g
+const NUMERIC_GROUPING_COMMA = /,/g
 function numericPrice(value: string) {
   const raw = String(value || "")
-    .replace(/[\s\u00a0\u202f']/g, "")
-    .replace(/[^\d.,]/g, "")
+    .replace(NUMERIC_STRIP_SPACES, "")
+    .replace(NUMERIC_STRIP_NON_DIGIT, "")
   if (!raw) return null
 
   const lastComma = raw.lastIndexOf(",")
@@ -250,7 +257,7 @@ function numericPrice(value: string) {
   let normalized = raw
   if (lastComma >= 0 && lastDot >= 0) {
     const decimal = lastComma > lastDot ? "," : "."
-    const grouping = decimal === "," ? /\./g : /,/g
+    const grouping = decimal === "," ? NUMERIC_GROUPING_DOT : NUMERIC_GROUPING_COMMA
     normalized = raw.replace(grouping, "").replace(decimal, ".")
   } else {
     const separator = lastComma >= 0 ? "," : lastDot >= 0 ? "." : ""
@@ -413,9 +420,9 @@ function appendInAppPrice(
 ) {
   const name = rawName.trim()
   const formatted = rawFormatted.trim()
-  if (!name || !formatted || numericPrice(formatted) === null || seen.has(`${name}\u0000${formatted}`)) return
-  seen.add(`${name}\u0000${formatted}`)
   const price = numericPrice(formatted)
+  if (!name || !formatted || price === null || seen.has(`${name}\u0000${formatted}`)) return
+  seen.add(`${name}\u0000${formatted}`)
   result.push({
     name,
     formatted,

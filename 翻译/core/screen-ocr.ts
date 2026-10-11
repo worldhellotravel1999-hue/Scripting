@@ -4,7 +4,7 @@
  * - 输出阅读顺序的原文文本 + 归一化文本框，供 translateText 翻译与
  *   screen-overlay.tsx 原位覆盖渲染使用。
  */
-export type OCRBox = { x: number; y: number; width: number; height: number }
+type OCRBox = { x: number; y: number; width: number; height: number }
 export type OCRCandidate = { content: string; confidence: number; boundingBox?: OCRBox }
 export type OCRBlock = { text: string; box?: OCRBox }
 type Block = { text: string; box?: OCRBox; top: number; bottom: number; left: number; order: number }

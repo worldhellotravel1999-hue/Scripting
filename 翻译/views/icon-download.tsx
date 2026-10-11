@@ -1,10 +1,4 @@
 import { Button, Canvas, HStack, Image, ImageRenderer, ProgressView, Rectangle, RoundedRectangle, Text, TextField, VStack, ZStack, useEffect, useState } from "scripting"
-import type { Color } from "scripting"
-
-import { GlassBadge } from "./glass-badge"
-
-/** 链接徽章淡红色系：与 GlassBadge rose tokens 保持一致（深色模式 systemPink）。 */
-const ROSE_TINT: { light: Color; dark: Color } = { light: "#CC4A4A", dark: "systemPink" }
 
 /** 图标导出格式：PNG / JPEG（不透明，铺白底）/ HEIF（透明） */
 type IconFormat = "png" | "jpeg" | "heic"
@@ -303,9 +297,8 @@ export function IconDownloadPanel(props: {
   )
 }
 
-/** 链接胶囊徽章：与 v 版本徽章同款（带圆点），淡红色 rose 色系，点击复制链接。
- *  搜索页传 grayBackground=true：改成圆角长方形（淡黑灰底、无描边、无圆点），文字淡灰 secondaryLabel（复制成功仍变绿）；
- *  分享页不传，保持原 rose 玻璃胶囊。 */
+/** 链接胶囊徽章：点击复制链接。搜索页用（grayBackground）：圆角长方形淡黑灰底、
+ *  文字淡灰 secondaryLabel（复制成功仍变绿）。 */
 export function LinkBadgeButton(props: {
   url: string | null | undefined
   fallbackUrl?: string
@@ -331,28 +324,18 @@ export function LinkBadgeButton(props: {
     setCopied(true)
   }
 
-  const gray = props.grayBackground === true
-
   return (
     <Button buttonStyle="plain" action={() => { void copy() }}>
-      {gray ? (
-        <HStack
-          spacing={6}
-          padding={{ horizontal: 10, vertical: 5 }}
-          background={<RoundedRectangle fill={{ light: "rgba(0,0,0,0.05)", dark: "rgba(0,0,0,0.22)" }} cornerRadius={7} />}
-          clipShape={{ type: "rect", cornerRadius: 7, style: "continuous" }}
-        >
-          <Text font="caption" fontWeight="medium" foregroundStyle={copied ? "#34c759" : (props.foregroundStyle || "secondaryLabel")}>
-            {copied ? "已复制" : "Link"}
-          </Text>
-        </HStack>
-      ) : (
-        <GlassBadge style="rose" showDot>
-          <Text font="caption" fontWeight="medium" foregroundStyle={copied ? "#34c759" : ROSE_TINT}>
-            {copied ? "已复制" : "Link"}
-          </Text>
-        </GlassBadge>
-      )}
+      <HStack
+        spacing={6}
+        padding={{ horizontal: 10, vertical: 5 }}
+        background={<RoundedRectangle fill={{ light: "rgba(0,0,0,0.05)", dark: "rgba(0,0,0,0.22)" }} cornerRadius={7} />}
+        clipShape={{ type: "rect", cornerRadius: 7, style: "continuous" }}
+      >
+        <Text font="caption" fontWeight="medium" foregroundStyle={copied ? "#34c759" : (props.foregroundStyle || "secondaryLabel")}>
+          {copied ? "已复制" : "Link"}
+        </Text>
+      </HStack>
     </Button>
   )
 }

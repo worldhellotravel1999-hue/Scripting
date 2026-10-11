@@ -1,4 +1,4 @@
-import { Button, HStack, Image, LazyVStack, ProgressView, RoundedRectangle, ScrollView, Text, VStack, useEffect, useRef, useState } from "scripting"
+import { Button, HStack, Image, LazyVStack, ProgressView, RoundedRectangle, ScrollView, Text, VStack, useEffect, useMemo, useRef, useState } from "scripting"
 import { AnimTextGlassBadge } from "./glass-badge"
 import { fetchAppVersions, fetchVersionHistoryNotes, mergeVersionNotes, type AppVersionEntry, type AppVersionNotes } from "../core/versions"
 
@@ -24,12 +24,15 @@ function useAppVersions(appid: string, region: string, version: string, currentN
   }, [appid, region, token])
   const base = versions?.key === key ? versions.entries : null
   const fetched = history?.key === key ? history : null
-  const notes = [...(fetched?.entries || [])]
-  // Lookup 正文与它自己的版本号成对回退，绝不填给其它历史版本。
-  if (version.trim() && currentNotes?.trim() && !notes.some(item => item.version === version.trim())) {
-    notes.push({ version: version.trim(), notes: currentNotes.trim() })
-  }
-  const merged = mergeVersionNotes(base || [], notes)
+  const notes = useMemo(() => {
+    const list = [...(fetched?.entries || [])]
+    // Lookup 正文与它自己的版本号成对回退，绝不填给其它历史版本。
+    if (version.trim() && currentNotes?.trim() && !list.some(item => item.version === version.trim())) {
+      list.push({ version: version.trim(), notes: currentNotes.trim() })
+    }
+    return list
+  }, [fetched, version, currentNotes])
+  const merged = useMemo(() => mergeVersionNotes(base || [], notes), [base, notes])
   return {
     entries: merged.length ? merged : base === null || fetched === null ? null : [],
     notesLoading: fetched === null,

@@ -78,7 +78,6 @@ type CardMenuAction = { label: string; run: () => void }
 export type CardMenuRequest = { actions: CardMenuAction[] }
 
 type TranslationCardProps = {
-  key?: string
   id: string
   sourceLanguage: string
   targetLanguages: string[]

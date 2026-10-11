@@ -66,6 +66,17 @@ function PriceRow(props: {
       prewarmPriceHistory(props.appid, item.region)
     }
   }, [props.appid, item.region, item.formatted, item.unavailable, item.loading])
+
+  if (item.loading) {
+    return (
+      <HStack spacing={10} padding={{ vertical: 6 }} frame={{ maxWidth: "infinity", alignment: "leading" }}>
+        <Text font={PRICE_ROW_FONT} fontWeight="semibold" foregroundStyle={props.foregroundStyle}>{item.name}</Text>
+        <Spacer />
+        <ProgressView />
+      </HStack>
+    )
+  }
+
   /** 点击价格/徽章弹出的国家选择菜单（全部国家可选） */
   const regionPicker = (
     <Picker
@@ -80,7 +91,7 @@ function PriceRow(props: {
   )
   /** 包住价格区的菜单：点击右侧价格即弹国家列表 */
   const priceMenu = (
-    <Menu label={<LocalPrice formatted={item.formatted} cny={item.cny} emphasis foregroundStyle={props.foregroundStyle} />}>
+    <Menu label={<LocalPrice formatted={item.formatted} cny={item.cny} foregroundStyle={props.foregroundStyle} />}>
       {regionPicker}
     </Menu>
   )
@@ -115,16 +126,6 @@ function PriceRow(props: {
     </HStack>
   )
 
-  if (item.loading) {
-    return (
-      <HStack spacing={10} padding={{ vertical: 6 }} frame={{ maxWidth: "infinity", alignment: "leading" }}>
-        <Text font={PRICE_ROW_FONT} fontWeight="semibold" foregroundStyle={props.foregroundStyle}>{item.name}</Text>
-        <Spacer />
-        <ProgressView />
-      </HStack>
-    )
-  }
-
   return (
     <VStack
       alignment="leading"
@@ -149,9 +150,9 @@ function PriceRow(props: {
   )
 }
 
-function LocalPrice(props: { formatted: string; cny: string | null; emphasis?: boolean; foregroundStyle?: any }) {
+function LocalPrice(props: { formatted: string; cny: string | null; foregroundStyle?: any }) {
   const mainFont = PRICE_ROW_FONT
-  const mainWeight = props.emphasis ? "semibold" : undefined
+  const mainWeight = "semibold"
   return props.cny ? (
     <VStack alignment="trailing" spacing={2}>
       <AnimText font={mainFont} fontWeight={mainWeight} foregroundStyle={props.foregroundStyle} anim="numericText" dur={0.4}>{props.cny}</AnimText>

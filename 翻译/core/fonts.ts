@@ -8,7 +8,7 @@ export type ImportedFont = {
   filename: string
   format: "truetype" | "opentype"
 }
-export type FontSettings = {
+type FontSettings = {
   source: ImportedFont | null
   target: ImportedFont | null
   fonts: ImportedFont[]

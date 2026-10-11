@@ -65,11 +65,12 @@ function normalize(value: unknown) {
 }
 
 function chunkBoundary(text: string, limit: number) {
+  const threshold = Math.floor(limit * 0.55)
   const paragraph = text.lastIndexOf("\n\n", limit)
-  if (paragraph >= Math.floor(limit * 0.55)) return paragraph + 2
+  if (paragraph >= threshold) return paragraph + 2
 
   const line = text.lastIndexOf("\n", limit)
-  if (line >= Math.floor(limit * 0.55)) return line + 1
+  if (line >= threshold) return line + 1
 
   const candidates = [
     text.lastIndexOf("。", limit),
@@ -84,7 +85,7 @@ function chunkBoundary(text: string, limit: number) {
     text.lastIndexOf(",", limit),
     text.lastIndexOf(" ", limit),
   ]
-  const boundary = candidates.find((index) => index >= Math.floor(limit * 0.55))
+  const boundary = candidates.find((index) => index >= threshold)
   return boundary && boundary > 0 ? boundary + 1 : limit
 }
 
@@ -97,7 +98,7 @@ function splitTranslationText(text: string, maxLength = SYSTEM_CHUNK_LENGTH) {
     remaining = remaining.slice(boundary)
   }
   if (remaining) chunks.push(remaining)
-  return chunks.filter((item) => item.length > 0)
+  return chunks
 }
 
 function cacheKey(request: TranslationRequest) {

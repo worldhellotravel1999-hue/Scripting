@@ -20,9 +20,9 @@ type AccountRecord = {
 }
 
 /** AppRaven 图片基址（官网 JS 包 An.imagesUrl = serverUrl + "/images"）。 */
-export const APPRAVEN_IMAGES_URL = "https://appraven.net/appraven/images"
+const APPRAVEN_IMAGES_URL = "https://appraven.net/appraven/images"
 /** AppRaven 用户头像目录（官网 Sn.userIcon = "/user/icons/"）。 */
-export const APPRAVEN_USER_ICON_PATH = "/user/icons/"
+const APPRAVEN_USER_ICON_PATH = "/user/icons/"
 /** AppRaven 默认头像（官网 mediaById(null, userIcon) 回退 "default"）。 */
 export const APPRAVEN_DEFAULT_USER_ICON_URL = `${APPRAVEN_IMAGES_URL}${APPRAVEN_USER_ICON_PATH}default.jpg`
 
@@ -44,12 +44,12 @@ export type AppRavenSession = {
   cookie: string
 }
 
-export type AppRavenPage<T> = {
+type AppRavenPage<T> = {
   hasNext: boolean
   content: T[]
 }
 
-export type AppRavenCookie = {
+type AppRavenCookie = {
   name: string
   value: string
 }
@@ -77,7 +77,7 @@ export type AppRavenCollectionItem = {
   }
 }
 
-export type AppRavenUser = {
+type AppRavenUser = {
   id: string
   username?: string
   displayName?: string
@@ -741,11 +741,6 @@ export async function removeAppFromAppRavenCollection(collectionId: string, appI
   )
   if (!isRecord(data.removeItemFromCollection)) {
     // AppRaven 删除接口有时返回空对象；条目定位成功后继续视为已处理，由 UI 刷新确认。
-    return true
-  }
-  try {
-    parseAppRavenMutationResult(data.removeItemFromCollection, "AppRaven 删除结果")
-  } catch {
     return true
   }
   return true

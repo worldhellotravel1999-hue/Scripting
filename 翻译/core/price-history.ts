@@ -12,12 +12,12 @@ export type PriceHistoryRecord = {
   cny?: string | null
   kind: "rise" | "free" | "paid"
 }
-export type PriceHistoryOptions = {
+type PriceHistoryOptions = {
   regionCode?: string
   /** 首屏只拿价格链：先出结果，版本 ID / 人民币换算后台补齐（2.4.29 起）。 */
   fastFirst?: boolean
 }
-export type PriceHistoryFastHandle = {
+type PriceHistoryFastHandle = {
   /** 首屏价格链（无版本 ID / 人民币时为 undefined）。 */
   records: PriceHistoryRecord[]
   /** 后台补齐全部增强字段后的完整结果；失败则回退首屏结果。 */
@@ -26,10 +26,16 @@ export type PriceHistoryFastHandle = {
 export function regionDefinition(code: string) {
   return REGION_CATALOG.find(region => region.code === code.toLowerCase())
 }
+const historyFormatterCache = new Map<string, Intl.NumberFormat>()
 export function historyPrice(value: number, currencyCode = "USD", locale = "en-US") {
   if (value === 0) return "免费"
+  const key = `${locale}|${currencyCode}`
+  const cached = historyFormatterCache.get(key)
+  if (cached) return cached.format(value)
   try {
-    return new Intl.NumberFormat(locale, { style: "currency", currency: currencyCode, currencyDisplay: "narrowSymbol" }).format(value)
+    const formatter = new Intl.NumberFormat(locale, { style: "currency", currency: currencyCode, currencyDisplay: "narrowSymbol" })
+    historyFormatterCache.set(key, formatter)
+    return formatter.format(value)
   } catch { return `${value.toFixed(2)} ${currencyCode}` }
 }
 
@@ -100,7 +106,6 @@ const QUERY = `query PriceHistory($id: Long!, $iso: String!) {
   }
 }`
 const cache = new Map<string, { at: number; records: PriceHistoryRecord[] }>()
-const pending = new Map<string, Promise<PriceHistoryRecord[]>>()
 const versionCache = new Map<string, { at: number; ids: Map<string, string> }>()
 async function versionIds(appid: string) {
   const saved = versionCache.get(appid)

@@ -66,26 +66,21 @@ function LanguageMenu(props: {
   value: string
   options: LanguageOption[]
   onChanged: (value: string) => void
-  prominent?: boolean
-  alignment?: "leading" | "trailing"
 }) {
   return (
     <Menu
       label={
         <Text
-          foregroundStyle={props.prominent ? "label" : "accentColor"}
-          font={props.prominent ? "title3" : "subheadline"}
-          fontWeight={props.prominent ? "semibold" : undefined}
+          foregroundStyle="label"
+          font="title3"
+          fontWeight="semibold"
           lineLimit={1}
           truncationMode="tail"
           allowsTightening
-          frame={{
-            maxWidth: props.prominent ? 160 : 170,
-            alignment: (props.alignment || "trailing") as any,
-          }}
-          multilineTextAlignment={props.alignment || "trailing"}
+          frame={{ maxWidth: 160, alignment: "leading" as any }}
+          multilineTextAlignment="leading"
         >
-          {props.prominent ? languageShortLabel(props.value) : languageLabel(props.value)}
+          {languageShortLabel(props.value)}
         </Text>
       }
     >
@@ -194,8 +189,6 @@ export function LanguageBar(props: {
       <LanguageMenu
         value={props.sourceLanguage}
         options={sourceOptions}
-        prominent
-        alignment="leading"
         onChanged={props.onSourceChanged}
       />
       <Spacer />

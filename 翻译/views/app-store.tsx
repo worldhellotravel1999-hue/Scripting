@@ -241,15 +241,19 @@ function CardDivider() {
  *  每多一个已保存账号再 +~55pt。Cookie 行默认隐藏（轻点登录页左上角老鹰图标显示、再点隐藏、长按登录），
  *  隐藏时下方多出的空白是透明背景不影响观感；显示后内容仍在 420pt 内。
  *  旧值 0.36 分数在分享宿主里折算高度远小于此，把 Cookie 行往下全部裁掉且无处滚动；
- *  固定 420pt 装得下表单本体 + 2 个账号，更多账号/长 Cookie 由登录表单内部 ScrollView 滚动兜底。 */
-const LOGIN_SHEET_DETENT = 420
+ *  固定高度装得下表单本体 + 账号列表，超出部分由登录表单内部 ScrollView 滚动兜底。
+ *  2026-10-12 用户要求：合集页与登入页的弹窗方框统一为 350pt。 */
+const LOGIN_SHEET_DETENT = 350
+/** 登录页弹窗高度：与合集页保持一致（同为 350pt），全屏钮仍 large；
+ *  表单本体超出部分由登录表单内部 ScrollView 滚动兜底。 */
+const LOGIN_PAGE_SHEET_DETENT = LOGIN_SHEET_DETENT
 /** 搜索页 Reset 行星星按钮双层嵌套填充（与合集页顶部方框钮同款）：外层浅灰方框 + 内层灰白圆底。 */
 const STAR_BOX_FILL = { light: "rgba(120,120,128,0.18)", dark: "rgba(120,120,128,0.24)" } as const
 const STAR_INNER_FILL = { light: "rgba(248,248,251,0.75)", dark: "rgba(240,240,245,0.70)" } as const
 
 /**
  * 分享页头部评分星星合集入口：无背景无圆点的原生排版，点击星星弹跳后弹出合集窗口。
- * 默认固定 420pt（贴合登录表单，表单内部超出可滚动）；合集页顶部全屏按钮点一次全屏、再点缩回。
+ * 默认：登录页与合集页统一 350pt（LOGIN_SHEET_DETENT），内容超出内部滚动；合集页顶部全屏按钮点一次全屏、再点缩回。
  * 搜索页紧凑形态传 onToggle（内联折叠）：不弹底部弹窗，展开状态由宿主持有（同「图标」面板）。
  */
 function RatingCollectionsButton(props: {
@@ -334,7 +338,7 @@ function RatingCollectionsButton(props: {
             spacing={0}
             frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
             presentationBackground="clear"
-            presentationDetents={fullscreen && loggedIn ? ["large"] : [LOGIN_SHEET_DETENT]}
+            presentationDetents={fullscreen && loggedIn ? ["large"] : [loggedIn ? LOGIN_SHEET_DETENT : LOGIN_PAGE_SHEET_DETENT]}
             presentationDragIndicator="hidden"
           >
             {sheetReady ? (

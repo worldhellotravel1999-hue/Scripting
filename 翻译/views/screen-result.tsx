@@ -13,6 +13,26 @@ import {
 } from "scripting"
 import { startScreenTranslation } from "../core/screen-job"
 
+/** 有效图片判定：跨桥丢失/宽度非法的图绝不能送进原生 Vision 管线。 */
+function isValidImage(image?: UIImage): image is UIImage {
+  return !!image && typeof image.width === "number" && image.width > 0
+}
+
+/** 右下角浮钮容器：钉在页面角的半透明胶囊（加载转圈与原图/译图切换共用同一位置）。 */
+function FloatingPillFrame(props: { pillPadding: any; children: any }) {
+  return (
+    <HStack padding={{ trailing: 14, bottom: 14 }}>
+      <HStack
+        padding={props.pillPadding}
+        background={<RoundedRectangle fill={{ light: "rgba(255,255,255,0.85)", dark: "rgba(28,28,30,0.85)" }} cornerRadius={18} />}
+        clipShape="capsule"
+      >
+        {props.children}
+      </HStack>
+    </HStack>
+  )
+}
+
 type ScreenTranslationResultProps = {
   image: UIImage
 }
@@ -34,7 +54,7 @@ export function ScreenTranslationResult(props: ScreenTranslationResultProps) {
 
   useEffect(() => {
     let alive = true
-    if (!props.image || typeof props.image.width !== "number" || !(props.image.width > 0)) {
+    if (!isValidImage(props.image)) {
       // 图片跨桥丢失/无效时绝不能把 undefined 送进原生 Vision（会崩整个 App）。
       setErrorMessage("截图数据无效，请重新分享一次。")
       setStatus("error")
@@ -57,35 +77,21 @@ export function ScreenTranslationResult(props: ScreenTranslationResultProps) {
     }
   }, [])
 
-  const validImage = !!props.image && typeof props.image.width === "number" && props.image.width > 0
+  const validImage = isValidImage(props.image)
   const displayedImage = showOriginal ? props.image : (coverImage ?? props.image)
 
   // 右下角浮钮：加载转圈与「原图/译图」切换同一位置，钉在页面角
   // （真实截图比视口高，挂在图片角上会随内容滚出屏幕）。
   const floatingPill = status === "loading" && validImage ? (
-    <HStack padding={{ trailing: 14, bottom: 14 }}>
-      <HStack
-        padding={10}
-        background={<RoundedRectangle fill={{ light: "rgba(255,255,255,0.85)", dark: "rgba(28,28,30,0.85)" }} cornerRadius={18} />}
-        clipShape="capsule"
-      >
-        <ProgressView />
-      </HStack>
-    </HStack>
+    <FloatingPillFrame pillPadding={10}>
+      <ProgressView />
+    </FloatingPillFrame>
   ) : status === "done" && coverImage && validImage ? (
-    <HStack padding={{ trailing: 14, bottom: 14 }}>
-      <HStack
-        padding={{ horizontal: 14, vertical: 9 }}
-        background={<RoundedRectangle fill={{ light: "rgba(255,255,255,0.85)", dark: "rgba(28,28,30,0.85)" }} cornerRadius={18} />}
-        clipShape="capsule"
-      >
-        <Button buttonStyle="borderless" action={() => setShowOriginal((current) => !current)}>
-          <Text fontWeight="medium" foregroundStyle={{ light: "#000000", dark: "#FFFFFF" }}>
-            {showOriginal ? "译图" : "原图"}
-          </Text>
-        </Button>
-      </HStack>
-    </HStack>
+    <FloatingPillFrame pillPadding={{ horizontal: 14, vertical: 9 }}>
+      <Button buttonStyle="borderless" action={() => setShowOriginal((current) => !current)}>
+        <Image systemName="circle.grid.2x2" font="body" />
+      </Button>
+    </FloatingPillFrame>
   ) : null
 
   return (

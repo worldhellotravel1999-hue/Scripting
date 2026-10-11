@@ -155,7 +155,7 @@ function useErrorNudge(trigger: string) {
 
 
 /** 顶部方框钮：双层嵌套——外层 TOP_BOX_FILL 浅灰方框 + 内层 BUTTON_BOX_FILL 灰白圆形图标（外框 40×40 与行头对齐）。图标带呼吸灯（opacity 随 pulse 在 1 ↔ 0.45 间往复）。 */
-function RoundIconButton(props: { systemName: string; tint?: any; pulse: number; onTap: () => void }) {
+function RoundIconButton(props: { systemName: string; pulse: number; onTap: () => void }) {
   return (
     <Button buttonStyle="plain" action={props.onTap}>
       <HStack
@@ -166,7 +166,7 @@ function RoundIconButton(props: { systemName: string; tint?: any; pulse: number;
         <Image
           systemName={props.systemName}
           font={16}
-          foregroundStyle={props.tint ?? { light: "#000000", dark: "#FFFFFF" }}
+          foregroundStyle={{ light: "#000000", dark: "#FFFFFF" }}
           frame={{ width: 32, height: 32 }}
           background={{ style: BUTTON_BOX_FILL, shape: "circle" }}
           opacity={props.pulse === 0 ? 1 : 0.45}
@@ -253,15 +253,15 @@ function LayoutToggleButton(props: { grid: boolean; pulse: number; onTap: () => 
 
 type CollectionLoadStage = "resolving" | "collections" | "ready"
 
-/** 登录输入行：图标 + 内嵌输入框，同搜索页搜索框的灰底圆角风格。grow 时行高扩大约 10%（竖向 padding 8→10）。errored 时底色短暂泛红（登录失败反馈；不叫 alert——会与内置对话框属性撞名）。 */
-function LoginFieldRow(props: { systemName: string; children: any; grow?: boolean; errored?: boolean }) {
+/** 登录输入行：图标 + 内嵌输入框，同搜索页搜索框的灰底圆角风格。errored 时底色短暂泛红（登录失败反馈；不叫 alert——会与内置对话框属性撞名）。 */
+function LoginFieldRow(props: { systemName: string; children: any; errored?: boolean }) {
   const fill = (props.errored
     ? { light: "rgba(255,59,48,0.16)", dark: "rgba(255,69,58,0.22)" }
     : { light: "rgba(120,120,128,0.08)", dark: "rgba(120,120,128,0.14)" }) as any
   return (
     <HStack
       spacing={8}
-      padding={{ horizontal: 12, vertical: props.grow ? 10 : 8 }}
+      padding={{ horizontal: 12, vertical: 10 }}
       frame={{ maxWidth: "infinity" }}
       background={<RoundedRectangle fill={fill} cornerRadius={14} />}
       clipShape={{ type: "rect", cornerRadius: 14, style: "continuous" }}
@@ -539,7 +539,6 @@ function SinglePageCollections(props: CollectionPageProps) {
       setPrincipal("")
       reloadAccount()
       void refreshAppRavenAccountIcon(user.id).then(ok => { if (ok) setAccounts(getSavedAppRavenAccounts()) }).catch(() => {})
-      showCollectionToast(`已登录：${user.displayName || name}`)
     } catch (reason) {
       setLoginError(`登录失败：${errorText(reason)}`)
     } finally {
@@ -560,7 +559,6 @@ function SinglePageCollections(props: CollectionPageProps) {
       setCookie("")
       reloadAccount()
       void refreshAppRavenAccountIcon(user.id).then(ok => { if (ok) setAccounts(getSavedAppRavenAccounts()) }).catch(() => {})
-      showCollectionToast(`已登录：${user.displayName || user.username || "AppRaven 账号"}`)
     } catch (reason) {
       setLoginError(`登录失败：${errorText(reason)}`)
     } finally {
@@ -677,7 +675,6 @@ function SinglePageCollections(props: CollectionPageProps) {
         // 同步失败不写入不完整结果；保持按钮禁用并给出重试入口，
         // 避免在错误的空集状态上放行加/减操作。
         withAnimation(() => setStageError(`已加入状态同步失败：${errorText(reason)}（点重试重新同步）`))
-        showCollectionToast(`已加入状态同步失败：${errorText(reason)}`, true)
       }
     } catch (reason) {
       if (cancelledRef.current) return
@@ -733,7 +730,6 @@ function SinglePageCollections(props: CollectionPageProps) {
     // 首次「已加入」尚未同步完成：不接受加/减（按钮同时已禁用，这里兜底）。
     if (!joinedSynced) return
     if (!session || !account || !internalAppId) {
-      showCollectionToast("AppRaven 会话已失效，请重新登录", true)
       return
     }
     playToggleFx(collection.id)
@@ -757,10 +753,8 @@ function SinglePageCollections(props: CollectionPageProps) {
             return next
           })
           if (expandedId === collection.id) void loadExpanded(collection, true)
-          showCollectionToast(`已加入「${collection.title}」`)
         } catch (reason) {
           updateJoined(collection.id, false)
-          showCollectionToast(`「${collection.title}」加入失败：${errorText(reason)}`, true)
         }
       })
     } else {
@@ -775,7 +769,6 @@ function SinglePageCollections(props: CollectionPageProps) {
                 ? { ...item, appCount: item.appCount + 1 }
                 : item))
             })
-            showCollectionToast(`「${collection.title}」中本来就没有这个 App，已按未加入显示`, true)
           } else {
             // 同步展开缓存里的当前 App
             setExpandedItems(previous => {
@@ -783,11 +776,9 @@ function SinglePageCollections(props: CollectionPageProps) {
               if (!list) return previous
               return { ...previous, [collection.id]: list.filter(item => item.app?.id !== internalAppId) }
             })
-            showCollectionToast(`已从「${collection.title}」移除`)
           }
         } catch (reason) {
           updateJoined(collection.id, true)
-          showCollectionToast(`「${collection.title}」移除失败：${errorText(reason)}`, true)
         }
       })
     }
@@ -837,7 +828,6 @@ function SinglePageCollections(props: CollectionPageProps) {
   async function removeExpandedItem(collection: AppRavenCollection, item: AppRavenCollectionItem) {
     if (!session || !account) return
     if (removingItemId) {
-      showCollectionToast("正在删除，请稍候", true)
       return
     }
     const activeSession = session
@@ -857,12 +847,10 @@ function SinglePageCollections(props: CollectionPageProps) {
         ? { ...entry, appCount: Math.max(0, entry.appCount - 1) }
         : entry))
       try { setAppRavenCollectionItemOrder(activeAccountId, collection.id, nextList.map(entry => entry.id)) } catch {}
-      showCollectionToast(`已从「${collection.title}」移除`)
     } catch (reason) {
       withAnimation(() => {
         setExpandedItems(prev => ({ ...prev, [collection.id]: previous }))
       })
-      showCollectionToast(`「${item.app?.title || "该 App"}」移除失败：${errorText(reason)}`, true)
     } finally {
       setRemovingItemId(null)
     }
@@ -934,11 +922,10 @@ function SinglePageCollections(props: CollectionPageProps) {
     } catch {}
   }
 
-  const filtered = collections
   const manualFirst = manualCollectionOrder.length > 0 ? [
-    ...manualCollectionOrder.map(id => filtered.find(item => item.id === id)).filter((item): item is AppRavenCollection => !!item),
-    ...filtered.filter(item => !manualCollectionOrder.includes(item.id)),
-  ] : filtered
+    ...manualCollectionOrder.map(id => collections.find(item => item.id === id)).filter((item): item is AppRavenCollection => !!item),
+    ...collections.filter(item => !manualCollectionOrder.includes(item.id)),
+  ] : collections
   const recentFirst = [
     ...recentOrder.map(id => manualFirst.find(item => item.id === id)).filter((item): item is AppRavenCollection => !!item),
     ...manualFirst.filter(item => !recentOrder.includes(item.id)),
@@ -1073,7 +1060,7 @@ function SinglePageCollections(props: CollectionPageProps) {
         transition={COOKIE_ROW_TRANSITION}
       >
         {/* cookie 符号在本系统不存在（ImageRenderer 实测渲染失败→空白），换用 doc.on.clipboard */}
-        <LoginFieldRow systemName="doc.on.clipboard" grow>
+        <LoginFieldRow systemName="doc.on.clipboard">
           <TextField title="" prompt="粘贴 AppRaven 会话 Cookie" value={cookie} onChanged={setCookie} axis="vertical" onSubmit={submitFromKeyboard} frame={{ maxWidth: "infinity" }} />
         </LoginFieldRow>
       </VStack>
@@ -1085,7 +1072,7 @@ function SinglePageCollections(props: CollectionPageProps) {
       scaleEffect={errorNudge}
       animation={{ animation: Animation.snappy({ duration: 0.3, extraBounce: 0.35 }), value: errorNudge }}
     >
-      <LoginFieldRow systemName="person" grow errored={!!loginError}>
+      <LoginFieldRow systemName="person" errored={!!loginError}>
         <TextField title="" prompt="邮箱或用户名" value={principal} onChanged={setPrincipal} onSubmit={submitFromKeyboard} submitLabel="go" frame={{ maxWidth: "infinity" }} />
       </LoginFieldRow>
     </VStack>
@@ -1097,7 +1084,7 @@ function SinglePageCollections(props: CollectionPageProps) {
       scaleEffect={errorNudge}
       animation={{ animation: Animation.snappy({ duration: 0.3, extraBounce: 0.35 }), value: errorNudge }}
     >
-      <LoginFieldRow systemName="lock" grow errored={!!loginError}>
+      <LoginFieldRow systemName="lock" errored={!!loginError}>
         <SecureField title="" prompt="密码" value={password} onChanged={setPassword} onSubmit={submitFromKeyboard} submitLabel="go" frame={{ maxWidth: "infinity" }} />
       </LoginFieldRow>
     </VStack>
@@ -1427,6 +1414,3 @@ export function AppRavenCollectionsPage(props: CollectionPageProps) {
   )
 }
 
-function showCollectionToast(_text: string, _error = false) {
-  // 顶部通知栏已按用户要求删除：保留调用点兼容，不再显示任何通知。
-}
