@@ -182,7 +182,7 @@ function RoundIconButton(props: { systemName: string; tint?: any; pulse: number;
  * 展开/收起小箭头固定淡灰色（secondaryLabel），偏在方框右下角内侧，随状态反转方向（收起=向下、展开=向上）。
  * 点按（tick 变化）时符号弹跳 + 整体缩放回弹（popped）。
  */
-export function CollectionJoinButton(props: {
+function CollectionJoinButton(props: {
   isJoined: boolean
   expanded: boolean
   tick: number
@@ -1351,10 +1351,6 @@ function SinglePageCollections(props: CollectionPageProps) {
                             clipShape={{ type: "rect", cornerRadius: 10 } as any}
                             onLongPressGesture={{
                               perform: () => {
-                                if (!expanded) {
-                                  setExpandedId(collection.id)
-                                  void loadExpanded(collection)
-                                }
                                 if (sortItemContext?.collectionId === collection.id && sortItemContext?.itemId === item.id) {
                                   setSortItemContext(null)
                                 } else {

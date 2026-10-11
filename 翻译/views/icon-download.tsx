@@ -11,7 +11,7 @@ type IconFormat = "png" | "jpeg" | "heic"
 
 /** 把任意 mzstatic 图标 URL（模板或固定尺寸）换成指定尺寸透明 PNG（bf 后缀），
  *  避免拿到 100px 小图或白底图。 */
-export function iconArtworkUrl(url: string | null | undefined, size: number): string | undefined {
+function iconArtworkUrl(url: string | null | undefined, size: number): string | undefined {
   if (!url) return undefined
   const dim = `${size}x${size}bf.png`
   if (url.includes("{w}x{h}{c}.{f}")) {

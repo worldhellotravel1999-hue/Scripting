@@ -74,10 +74,10 @@ export type TranslationCardSnapshot = {
   results: TranslationCardResult[]
 }
 
-export type CardMenuAction = { label: string; run: () => void }
+type CardMenuAction = { label: string; run: () => void }
 export type CardMenuRequest = { actions: CardMenuAction[] }
 
-export type TranslationCardProps = {
+type TranslationCardProps = {
   key?: string
   id: string
   sourceLanguage: string
@@ -123,7 +123,7 @@ type TargetResult = TranslationCardResult
 
 const CARD_FILL = { light: `#FFFFFF` as const, dark: `#1C1C1E` as const }
 
-export function targetCodes(values: string[]) {
+function targetCodes(values: string[]) {
   const result: string[] = []
   for (const value of values) {
     if (!value || result.includes(value)) continue
@@ -133,7 +133,7 @@ export function targetCodes(values: string[]) {
   return result.length ? result : ["zh-Hans"]
 }
 
-export function restoredResults(values: string[], saved?: TranslationCardResult[]) {
+function restoredResults(values: string[], saved?: TranslationCardResult[]) {
   const byLanguage = new Map((saved || []).map((item) => [item.languageCode, item]))
   return targetCodes(values).map((languageCode) => {
     const item = byLanguage.get(languageCode)
@@ -148,7 +148,7 @@ function clearedRestoredResults(values: string[], saved?: TranslationCardResult[
   return restoredResults(values, saved).map((item) => ({ ...item, error: "" }))
 }
 
-export function submittedTextAfterReturn(previous: string, next: string) {
+function submittedTextAfterReturn(previous: string, next: string) {
   const insertedLength = next.length - previous.length
   if (insertedLength !== 1 && insertedLength !== 2) return null
 
@@ -658,7 +658,7 @@ export function TranslationCard(props: TranslationCardProps) {
 
           <ZStack alignment="leading" padding={{ top: 12, bottom: 4 }} frame={{ maxWidth: "infinity" as any, alignment: "leading" as any }}
             {...(readOnly && !props.onMenuRequest ? { contextMenu: { menuItems: <CopyButton title="复制原文" text={sourceText} /> } } : {})}>
-            <FontText role="source" lineSpacing={4} text={readOnly ? sourceText || "—" : sourceText} selectable={menuActions ? false : !(readOnly && props.onMenuRequest)}
+            <FontText role="source" lineSpacing={4} text={readOnly ? sourceText || "—" : sourceText} selectable={!menuActions}
               flat={props.flat} foregroundStyle={props.foregroundStyle} gradientColors={props.gradientColors} editable={!readOnly} onChanged={updateInputText} onTextSubmit={submitTranslation} />
             {menuActions ? menuOverlay(menuActions.source) : null}
           </ZStack>
@@ -689,7 +689,7 @@ export function TranslationCard(props: TranslationCardProps) {
             menuActions ? (
               <ZStack alignment="leading" frame={{ maxWidth: "infinity" as any, alignment: "leading" as any }}>
                 <FontText role="target" animated={!translationOnly} selectable={false} flat={props.flat} foregroundStyle={props.foregroundStyle} gradientColors={props.gradientColors} lineSpacing={4} text={item.text} />
-                {menuActions ? menuOverlay(() => menuActions.target(item.text)) : null}
+                {menuOverlay(() => menuActions.target(item.text))}
               </ZStack>
             ) : (
               <VStack alignment="leading" contextMenu={{ menuItems: <CopyButton title="复制" text={item.text} /> }}>

@@ -30,7 +30,7 @@ function scheduleAction(action: () => void | Promise<unknown>): void {
 }
 
 /** A genuine submenu: insert directly among a language Menu's children. */
-export function FontMenu({ role }: { role: FontRole }) {
+function FontMenu({ role }: { role: FontRole }) {
   const settings = useFontSettings()
   const selected = settings[role]
   return (

@@ -4,7 +4,6 @@ import {
   Image,
   RoundedRectangle,
   ScrollView,
-  Spacer,
   Text,
   VStack,
   useState,

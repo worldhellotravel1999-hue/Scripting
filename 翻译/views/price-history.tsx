@@ -10,7 +10,7 @@ export const PRICE_COLUMN_TITLE_FONT = 13.8
 export const PRICE_ROW_FONT = 15.3
 export const PRICE_ROW_META_FONT = 13
 
-export function PriceHistoryRows(props: {
+function PriceHistoryRows(props: {
   records: PriceHistoryRecord[]; limit: number; foregroundStyle?: any
   regionCode?: string
 }) {

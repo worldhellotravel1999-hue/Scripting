@@ -1,6 +1,6 @@
 import { Canvas, ImageRenderer, type CanvasRenderingContext } from "scripting"
 import { recognizeScreenBlocks, type OCRBlock } from "./screen-ocr"
-import { translateText, type TranslateTextOptions } from "./translate"
+import { translateLines, type TranslateTextOptions } from "./translate"
 
 export type ScreenOverlayLine = {
   source: string
@@ -115,12 +115,14 @@ export async function translateScreenOverlay(
   const blocks = mergeLineBlocks(await recognizeScreenBlocks(image))
   if (!blocks.length) throw new Error("未识别到文字，请确认截图清晰且包含可识别文本。")
 
-  const lines: ScreenOverlayLine[] = []
-  for (const block of blocks) {
-    // 逐行独立翻译：原文行与译文行一一对应，才能按框盖回。
-    const translated = (await translateText(block.text, options)).trim() || block.text
-    lines.push({ source: block.text, translated, box: block.box })
-  }
+  // 一次批量翻译全部行（旧行为是逐行串行 translateText，截图一多就要
+  // 等 N 个请求 + N 次原生排队，是截图翻译慢的根因）。
+  const translations = await translateLines(blocks.map((block) => block.text), options)
+  const lines: ScreenOverlayLine[] = blocks.map((block, index) => ({
+    source: block.text,
+    translated: (translations[index] ?? "").trim() || block.text,
+    box: block.box,
+  }))
   const text = lines.map((line) => line.translated).join("\n").trim()
   if (!text) throw new Error("未识别到文字，请确认截图清晰且包含可识别文本。")
 
@@ -188,7 +190,7 @@ function isDarkColor(hex: string | null | undefined): boolean {
 }
 
 /** 把译文行按框盖回原图；框无效或渲染失败时回退原图。 */
-export async function renderCoverImage(image: UIImage, lines: ScreenOverlayLine[]): Promise<UIImage> {
+async function renderCoverImage(image: UIImage, lines: ScreenOverlayLine[]): Promise<UIImage> {
   const width = image.width
   const height = image.height
   if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {

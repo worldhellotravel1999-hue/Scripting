@@ -6,7 +6,7 @@ import { AnimText } from "./anim-text"
  * GlassBadge — 半透明胶囊徽章（取自 IPA-Tool-3.0）。
  * info / success / warning / error / neutral / teal 六种色系，浅色深色自适应。
  */
-export type GlassBadgeStyle = "info" | "success" | "warning" | "error" | "neutral" | "teal" | "rose" | "purple"
+type GlassBadgeStyle = "info" | "success" | "warning" | "error" | "neutral" | "teal" | "rose" | "purple"
 
 type AdaptiveColor = Color | {
   light: Color

@@ -72,6 +72,35 @@ export function buildOCRBlocks(candidates: OCRCandidate[]): OCRBlock[] {
 export function buildSourceText(blocks: OCRBlock[]): string { return blocks.map(block => block.text).join("\n") }
 
 /**
+ * 把任意来源的 UIImage 物化为「已完整解码、驻留内存」的位图副本。
+ *
+ * 背景（2026-10-11 崩溃日志 58EFB5AD.ips）：崩溃是 EXC_BAD_ACCESS 读 0x0，
+ * 发生在 ScriptingKit 原生代码 `closure #1 in JSVision.recognizeText` ——
+ * 即 Vision.recognizeText 建 Promise 时同步执行的原生闭包里解引用了空指针
+ * （典型成因：传入的 UIImage 没有可用的底层位图/CGImage，原生侧未判空）。
+ * 分享扩展的临时截图文件可能受数据保护、被系统提前回收或尚未落盘完成，
+ * 会出现「UIImage 构造成功但 OCR 时位图已不可用」的竞态。
+ *
+ * 因此 OCR 前强制走 toPNGData → fromData 往返：
+ * - 任一步失败都只返回 null（可捕获的 JS 层错误，绝不进原生崩溃区）；
+ * - 成功则 Vision 拿到的是全新解码的内存位图，与源文件是否还存在无关。
+ */
+export function inlineImageBitmap(image: UIImage | null | undefined): UIImage | null {
+  if (!image || typeof image !== "object"
+    || typeof image.width !== "number" || typeof image.height !== "number") return null
+  if (!Number.isFinite(image.width) || !Number.isFinite(image.height)
+    || image.width <= 0 || image.height <= 0) return null
+  let data: Data | null = null
+  try { data = image.toPNGData() } catch { data = null }
+  if (!data) return null
+  try {
+    const copy = UIImage.fromData(data)
+    if (!copy || !Number.isFinite(copy.width) || copy.width <= 0 || copy.height <= 0) return null
+    return copy
+  } catch { return null }
+}
+
+/**
  * 准确识别截图文字并输出阅读顺序的整页文本；未识别到内容返回 ""。
  * 固定 accurate + 语言校正——不提供识别模式设置。
  *
@@ -80,7 +109,11 @@ export function buildSourceText(blocks: OCRBlock[]): string { return blocks.map(
  * 稳定复现；["zh-Hans","en"] 简体/繁体/英文全部识别。勿改回 en 优先。
  */
 export async function recognizeScreenBlocks(image: UIImage): Promise<OCRBlock[]> {
-  const result = await Vision.recognizeText(image, {
+  const source = inlineImageBitmap(image)
+  if (!source) {
+    throw new Error("截图数据无效或无法解码（可能被系统回收或文件受保护），请重新分享一次。")
+  }
+  const result = await Vision.recognizeText(source, {
     recognitionLevel: "accurate",
     recognitionLanguages: ["zh-Hans", "en"],
     usesLanguageCorrection: true,

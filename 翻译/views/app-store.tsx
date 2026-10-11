@@ -170,13 +170,24 @@ function AppStoreIcon(props: {
 
 export { AppStoreIcon }
 
+/** 直接跳转 App Store 商店页：Safari.openURL 打开 apps.apple.com 链接会被系统直接拉起 App Store 应用。
+ *  优先官方 trackViewUrl，缺失时用 region/appid 拼接兜底。
+ *  注意：旧实现 AppStore.presentApp 需要在 Scripting App 内弹模态，在分享/意图宿主里点了毫无反应，已弃用。 */
+function openAppStorePage(appid: string, url?: string, region?: string) {
+  const link = url || `https://apps.apple.com/${region || "us"}/app/id${appid}`
+  return Safari.openURL(link)
+}
+
 /** 下载水印图标：应用图标右下角叠一个纯文字「Down」（无胶囊背景，仅轻阴影保证可读），
- *  点击整个图标在应用内打开 App Store 页面（不出应用）；失败文字短暂变红。 */
+ *  点击整个图标直接跳转 App Store 商店页；失败文字短暂变红。 */
 function DownIconBadge(props: {
   imageUrl?: string
   size: number
   foregroundStyle?: any
   appid: string
+  /** 商店页链接（优先），缺失用 region/appid 拼接。 */
+  url?: string
+  region?: string
 }) {
   const [failed, setFailed] = useState(false)
   useEffect(() => {
@@ -187,7 +198,7 @@ function DownIconBadge(props: {
 
   async function open() {
     try {
-      await AppStore.presentApp(props.appid)
+      await openAppStorePage(props.appid, props.url, props.region)
       try { HapticFeedback.lightImpact() } catch {}
     } catch {
       setFailed(true)
@@ -246,8 +257,6 @@ function RatingCollectionsButton(props: {
   ratingCount: string
   foregroundStyle: any
   appid: string
-  appTitle: string
-  artworkUrl?: string
   /** 搜索页 Reset 行用的紧凑形态：只渲染小星星 + 灰色圆环（不显示评分/评价数）。 */
   compact?: boolean
   onToggle?: () => void
@@ -397,8 +406,6 @@ function RatingCollectionsButton(props: {
  *  无背景方框（透出搜索页白色底，图标按钮的灰色胶囊不动）；默认自然高度贴合内容，扩大按钮撑到近全屏 + 页内滚动，缩小还原。 */
 function InlineCollectionsPanel(props: {
   appid: string
-  appTitle: string
-  artworkUrl?: string
   foregroundStyle: any
 }) {
   /** 扩大/缩小切换：默认自然高度贴合内容；扩大后固定近全屏高度 + 页内滚动。 */
@@ -541,8 +548,6 @@ function AppHeader(props: {
             ratingCount={ratingCount}
             foregroundStyle={props.foregroundStyle}
             appid={props.appid}
-            appTitle={info.trackName || "未知应用"}
-            artworkUrl={iconUrl}
           />
         ) : null}
         <Spacer />
@@ -1036,6 +1041,8 @@ function AppSearchSection(props: {
               size={SEARCH_ICON_SIZE}
               foregroundStyle={props.foregroundStyle}
               appid={app.appid}
+              url={app.detail?.trackViewUrl}
+              region={app.region}
             />
             <VStack alignment="leading" spacing={6} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
               <HStack spacing={8} alignment="firstTextBaseline">
@@ -1232,8 +1239,6 @@ function AppSearchSection(props: {
                 ratingCount={app.detail && typeof app.detail.userRatingCount === "number" ? app.detail.userRatingCount.toLocaleString() : ""}
                 foregroundStyle={props.foregroundStyle}
                 appid={app.appid}
-                appTitle={app.trackName || app.detail?.trackName || "未知应用"}
-                artworkUrl={app.detail?.artworkUrl512 || app.detail?.artworkUrl100 || app.artworkUrl}
               />
               <RemovePickedButton onRemove={() => removePicked(app)} />
             </HStack>
@@ -1249,8 +1254,6 @@ function AppSearchSection(props: {
             <VStack key={`search-appraven-${app.selectionId}`} alignment="leading" spacing={0} frame={{ maxWidth: "infinity", alignment: "leading" as any }} transition={PANEL_TRANSITION}>
               <InlineCollectionsPanel
                 appid={app.appid}
-                appTitle={app.trackName || app.detail?.trackName || "未知应用"}
-                artworkUrl={app.detail?.artworkUrl512 || app.detail?.artworkUrl100 || app.artworkUrl}
                 foregroundStyle={props.foregroundStyle}
               />
             </VStack>
@@ -1527,7 +1530,7 @@ function AppStoreContent(props: {
               {props.identity && info ? (() => {
                 const identity = props.identity
                 const shareLink = info.trackViewUrl || identity.url
-                // 分享按钮：点击 = 应用内打开当前 App 商店页（不出应用）；长按 = 复制链接（原功能）。
+                // 分享按钮：点击 = 直接跳转 App Store 商店页（Safari.openURL，系统拉起 App Store）；长按 = 复制链接（原功能）。
                 // 手势挂 ZStack（同登录页老鹰图标先例，Button 上无挂手势的先例）；长按补出的点按由 shareTapGuardRef 吞掉。
                 return (
                   <ZStack
@@ -1536,7 +1539,7 @@ function AppStoreContent(props: {
                       if (shareTapGuardRef.current) return
                       void (async () => {
                         try {
-                          await AppStore.presentApp(identity.appid)
+                          await openAppStorePage(identity.appid, shareLink, identity.region)
                           try { HapticFeedback.lightImpact() } catch {}
                         } catch {}
                       })()
@@ -1576,23 +1579,13 @@ function AppStoreContent(props: {
                    }
                  }}
               >
-                {props.identity ? (
-                  <Image
-                   systemName="xmark"
-                   font={18}
-                   foregroundStyle={{ light: "#000000", dark: "#FFFFFF" }}
-                   frame={{ width: 36, height: 36 }}
-                   background={{ style: { light: "rgba(142, 142, 147, 0.22)", dark: "rgba(142, 142, 147, 0.28)" }, shape: "circle" }}
-                 />
-                ) : (
-                  <Image
-                    systemName="xmark"
-                    font={18}
-                    foregroundStyle={{ light: "#000000", dark: "#FFFFFF" }}
-                    frame={{ width: 36, height: 36 }}
-                    background={{ style: { light: "rgba(142, 142, 147, 0.22)", dark: "rgba(142, 142, 147, 0.28)" }, shape: "circle" }}
-                  />
-                )}
+                <Image
+                  systemName="xmark"
+                  font={18}
+                  foregroundStyle={{ light: "#000000", dark: "#FFFFFF" }}
+                  frame={{ width: 36, height: 36 }}
+                  background={{ style: { light: "rgba(142, 142, 147, 0.22)", dark: "rgba(142, 142, 147, 0.28)" }, shape: "circle" }}
+                />
               </Button>
             </HStack>
           </HStack>

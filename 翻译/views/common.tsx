@@ -23,7 +23,7 @@ const SHORT_LABEL_OVERRIDES: Record<string, string> = {
   "zh-Hant": "中文（繁体）",
 }
 
-export function languageDisplayLabel(code: string) {
+function languageDisplayLabel(code: string) {
   if (code === AUTO_LANGUAGE.code) return "自动检测"
   const override = DISPLAY_LABEL_OVERRIDES[code]
   if (override) return override
@@ -31,7 +31,7 @@ export function languageDisplayLabel(code: string) {
   return item ? item.label : code
 }
 
-export function languageLabel(code: string) {
+function languageLabel(code: string) {
   if (code === AUTO_LANGUAGE.code) return "自动检测"
   const item = LANGUAGE_OPTIONS.find((option) => option.code === code)
   return item ? item.label : code
@@ -62,7 +62,7 @@ function LanguageOptionRow(props: {
   )
 }
 
-export function LanguageMenu(props: {
+function LanguageMenu(props: {
   value: string
   options: LanguageOption[]
   onChanged: (value: string) => void
@@ -107,7 +107,7 @@ function menuTargets(targetLanguages: string[]) {
   return targetLanguages.length ? targetLanguages.slice(0, 3) : ["zh-Hans"]
 }
 
-export function targetMenuSummary(targetLanguages: string[]) {
+function targetMenuSummary(targetLanguages: string[]) {
   const targets = menuTargets(targetLanguages)
   return targets.length === 1
     ? languageShortLabel(targets[0])
@@ -122,7 +122,7 @@ export function toggleTargetSelection(values: string[], code: string) {
   return [...values, code]
 }
 
-export function TargetLanguageMenu(props: {
+function TargetLanguageMenu(props: {
   targetLanguages: string[]
   onToggle: (code: string) => void
 }) {

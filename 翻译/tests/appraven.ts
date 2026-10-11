@@ -14,10 +14,6 @@ import {
 
 const passed: string[] = []
 
-function assert(value: unknown, message: string): asserts value {
-  if (!value) throw new Error(message)
-}
-
 function equal<T>(actual: T, expected: T, message: string) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     throw new Error(`${message}: got ${JSON.stringify(actual)}, expected ${JSON.stringify(expected)}`)

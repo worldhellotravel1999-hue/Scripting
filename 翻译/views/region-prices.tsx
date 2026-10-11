@@ -51,7 +51,7 @@ function savePriceRegions(codes: string[]) {
   } catch {}
 }
 
-export function PriceRow(props: {
+function PriceRow(props: {
   appid: string
   item: RegionPrice
   onChanged: (code: string) => void
@@ -313,7 +313,7 @@ function useRegionSelection() {
 }
 
 /** 取完整多区价格列表，供各入口的价格胶囊（展开态）共用 */
-export function useRegionPriceList(appid: string, regionCodes: string[] = DEFAULT_REGION_CODES) {
+function useRegionPriceList(appid: string, regionCodes: string[] = DEFAULT_REGION_CODES) {
   return useRegionPriceLoader(appid, regionCodes)
 }
 

@@ -88,7 +88,7 @@ function chunkBoundary(text: string, limit: number) {
   return boundary && boundary > 0 ? boundary + 1 : limit
 }
 
-export function splitTranslationText(text: string, maxLength = SYSTEM_CHUNK_LENGTH) {
+function splitTranslationText(text: string, maxLength = SYSTEM_CHUNK_LENGTH) {
   const chunks: string[] = []
   let remaining = text
   while (remaining.length > maxLength) {
@@ -532,6 +532,259 @@ export async function translateText(text: string, options: TranslateTextOptions 
   } finally {
     if (shareInFlight && inFlight.get(key) === task) inFlight.delete(key)
   }
+}
+
+/** 单行超过谷歌单请求上限时，该行独占一组、交给 translateText 自己的分片竞速。 */
+type LineGroup = { indices: number[]; text: string; oversize: boolean }
+
+/** 把待译行按序打包成 ≤ GOOGLE_CHUNK_LENGTH 的组（相邻行用 \n 合并一次请求）。 */
+function packLineGroups(sources: string[], pending: number[]): LineGroup[] {
+  const groups: LineGroup[] = []
+  let indices: number[] = []
+  let text = ""
+  const flush = () => {
+    if (indices.length) {
+      groups.push({ indices, text, oversize: false })
+      indices = []
+      text = ""
+    }
+  }
+  for (const index of pending) {
+    const line = sources[index]
+    if (line.length > GOOGLE_CHUNK_LENGTH) {
+      flush()
+      groups.push({ indices: [index], text: line, oversize: true })
+      continue
+    }
+    if (text) {
+      const combined = `${text}\n${line}`
+      if (combined.length > GOOGLE_CHUNK_LENGTH) flush()
+    }
+    indices.push(index)
+    text = text ? `${text}\n${line}` : line
+  }
+  flush()
+  return groups
+}
+
+/** 单个文本数组的一次系统批量（2 次尝试）；等待超时是终态不重试。 */
+async function translateSystemChunkOnce(
+  texts: string[],
+  sourceLanguageCode: string,
+  targetLanguageCode: string,
+  options: TranslateTextOptions,
+): Promise<string[]> {
+  const request: TranslationRequest = {
+    sourceText: texts.join("\n"),
+    sourceLanguageCode,
+    targetLanguageCode,
+    priority: options.priority,
+    isCancelled: options.isCancelled,
+  }
+  let lastError: unknown
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    throwIfCancelled(options)
+    try {
+      const values = await createSystemTranslationEngine(options.translationHost)
+        .translateEach(request, texts)
+      throwIfCancelled(options)
+      if (values.length !== texts.length || values.some((item) => !item.trim())) {
+        throw new Error("系统批量翻译没有返回完整译文。")
+      }
+      return values
+    } catch (error) {
+      throwIfCancelled(options)
+      if (error instanceof SystemTranslationWaitError) throw error
+      lastError = error
+      if (attempt === 1) break
+      await new Promise<void>((resolve) => setTimeout(resolve, 300))
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("系统翻译失败。")
+}
+
+/**
+ * 系统批量逐行：先整批一次拿回全部对齐数组（1 次原生调用）；
+ * 整批失败再按 8 行分组、组内再失败逐行——与 translate.ts 的
+ * 「分组批量 → 逐片回退」同一思路，防止单次大数组调用失败
+ * 拖垮整页截图翻译（谷歌冷却期时全部行都走这里）。
+ */
+async function translateLinesWithSystem(
+  texts: string[],
+  sourceLanguageCode: string,
+  targetLanguageCode: string,
+  options: TranslateTextOptions,
+): Promise<string[]> {
+  if (texts.length <= 8) {
+    return translateSystemChunkOnce(texts, sourceLanguageCode, targetLanguageCode, options)
+  }
+  try {
+    return await translateSystemChunkOnce(texts, sourceLanguageCode, targetLanguageCode, options)
+  } catch (error) {
+    if (error instanceof SystemTranslationWaitError) throw error
+  }
+  const results = new Array<string>(texts.length)
+  const GROUP = 8
+  for (let start = 0; start < texts.length; start += GROUP) {
+    throwIfCancelled(options)
+    const group = texts.slice(start, start + GROUP)
+    try {
+      const values = await translateSystemChunkOnce(
+        group, sourceLanguageCode, targetLanguageCode, options,
+      )
+      values.forEach((value, position) => { results[start + position] = value })
+    } catch (groupError) {
+      if (groupError instanceof SystemTranslationWaitError) throw groupError
+      // 该组整体失败：逐行回退，保住已完成内容。
+      for (let offset = 0; offset < group.length; offset += 1) {
+        const values = await translateSystemChunkOnce(
+          [group[offset]], sourceLanguageCode, targetLanguageCode, options,
+        )
+        results[start + offset] = values[0]
+      }
+    }
+  }
+  return results
+}
+
+/**
+ * 截图多行批量翻译：与 translateText 同一套语言解析/缓存，但一次调用
+ * 处理全部行——逐行串行 translateText 是截图翻译慢的根因（N 次请求 +
+ * N 次原生排队）。这里：
+ * 1) 未命中缓存的行打包成组，谷歌组内并发（≤4 组），一组一次请求、
+ *    按换行拆回每行（实测两端点保留换行）；拆回数量对不上时该组退回
+ *    逐行请求，保证与 OCR 行一一对应；
+ * 2) 谷歌失败/冷却后剩余行走一次原生 translateEach 批量拿回对齐数组。
+ * 返回数组与输入等长对齐；单行最终失败整体抛错（与 translateText 一致）。
+ * 不回报 onProgress/onSourceLanguageDetected 等界面回调（截图无逐行 UI）。
+ */
+export async function translateLines(
+  texts: string[],
+  options: TranslateTextOptions = {},
+): Promise<string[]> {
+  throwIfCancelled(options)
+  const sources = texts.map((item) => normalize(item))
+  if (!sources.length) return []
+
+  const preferences = loadPreferences()
+  const selectedSource = options.sourceLanguageCode ?? preferences.defaultSourceLanguageCode
+  const targetLanguageCode = options.targetLanguageCode ?? preferences.defaultTargetLanguageCode
+  const autoDetectionEnabled = options.stabilizeAutoSource !== false
+    && (selectedSource === "auto" || options.autoCorrectSourceLanguage === true)
+  const resolveSource = (unitText: string): string => {
+    if (!autoDetectionEnabled) return selectedSource
+    const detected = options.autoCorrectSourceLanguage === true
+      ? detectedAutoSourceLanguage(unitText)
+      : stableAutoSource(unitText, targetLanguageCode)
+    return detected ?? selectedSource
+  }
+  const lineKey = (line: string, source: string) => cacheKey({
+    sourceText: line,
+    sourceLanguageCode: source,
+    targetLanguageCode,
+  })
+
+  const results: Array<string | undefined> = sources.map(() => undefined)
+  const pending: number[] = []
+  sources.forEach((line, index) => {
+    if (!line) {
+      results[index] = ""
+      return
+    }
+    const source = resolveSource(line)
+    if (source !== "auto" && source === targetLanguageCode) {
+      results[index] = line
+      return
+    }
+    const cached = cache.get(lineKey(line, source))
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      results[index] = cached.value
+      return
+    }
+    pending.push(index)
+  })
+  if (!pending.length) {
+    return results.map((value, index) => value ?? sources[index])
+  }
+
+  const remaining = [...pending]
+  const markDone = (index: number) => {
+    const position = remaining.indexOf(index)
+    if (position >= 0) remaining.splice(position, 1)
+  }
+
+  // 谷歌组阶段：组并发，组内失败只丢本组（进冷却），不拖垮其它组。
+  if (isGoogleEngineAvailable()) {
+    const groups = packLineGroups(sources, pending)
+    let cursor = 0
+    const worker = async () => {
+      while (true) {
+        const group = groups[cursor]
+        cursor += 1
+        if (!group) return
+        throwIfCancelled(options)
+        try {
+          if (group.oversize) {
+            // 单行超长：translateText 自带分片与双引擎竞速，不重复造轮子。
+            const value = (await translateText(group.text, options))
+              .replace(/\s*\n+\s*/g, " ").trim()
+            const index = group.indices[0]
+            results[index] = value || sources[index]
+            markDone(index)
+            continue
+          }
+          const source = resolveSource(group.text)
+          const value = (await translateGoogleChunk(group.text, source, targetLanguageCode)).trim()
+          const pieces = value.split("\n")
+          if (pieces.length === group.indices.length) {
+            group.indices.forEach((index, position) => {
+              const line = pieces[position].trim() || sources[index]
+              results[index] = line
+              storeCache(lineKey(sources[index], source), line, "google")
+              markDone(index)
+            })
+          } else {
+            // 换行数对不上：该组退回逐行请求，行与行一一对应优先于请求数。
+            const settled = await Promise.all(group.indices.map(async (index) => {
+              const lineSource = resolveSource(sources[index])
+              const translated = (await translateGoogleChunk(
+                sources[index], lineSource, targetLanguageCode,
+              )).replace(/\s*\n+\s*/g, " ").trim()
+              return { index, lineSource, line: translated || sources[index] }
+            }))
+            settled.forEach((item) => {
+              results[item.index] = item.line
+              storeCache(lineKey(sources[item.index], item.lineSource), item.line, "google")
+              markDone(item.index)
+            })
+          }
+        } catch (error) {
+          if (options.isCancelled?.()) throw error
+          // 组请求失败（超时/限流）：进冷却，剩余行走下面的系统批量。
+          markGoogleEngineBlocked()
+        }
+      }
+    }
+    const workerCount = Math.min(GOOGLE_CONCURRENCY, groups.length)
+    await Promise.all(Array.from({ length: workerCount }, () => worker()))
+  }
+
+  // 系统批量阶段：剩余行一次原生调用，与输入等长对齐。
+  if (remaining.length) {
+    const batchTexts = remaining.map((index) => sources[index])
+    const batchSource = resolveSource(batchTexts.join("\n"))
+    const values = await translateLinesWithSystem(
+      batchTexts, batchSource, targetLanguageCode, options,
+    )
+    remaining.forEach((index, position) => {
+      const line = values[position].trim() || sources[index]
+      results[index] = line
+      storeCache(lineKey(sources[index], batchSource), line, "system")
+    })
+    remaining.length = 0
+  }
+
+  return results.map((value, index) => value ?? sources[index])
 }
 
 /**

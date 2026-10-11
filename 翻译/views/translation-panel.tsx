@@ -118,7 +118,7 @@ export function TranslationPanel(props: {
  * 系统面板的长按菜单：一个小方框，里面只有中文文字行（无图标），点方框外面关闭。
  * 不用系统 contextMenu，长按时界面不会被抬起缩小。
  */
-export function TranslationMenuSheet(props: { request: CardMenuRequest; onClose: () => void }) {
+function TranslationMenuSheet(props: { request: CardMenuRequest; onClose: () => void }) {
   return (
     <VStack frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
       onTapGesture={props.onClose}

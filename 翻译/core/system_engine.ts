@@ -167,5 +167,45 @@ export function createSystemTranslationEngine(translationHost?: Translation) {
         return { translatedText }
       }, request.isCancelled, request.priority)
     },
+
+    /**
+     * 逐条批量：texts 进、与输入等长对齐的数组出（截图翻译用它一次
+     * 原生调用拿回每行译文，替代 N 次串行 translate）。空串不进原生、
+     * 原位返回 ""；任一条返回空译文都整体抛错（由调用方重试/回退）。
+     */
+    async translateEach(request: TranslationRequest, texts: string[]): Promise<string[]> {
+      const aligned = texts.map((item) => String(item || "").trim())
+      const results = aligned.map(() => "")
+      const validIndices: number[] = []
+      const validTexts: string[] = []
+      aligned.forEach((item, index) => {
+        if (item) {
+          validIndices.push(index)
+          validTexts.push(item)
+        }
+      })
+      if (!validTexts.length) return results
+
+      const options = languageOptions(request)
+      if (options.source && options.target && options.source === options.target) {
+        validIndices.forEach((index, position) => { results[index] = validTexts[position] })
+        return results
+      }
+      const translated = await withSystemRequestSlot(async () => {
+        const value = await translator.translateBatch({
+          texts: validTexts,
+          ...options,
+        })
+        if (!Array.isArray(value) || value.length !== validTexts.length) {
+          throw new Error("系统批量翻译没有返回完整译文。")
+        }
+        return value.map((item) => String(item || "").trim())
+      }, request.isCancelled, request.priority)
+      if (translated.some((item) => !item)) {
+        throw new Error("系统批量翻译返回了空译文。")
+      }
+      validIndices.forEach((index, position) => { results[index] = translated[position] })
+      return results
+    },
   }
 }

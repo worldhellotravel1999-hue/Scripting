@@ -68,7 +68,7 @@ export function normalizeTargetSelection(values: unknown, sourceLanguage: string
   return result
 }
 
-export function normalizePreferences(raw?: Partial<TranslationPreferences> | null): TranslationPreferences {
+function normalizePreferences(raw?: Partial<TranslationPreferences> | null): TranslationPreferences {
   const source = normalizeSource(raw?.defaultSourceLanguageCode)
   const targets = normalizeTargetSelection(
     raw?.defaultTargetLanguageCodes?.length
