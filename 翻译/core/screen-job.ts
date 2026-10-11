@@ -9,14 +9,27 @@ let active: Promise<ScreenOverlayResult> | null = null
  * 分享扩展宿主对「present 之前长时间重活」不友好（先跑完整条管线
  * 再呈现曾表现为整个扩展无响应），因此工作必须在呈现之后进行。
  */
+function launchScreenTranslation(image: UIImage): Promise<ScreenOverlayResult> {
+  const job = translateScreenOverlay(image).catch((reason) => {
+    if (active === job) active = null
+    throw reason
+  })
+  active = job
+  return job
+}
+
+/**
+ * 主界面「更多（四个点）→ 系统相册」入口专用：无条件开一份新工作。
+ * 进程常驻的主 App 里 `active` 会残留上一次已完成的任务，若复用
+ * startScreenTranslation 会让第二次选图立刻显示上一张的结果，
+ * 所以相册入口必须先 begin 再呈现结果页（结果页挂载后拿到的就是这份）。
+ */
+export function beginScreenTranslation(image: UIImage): Promise<ScreenOverlayResult> {
+  return launchScreenTranslation(image)
+}
+
 export function startScreenTranslation(image: UIImage): Promise<ScreenOverlayResult> {
-  if (!active) {
-    active = translateScreenOverlay(image).catch((reason) => {
-      active = null
-      throw reason
-    })
-  }
-  return active
+  return active ?? launchScreenTranslation(image)
 }
 
 export function activeScreenTranslation(): Promise<ScreenOverlayResult> | null {

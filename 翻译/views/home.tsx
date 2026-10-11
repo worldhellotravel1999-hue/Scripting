@@ -1,7 +1,10 @@
 import {
   AppEvents,
+  Button,
   ForEach,
+  Image,
   List,
+  Navigation,
   NavigationStack,
   Section,
   useEffect,
@@ -9,9 +12,12 @@ import {
   useObservable,
   useState,
 } from "scripting"
+import { beginScreenTranslation } from "../core/screen-job"
+import { inlineImageBitmap } from "../core/screen-ocr"
 import { loadPreferences, normalizeTargetSelection, savePreferences } from "../core/preferences"
 import { LanguageBar, toggleTargetSelection } from "./common"
 import { TypefaceMenu } from "./font-menu"
+import { ScreenTranslationResult } from "./screen-result"
 import {
   TranslationCard,
   type TranslationCardResult,
@@ -65,6 +71,34 @@ function TranslationWorkspace() {
   const [sourceCorrectionEnabled, setSourceCorrectionEnabled] = useState(true)
   const [targetLanguages, setTargetLanguages] = useState<string[]>(initialTargets)
   const [translationHost] = useState(() => new Translation())
+  const pickingRef = useRef(false)
+
+  // 主界面右上角「更多（四个点）」：直接打开系统相册选一张截图，
+  // 选中即跑同一份「OCR → 翻译 → 覆盖渲染」管线并呈现结果页；
+  // 取消/失败一律静默返回，不弹任何提示。
+  async function pickScreenshotForTranslation() {
+    if (pickingRef.current) return
+    pickingRef.current = true
+    try {
+      const picked = await Photos.pick({ filter: PHPickerFilter.images(), limit: 1 })
+      const first = picked?.[0]
+      if (!first) return
+      const path = await first.imagePath()
+      if (!path) return
+      // 物化位图：原生 Vision 对无可用 CGImage 的 UIImage 会空指针崩溃。
+      const bitmap = inlineImageBitmap(UIImage.fromFile(path))
+      if (!bitmap) return
+      // 相册入口与 intent 不同：主 App 进程常驻，screen-job 的 active
+      // 会残留上一次任务，必须先 begin 覆盖旧任务再呈现（结果页挂载后
+      // startScreenTranslation 拿到的就是这份新工作）。
+      beginScreenTranslation(bitmap)
+      Navigation.present({ element: <ScreenTranslationResult image={bitmap} /> }).catch(() => {})
+    } catch {
+      // 用户取消相册或呈现失败：静默。
+    } finally {
+      pickingRef.current = false
+    }
+  }
 
   const cards = useObservable<TranslationCardItem[]>(() => [makeCard(initialSource, initialTargets)])
 
@@ -155,6 +189,11 @@ function TranslationWorkspace() {
       navigationBarTitleDisplayMode="inline"
       toolbar={{
         principal: <TypefaceMenu />,
+        topBarTrailing: (
+          <Button buttonStyle="borderless" action={() => { void pickScreenshotForTranslation() }}>
+            <Image systemName="circle.grid.2x2" font="body" />
+          </Button>
+        ),
       }}
     >
       <Section>
