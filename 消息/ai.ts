@@ -458,6 +458,8 @@ export type CheckinMsg = {
   id: number
   text: string
   out: boolean
+  /** 消息时间（后端 Telethon naive-UTC ISO，可用 parseBackendDate 解析）；probe 回包丢失后用于剔除旧画面 */
+  date?: string
   buttons: CheckinButton[][]
   image?: CheckinImage
   refetched?: boolean

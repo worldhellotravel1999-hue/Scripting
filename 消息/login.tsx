@@ -17,14 +17,14 @@ import {
 } from "scripting"
 
 /**
- * TG Hub 品牌层 —— Telegram 浅色主题：
+ * TG Client 品牌层 —— Telegram 浅色主题：
  *  · TgFluidBackground：白底 + 极淡蓝色光晕（不再是深色重底）
  *  · LaunchScreen：冷启动遮罩（白底徽标 + 蓝色转圈）
  *  · LoginScreen：Telegram-iOS AuthorizationUI 风格（28pt 标题 + 17pt 说明 +
  *    18/30 间距 + 20pt 输入 + 13pt 底部提示）
  */
 
-const BRAND = "TG Hub"
+const BRAND = "TG Client"
 
 /** Telegram-iOS 浅色主题色板（AuthorizationUI 规范） */
 export const TG = {

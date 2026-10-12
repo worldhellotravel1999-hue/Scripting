@@ -1,7 +1,7 @@
 import { Script } from "scripting"
 
 /**
- * TG Hub 面板的数据访问层。
+ * TG Client 面板的数据访问层。
  * 通过 Scripting 的 Python.run 在进程内调用 tg-hub 的 JSON 助手（tg_api.py）。
  */
 

@@ -15,6 +15,7 @@ import {
 } from "scripting"
 import { fmtNum, fmtTime } from "./api"
 import type { PanelCtx } from "./ctx"
+import { rowIconAssetPath } from "./rowicons"
 
 /**
  * 跨页面共享的展示组件（自 Telegram 浅色主题）。
@@ -129,6 +130,7 @@ export function Avatar({
  */
 export function SettingsRow({
   icon,
+  iconAsset,
   iconSrc,
   color = "#2AABEE",
   title,
@@ -144,6 +146,8 @@ export function SettingsRow({
   onLongPress,
 }: {
   icon: string
+  /** 彩色图标素材 key（如 "robot"）：只覆盖本行，见 rowicons.ts（不传则按 icon 自动映射） */
+  iconAsset?: string
   /** 真实图片头像（本地文件路径）：有则直接用照片，否则用 icon 渐变块 */
   iconSrc?: string
   color?: `#${string}`
@@ -165,6 +169,8 @@ export function SettingsRow({
 }) {
   const tappable = (!!action || !!onLongPress) && !disabled
   const lastLongPress = useRef(0)
+  /** 彩色图标素材路径（无映射 / 传了真实头像图时不渲染） */
+  const emojiIconPath = iconSrc ? null : rowIconAssetPath(icon, iconAsset)
   return (
     <HStack
       spacing={10}
@@ -214,7 +220,17 @@ export function SettingsRow({
             cornerRadius={12}
             frame={{ width: 48, height: 48 }}
           />
-          <Image systemName={icon} foregroundStyle="white" frame={{ width: 21, height: 21 }} />
+          {/* 彩色图标（Apple 风格 emoji 素材，见 rowicons.ts）：色块/行高/文字都不变，
+              只把原来的白色 symbol 换成彩色图片；素材缺失的行继续用白色 symbol */}
+          {emojiIconPath !== null ? (
+            <Image
+              filePath={emojiIconPath}
+              resizable
+              frame={{ width: 27, height: 27 }}
+            />
+          ) : (
+            <Image systemName={icon} foregroundStyle="white" frame={{ width: 21, height: 21 }} />
+          )}
         </ZStack>
       )}
       <Text
@@ -695,23 +711,20 @@ export function InfoRow({ label, value }: { label: string; value: any }) {
   )
 }
 
-/** 执行中 / 出错 / 提示 横幅（页面顶部共用）：语义色气泡，不再是裸标题 + 裸文字。
- *  hideBusy：命中标签的忙碌横幅不在顶部显示（如设置页刷新 → 进度改在按钮行下） */
+/** 页面顶部横幅（错误 / 通知）。
+ *  2026-10-12：**忙碌进度横幅已全局关闭**（用户反馈：点刷新、刚进脚本时
+ *  顶部总弹一条「统计消息分布…/拉取会话列表…」转圈横幅，不需要）。
+ *  busy 仍照常驱动按钮禁用/行内转圈，只是不再在页顶弹横幅；
+ *  hideBusy 参数保留以兼容旧调用点（不再有忙碌横幅可隐藏）。 */
 export function Banners({
   p,
-  hideBusy,
+  hideBusy: _hideBusy,
 }: {
   p: PanelCtx
   hideBusy?: (label: string) => boolean
 }) {
-  const busy = p.busy && hideBusy && hideBusy(p.busy) ? null : p.busy
   return (
     <>
-      {busy ? (
-        <Section>
-          <Hint tone="info" spinner text={busy} />
-        </Section>
-      ) : null}
       {p.error ? (
         <Section>
           <Hint tone="error" text={p.error} />

@@ -118,13 +118,17 @@ function loadExcludedChats(): string[] {
 }
 
 /**
- * TG Hub 根视图。
+ * TG Client 根视图。
  *
- * 布局（2026-10-04 三次修订：去底部 Tab，一切从简）：
+ * 布局（2026-10-12 修订：底部四页签用系统 TabView + 原生收起特效）：
  *  1. 冷启动品牌遮罩（LaunchScreen，与登录页同排版）
  *  2. 未登录 → 全屏品牌登录页（LoginScreen：大标题 + 单一主按钮 + 分步表单）
- *  3. 已登录 → 单一 NavigationStack + path 字符串路由：
- *     根 = 会话列表（搜索 + 点群进详情），"chat:<id>" / "tools" / "settings" 压栈。
+ *  3. 已登录 → 系统 TabView 四页签（会话 / 工具 / 账号 / 设置）：
+ *     · tabBarMinimizeBehavior="onScrollDown"＝原生下滚收起特效（iOS 26 液态玻璃
+ *       栏收成悬浮胶囊，回顶展开）——与 Vesper 同一个 API；
+ *     · 图标用 SF Symbols（原生标签栏不支持自定义图片图标）；
+ *     · 会话页带 path 字符串路由（"chat:<id>" 压栈进群详情），其余页各自独立栈；
+ *       每个 Tab 一棵自己的 NavigationStack，切页签不丢各页导航历史与页面状态。
  * 业务逻辑与 tg-hub 命令调用完全保持原样。
  */
 
@@ -145,10 +149,12 @@ function View() {
   }, [])
 
   // 路由：NavigationStack + path 字符串（空数组 = 根页会话列表；
-  // "chat:<id>" 见 ctx.ts）。导航页签用原生 TabView（与 Pix-Scripting 同一插件），
-  // p.push 对 tools/settings 页签自动切 Tab，对 chat:* 压入会话栈。
+  // "chat:<id>" 见 ctx.ts）。页签切换用系统 TabView（tabBarMinimizeBehavior
+  // ="onScrollDown" 原生收起特效），p.push 对 tools/settings/account 页签
+  // 自动切 Tab，对 chat:* 压入会话栈。
   const path = useObservable<string[]>([])
   const tab = useObservable<string>("chats")
+
   const push = (page: string) => {
     if (page === PAGE_TOOLS) {
       tab.setValue("tools")
@@ -268,6 +274,17 @@ function View() {
       Storage.set(FOLDER_EXCLUDE_KEY, next)
     } catch {}
   }
+  // 首页勾选模式批量移出：与单个 excludeChat 同语义（纯本地分组，不碰
+  // Telegram），一次性合并写入——循环调 excludeChat 会因闭包读旧数组互相覆盖
+  const excludeChats = (ids: any[]) => {
+    const add = ids.map(x => String(x)).filter(sid => !excludedChats.includes(sid))
+    if (add.length === 0) return
+    const next = [...excludedChats, ...add]
+    setExcludedChats(next)
+    try {
+      Storage.set(FOLDER_EXCLUDE_KEY, next)
+    } catch {}
+  }
 
   // 消息分布（柱状图）：timeline 的 hour 粒度原始行，null=还没查询过
   const [msgMode, setMsgMode] = useState("chat") // 默认看「最后点开的会话」的群内消息
@@ -322,8 +339,14 @@ function View() {
     setAiSettingsState(next)
   }
 
-  // 冷启动遮罩：状态与概览加载完毕、且至少展示 900ms（看门狗 3.5s 保底不卡死）
+  // 冷启动遮罩：状态与概览加载完毕、且至少展示 900ms
+  // （看门狗 3.5s 只在 status 已回来时放行，硬上限 12s 保底不卡死——
+  //   旧版 3.5s 无条件 finish 会在 status 慢时先闪一帧登录页/空列表）
   const [booted, setBooted] = useState(false)
+  // status 是否已回（applyStatus 置位；boot 效_effect 闭包读不到 state 新值，用 ref）
+  const statusArrivedRef = useRef(false)
+  // 数据就绪门超时（已登录但首批会话迟迟不到时兕底放行）
+  const [dataGateExpired, setDataGateExpired] = useState(false)
 
   const run = async (cmd: string, args: any = {}, timeout = 120, label = "处理中…") => {
     // 先收起键盘再刷新列表：否则键盘窗口的“保存密码”浮层与列表重排抢 present，
@@ -356,6 +379,7 @@ function View() {
 
   const applyStatus = (res: any) => {
     if (!res?.ok) return res
+    statusArrivedRef.current = true
     setStatus(res)
     // 登录检测新机制的两种特殊结果：只有服务端明确注销才要求重新登录；
     // 网络不可用时保持本地登录态（不误踢回登录页）。
@@ -831,7 +855,9 @@ function View() {
     }
   }
 
-  // 首次进入：品牌遮罩期间读状态 + 概览（最短 900ms，看门狗 3.5s 保底）
+  // 首次进入：品牌遮罩期间读状态 + 概览（最短 900ms）
+  // 放行条件：status 已回来（知道登录态，不会闪登录页）；看门狗 3.5s 只在
+  // status 已回时才 finish，12s 硬上限防后端卡死时永远停在启动页。
   useEffect(() => {
     let finished = false
     const finish = () => {
@@ -839,8 +865,15 @@ function View() {
       finished = true
       if (mountedRef.current) setBooted(true)
     }
-    const watchdog = setTimeout(finish, 3500)
     const start = Date.now()
+    const scheduleFinish = () => {
+      setTimeout(finish, Math.max(0, 900 - (Date.now() - start)))
+    }
+    const watchdog = setTimeout(() => {
+      // 3.5s：status 已回就放行；还没回也**不**硬开（否则闪登录页），交给硬上限
+      if (statusArrivedRef.current) scheduleFinish()
+    }, 3500)
+    const hardCap = setTimeout(finish, 12000)
     ;(async () => {
       try {
         // 1) 概览（本地 SQLite，毫秒级）**同步先行入队**，确保 timeline
@@ -863,9 +896,14 @@ function View() {
         }
         overviewP.catch(() => {})
       } catch {}
-      setTimeout(finish, Math.max(0, 900 - (Date.now() - start)))
+      // status 有结果（或彻底失败放弃）才开始算 900ms：避免放行瞬间
+      // authorized 还是 false 把登录页闪到主界面前面。
+      scheduleFinish()
     })()
-    return () => clearTimeout(watchdog)
+    return () => {
+      clearTimeout(watchdog)
+      clearTimeout(hardCap)
+    }
   }, [])
 
   // 启动即预拉会话列表：status（联网探测）与 list_chats（遍历 300+ dialogs，
@@ -903,6 +941,16 @@ function View() {
   }, [booted, status, chats])
 
   const authorized = !!status?.authorized
+
+  // 数据就绪门：已登录但首批会话还没到（无缓存 / 刚登录）时**继续盖启动页**，
+  // 避免主界面以“空列表 + 行/头像逐个后补”的半成品状态闪现（用户反馈的
+  // 乱七八糟未渲染 UI）。8s 未到（拉取失败/超时）兕底放行，不会卡死。
+  const waitingData = booted && authorized && chats === null && !dataGateExpired
+  useEffect(() => {
+    if (!waitingData) return
+    const t = setTimeout(() => setDataGateExpired(true), 8000)
+    return () => clearTimeout(t)
+  }, [waitingData])
 
   // 进登录页入口（含“添加账号/切到失效账号重登”）：
   // 已配置凭证 → 直接进手机号步（不再每次先见 API ID 步再点“直接使用已保存的凭证”；
@@ -955,6 +1003,7 @@ function View() {
     setListLimit,
     excludedChats,
     excludeChat,
+    excludeChats,
     restoreChat,
     loadChats,
     syncOne,
@@ -1001,8 +1050,10 @@ function View() {
       background="systemBackground"
       preferredColorScheme="light"
     >
-      {!booted ? (
-        <LaunchScreen text="正在检查连接…" />
+      {!booted || waitingData ? (
+        <LaunchScreen
+          text={!booted ? "正在检查连接…" : chats === null ? "正在加载会话…" : "正在检查连接…"}
+        />
       ) : !authorized ? (
         <NavigationStack>
           <LoginScreen
@@ -1037,14 +1088,16 @@ function View() {
           />
         </NavigationStack>
       ) : (
-        <TabView selection={tab} tint="#2AABEE">
-          {/* ⚠️ Tab 必须是 TabView 的显式直接子节点（不用 .map），否则外壳可能空白 */}
-          <Tab title="会话" systemImage="bubble.left.and.bubble.right.fill" value="chats">
+        // 四个页签：系统 TabView + 原生收起特效（tabBarMinimizeBehavior="onScrollDown"，
+        // 与 Vesper 同一 API：下滚时液态玻璃栏收成悬浮胶囊、回顶展开）；
+        // 图标为 SF Symbols（原生标签栏不支持自定义图片图标）
+        <TabView selection={tab} tabBarMinimizeBehavior="onScrollDown">
+          <Tab title="会话" systemImage="bubble.left" value="chats">
             <NavigationStack path={path}>
               <ChatsScreen p={panelCtx} />
             </NavigationStack>
           </Tab>
-          <Tab title="工具" systemImage="chart.bar.fill" value="tools">
+          <Tab title="工具" systemImage="wrench.and.screwdriver" value="tools">
             <NavigationStack>
               <ToolsScreen p={panelCtx} />
             </NavigationStack>
@@ -1054,7 +1107,7 @@ function View() {
               <AccountScreen p={panelCtx} />
             </NavigationStack>
           </Tab>
-          <Tab title="设置" systemImage="gearshape.fill" value="settings">
+          <Tab title="设置" systemImage="gearshape" value="settings">
             <NavigationStack>
               <SettingsScreen p={panelCtx} />
             </NavigationStack>

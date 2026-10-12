@@ -32,7 +32,7 @@ for _p in (str(HERE), str(HERE / "vendor")):
 import vendor_bootstrap  # noqa: E402,F401  (确保 vendor 可导入)
 import tg_net  # noqa: E402  (常驻单连接：见 tg_net.py 顶部说明)
 
-# 常驻解释器里 telethon 可能来自另一副本（《TG Hub》的 html.py 不认 tg-spoiler 遮罩），
+# 常驻解释器里 telethon 可能来自另一副本（《TG Client》的 html.py 不认 tg-spoiler 遮罩），
 # 而三方库不会被面板的重载逻辑刷新——这里把 html 解析扩展强制锁定到本 vendor 的文件，
 # 否则格式发送（尤其遮罩）会静默降级成无格式。
 try:
@@ -1640,10 +1640,16 @@ async def _bot_payload(c, m, with_image: bool) -> dict:
                         "mime": str(mime or "image/jpeg"),
                         "data": _b64.b64encode(bytes(raw)).decode(),
                     }
+    dt = getattr(m, "date", None)
+    try:
+        date = dt.isoformat() if dt else ""
+    except Exception:  # noqa: BLE001 时间戳缺失不影响文本/按钮
+        date = ""
     return {
         "id": int(m.id),
         "text": str(m.message or ""),
         "out": bool(m.out),
+        "date": date,
         "buttons": _bot_buttons(m),
         "image": img,
     }

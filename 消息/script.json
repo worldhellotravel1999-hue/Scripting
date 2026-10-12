@@ -1,41 +1,55 @@
 {
+  "entry" : "index.tsx",
   "icon" : "paperplane.fill",
+  "version" : "1.0.0",
+  "localizedDescriptions" : {
+    "zh" : "",
+    "pt" : "",
+    "fr" : "",
+    "it" : "",
+    "de" : "",
+    "en" : "",
+    "ja" : "",
+    "es" : "",
+    "ru" : ""
+  },
+  "iconImage" : null,
+  "author" : null,
+  "runInApp" : true,
+  "remoteResource" : {
+    "url" : "https:\/\/github.com\/worldhellotravel1999-hue\/Scripting\/tree\/main\/%E6%B6%88%E6%81%AF",
+    "hash" : "01F3B2A6-B02A-45B7-9FFA-876ED05A019B",
+    "autoUpdateInterval" : null
+  },
+  "localizedNames" : {
+    "es" : "",
+    "ru" : "",
+    "ja" : "",
+    "fr" : "",
+    "en" : "",
+    "de" : "",
+    "it" : "",
+    "zh" : "",
+    "pt" : ""
+  },
+  "name" : "TG Client",
+  "color" : "rgba(102, 196, 235,1)",
   "intentInputTypes" : [
 
   ],
   "description" : "Telegram management dashboard powered by tg-hub (Telethon + SQLite): chats, sync, search, ranking and stats.",
-  "entry" : "index.tsx",
-  "remoteResource" : null,
-  "version" : "1.0.0",
-  "localizedNames" : {
-    "zh" : "",
-    "it" : "",
-    "fr" : "",
-    "pt" : "",
-    "ja" : "",
-    "de" : "",
-    "ru" : "",
-    "es" : "",
-    "en" : ""
-  },
-  "permissions" : null,
-  "author" : null,
+  "permissions" : [
+    "calendar",
+    "reminders",
+    "alarms",
+    "homeKit",
+    "photos",
+    "health",
+    "clipboard",
+    "fileSystem",
+    "cloudSharedData"
+  ],
   "contributors" : [
 
-  ],
-  "name" : "TGClient",
-  "localizedDescriptions" : {
-    "de" : "",
-    "fr" : "",
-    "pt" : "",
-    "ja" : "",
-    "zh" : "",
-    "it" : "",
-    "en" : "",
-    "es" : "",
-    "ru" : ""
-  },
-  "runInApp" : true,
-  "iconImage" : null,
-  "color" : "#2AABEE"
+  ]
 }

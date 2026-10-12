@@ -191,6 +191,7 @@ export function BulkLeaveSection({ p }: { p: PanelCtx }) {
         {backRow("idle")}
         <SettingsRow
           icon="arrow.uturn.left"
+          iconAsset="door"
           color="#FF9500"
           title="退出"
           action={() => {
@@ -259,6 +260,7 @@ export function BulkLeaveSection({ p }: { p: PanelCtx }) {
       {backRow("scope")}
       <SettingsRow
           icon={op === "delete" ? "trash" : "arrow.uturn.left"}
+          iconAsset={op === "delete" ? "trash" : "door"}
           color={op === "delete" ? "#FF3B30" : "#FF9500"}
           danger
           disabled={running || p.busy !== null}
@@ -1236,6 +1238,7 @@ export function ChatDetailScreen({ p, chat }: { p: PanelCtx; chat: any }) {
 
         <SettingsRow
           icon="arrow.uturn.left"
+          iconAsset="door"
           color="#8E8E93"
           danger
           disabled={leaving || p.busy !== null}

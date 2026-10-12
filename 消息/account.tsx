@@ -5,7 +5,6 @@ import {
   Image,
   List,
   Menu,
-  ProgressView,
   RoundedRectangle,
   Section,
   Text,
@@ -139,10 +138,8 @@ export function AccountScreen({ p }: { p: PanelCtx }) {
       listRowInsets={{ top: 0, bottom: 0, leading: 16, trailing: 16 }}
       navigationTitle="账号"
       navigationBarTitleDisplayMode="inline"
-      toolbar={{
-        // 顶栏右侧的刷新按钮已删（2026-10-07）：忙碌时仅保留转圈
-        topBarTrailing: p.busy ? <ProgressView /> : undefined,
-      }}
+      // 2026-10-12：顶栏忙碌转圈也删（用户反馈干扰，与设置页同）；
+      // 忙碌进度横幅已在 Banners 全局关闭
     >
       <Banners p={p} />
 

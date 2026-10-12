@@ -3,7 +3,7 @@
 基于 [jackwener/tg-cli](https://github.com/jackwener/tg-cli) 的 Telegram 本地优先数据技能，
 适配 Scripting 应用的 iOS 环境：**不依赖 uv / 子进程**，通过脚本内的 `Python.run` 进程内调用。
 
-> 本目录已内置于 `TG Hub` 脚本包中，随 `.scripting` 一起分发。
+> 本目录已内置于 `TG Client` 脚本包中，随 `.scripting` 一起分发。
 
 ## 目录
 
@@ -67,7 +67,7 @@ python3 tg_api.py search '{"keyword":"招聘","hours":24}'
 
 ## 面板
 
-配套界面即上层脚本 `TG Hub/`（概览 / 会话 / 消息 / 排行 / 同步 / 设置 六个标签），
+配套界面即上层脚本 `TG Client/`（概览 / 会话 / 消息 / 排行 / 同步 / 设置 六个标签），
 它通过 `api.ts` 把 `TG_ROOT` 指向 `<脚本目录>/tg-hub`。
 
 > ⚠️ iOS 的 Python 解释器是**常驻**的（`sys.modules` 跨命令保持），

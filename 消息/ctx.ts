@@ -83,6 +83,8 @@ export type PanelCtx = {
   excludedChats: string[]
   /** 把会话移出该分组（本地，不碰 Telegram） */
   excludeChat: (id: any) => void
+  /** 批量移出（首页勾选模式；同为本地分组操作，不退出群/不删消息） */
+  excludeChats: (ids: any[]) => void
   /** 详情页单独恢复某一个被移出的会话 */
   restoreChat: (id: any) => void
   /** 拉取会话列表（silent=后台静默刷新，不占进度且失败保留缓存）；并发调用自动合并 */

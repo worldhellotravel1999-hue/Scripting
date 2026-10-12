@@ -7,7 +7,6 @@ import {
   LineChart,
   List,
   Picker,
-  ProgressView,
   Section,
   Spacer,
   Text,
@@ -271,10 +270,8 @@ export function ToolsScreen({ p, initialTab }: { p: PanelCtx; initialTab?: Tab }
       listRowInsets={{ top: 0, bottom: 0, leading: 16, trailing: 16 }}
       navigationTitle="工具"
       navigationBarTitleDisplayMode="inline"
-      toolbar={{
-        // 顶栏刷新按钮已删，仅保留忙碌转圈
-        topBarTrailing: p.busy ? <ProgressView /> : undefined,
-      }}
+      // 2026-10-12：顶栏忙碌转圈也删（用户反馈干扰，与设置页同）；
+      // 忙碌进度横幅已在 Banners 全局关闭
     >
       <Banners p={p} />
 

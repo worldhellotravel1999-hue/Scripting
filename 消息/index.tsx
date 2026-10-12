@@ -6,7 +6,7 @@ async function run() {
   try {
     await Navigation.present(<View />)
   } catch (e) {
-    console.log("TG Hub present failed:", e)
+    console.log("TG Client present failed:", e)
   } finally {
     // 页面关闭或异常都释放实例，避免脚本挂起/内存泄漏。
     // 先关闭 tg-hub 的常驻 Telegram 连接（不留后台连接），再退出脚本。

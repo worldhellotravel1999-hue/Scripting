@@ -38,7 +38,7 @@ import { SettingsScreen } from "./settings"
  *  - 布局 2026-10-05 改 Pix 风：listStyle="plain" 整页铺满屏幕（不再装在 inset 卡片里）
  *  - 2026-10-07：搜索栏置顶；「全部/同步」缩成小按钮挂第 1、2 条会话卡右侧、
  *    第 3 行挂「暗色」开关（根视图整屏压暗蒙版）；「已同步 N」行内角标已删
- *  - 2026-10-07 晚：顶栏「TG Hub」标题删除；点会话行记住该会话（工具页「本群」
+ *  - 2026-10-07 晚：顶栏「TG Client」标题删除；点会话行记住该会话（工具页「本群」
  *    默认查看它）；「已同步」筛选下支持**批量删除**——长按任一会话进入勾选
  *    （入口按钮 2026-10-07 晚已删）
  *  - 下拉可刷新；点任意一行 → 群详情
@@ -213,7 +213,7 @@ function renderDestination(page: string, p: PanelCtx) {
   if (page === PAGE_TOOLS) return <ToolsScreen p={p} />
   if (page === PAGE_SETTINGS) return <SettingsScreen p={p} />
   return (
-    <List navigationTitle="TG Hub" navigationBarTitleDisplayMode="inline">
+    <List navigationTitle="TG Client" navigationBarTitleDisplayMode="inline">
       <Section>
         <Text>未知页面</Text>
       </Section>
@@ -417,7 +417,15 @@ export function ChatsScreen({ p }: { p: PanelCtx }) {
           // id 优先（稳定，不怕改名），名字兜底（老数据/异形 id）
           if (!localIds.has(canonicalId(c.id)) && !localByName.has(name)) return false
         }
-        if (search && !name.toLowerCase().includes(search)) return false
+        if (search) {
+          // 名字与 @用户名 双路匹配：@xxx_bot 这类会话的显示名通常不含用户名，
+          // 只查名字会“明明有却搜不到”；查询里的前导 @ 剥掉后再比 username 字段
+          const q = search.replace(/^@+/, "")
+          const uname = String(c.username ?? "").toLowerCase()
+          const hitName = name.toLowerCase().includes(search)
+          const hitUser = q !== "" && uname !== "" && uname.includes(q)
+          if (!hitName && !hitUser) return false
+        }
         return true
       }),
     [p.chats, p.chatScope, p.excludedChats, localByName, localIds, search],
@@ -502,6 +510,26 @@ export function ChatsScreen({ p }: { p: PanelCtx }) {
       failed > 0 ? `已删除 ${done} 个 · 失败 ${failed} 个` : `已删除 ${done} 个会话`,
     )
     p.loadChats()
+  }
+
+  /** 批量移出分组（纯本地）：只把所选会话从「已同步」分组里拿掉，
+   * 不退出群、不删消息；「全部」里照常可见，详情页可随时恢复/再同步加入 */
+  const runBatchExclude = async () => {
+    if (batchRunning || p.busy !== null) return
+    const targets = shown.filter((c: any) => selected.includes(String(c.id)))
+    if (targets.length === 0) return
+    const ok = await Dialog.confirm({
+      title: "移出「已同步」分组",
+      message: `将把这 ${targets.length} 个会话移出本分组（不退出群、不删消息）；「全部」里仍然可见，之后可随时再加入。确定移出？`,
+      confirmLabel: "移出",
+    })
+    if (!ok) return
+    p.excludeChats(targets.map((c: any) => c.id))
+    if (mountedRef.current) {
+      setSelMode(false)
+      setSelected([])
+    }
+    flashBatch("ok", `已移出 ${targets.length} 个会话；「全部」里仍然可见`)
   }
 
   /** 第 i 行右侧的小按钮：i=0「全部」、i=1「同步」、i=2「暗色」开关，更靠后的行没有 */
@@ -600,13 +628,8 @@ export function ChatsScreen({ p }: { p: PanelCtx }) {
       }}
       toolbar={{
         cancellationAction: <Button title="关闭" action={p.dismiss} />,
-        topBarTrailing: (
-          <HStack spacing={8}>
-            {p.busy ? <ProgressView /> : null}
-            {/* 学 IPA-Tool 顶栏的账号快速切换胶囊（QuickSwitchAccountMenu） */}
-            <AccountMenu p={p} />
-          </HStack>
-        ),
+        // 2026-10-12：忙碌转圈删掉（用户反馈干扰）；忙碌横幅已在 Banners 全局关闭
+        topBarTrailing: <AccountMenu p={p} />,
       }}
       navigationDestination={
         <NavigationDestination>{(page: string) => renderDestination(page, p)}</NavigationDestination>
@@ -661,6 +684,17 @@ export function ChatsScreen({ p }: { p: PanelCtx }) {
                 action={runBatchDelete}
                 trailing={batchRunning ? <ProgressView /> : undefined}
               />
+              {/* 移出所在分组＝退出本分组（纯本地）：不碰 Telegram，
+                  会话在「全部」里还能找到、可再加入分组（与上面的「删除」区分） */}
+              <SettingsRow
+                icon="folder.badge.minus"
+                color="#FF9500"
+                chevron={false}
+                disabled={batchRunning || selectedVisible === 0 || p.busy !== null}
+                title="移出所在分组"
+                value={`${selectedVisible} 个`}
+                action={runBatchExclude}
+              />
               <SettingsRow
                 icon="xmark"
                 color="#8E8E93"
@@ -702,7 +736,10 @@ export function ChatsScreen({ p }: { p: PanelCtx }) {
                 {spareChips}
               </HStack>
             ) : null}
-            <Hint tone="muted" text="没有匹配的会话" />
+            <Hint
+              tone="muted"
+              text={search ? "没有匹配的会话（可搜名称或 @用户名）" : "没有匹配的会话"}
+            />
           </>
         ) : (
           <>

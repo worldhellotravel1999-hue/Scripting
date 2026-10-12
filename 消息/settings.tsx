@@ -6,7 +6,7 @@ import {
   useState,
   useRef,
 } from "scripting"
-import { fmtNum, tg } from "./api"
+import { fmtNum, parseBackendDate, tg } from "./api"
 import { aiCheckinDecide, type CheckinMsg } from "./ai"
 import { Banners, SettingsRow, type HintTone } from "./components"
 import { type PanelCtx } from "./ctx"
@@ -103,6 +103,14 @@ function JoinChatRow({ p }: { p: PanelCtx }) {
  *   签到按钮）→ 后端按 AI 的决策模拟点击 → AI 再看结果判定成败 → 进度与反馈
  * 以行内 hint 小字临时渲染（完成后 8 秒自动消失）。
  * 不写死任何签到业务：按钮长什么样、点哪个、算不算成功，全由 AI 现场判断。
+ *
+ * 传输层（2026-10-12）：宿主有已知缺陷——**长耗时的 Python.run 偶发整个丢掉
+ * stdout**（etype=NoOutput，输出只剩 sandbox_extension_consume failed）。真机
+ * 实测：8s 调用约 1/8 中招、45s 调用 1/3，而短调用（<1s）几十次都正常。签到
+ * 原本一次调用等 12~24s，所以「后端无响应」几乎每轮都会撞上。对策：把长等待
+ * 拆成多次 ≤4s 的短调用——后端只等 SEND_WAIT/POLL_WAIT 秒，等回复/等结果由
+ * 前端轮询 bot_checkin_read（只读、幂等）；丢输出只在只读步骤上重试，
+ * 绝不重发 /start、绝不重复点击（避免重复操作机器人）。
  */
 function CheckinRow() {
   const [running, setRunning] = useState(false)
@@ -134,15 +142,67 @@ function CheckinRow() {
     return etype === "NoOutput" || etype === "JSException" || etype === "EncodeError"
   }
 
-  /** 只读恢复：什么都不发，抓 after_id 之后的机器人消息（回包丢失/回复慢时兜底）。 */
-  async function recover(bot: string, afterId: number, wait: number): Promise<CheckinMsg[]> {
-    try {
-      const r = await tg("bot_checkin_read", { chat: bot, after_id: afterId, wait }, 90)
-      if (!r.ok) return []
-      return ((r.messages || []) as CheckinMsg[]).filter(m => !m.out)
-    } catch {
-      return []
+  // ── 短调用 + 只读轮询（原因见上方注释）─────────────────────────────────
+  const SEND_WAIT = 3    // 后端每次调用内部的等待秒数（发 /start、点击后）
+  const POLL_WAIT = 4    // 轮询只读调用（bot_checkin_read）的等待秒数
+  const POLL_BUDGET = 24 // 等机器人回复的总预算（秒），由多个短调用累加出
+  const RETRIES = 3      // 宿主丢输出时，只读调用的重试次数
+
+  function sleep(ms: number): Promise<void> {
+    return new Promise<void>(resolve => {
+      setTimeout(resolve, ms)
+    })
+  }
+
+  /**
+   * 只读抓取 after_id 之后的新消息（不含自己发的）。
+   * 宿主丢输出（NoOutput/JSException）只在**只读**步骤上重试——读幂等，
+   * 重试安全；参数/会话类硬错误直接返回 null（重试无意义）。
+   */
+  async function readOnce(
+    bot: string,
+    afterId: number,
+    wait: number,
+  ): Promise<CheckinMsg[] | null> {
+    for (let i = 0; i < RETRIES; i++) {
+      const r = await tg("bot_checkin_read", { chat: bot, after_id: afterId, wait }, 60)
+      if (r.ok) return ((r.messages || []) as CheckinMsg[]).filter(m => !m.out)
+      if (!isTransportError(r.etype)) return null
+      await sleep(700)
     }
+    return null
+  }
+
+  /**
+   * 轮询到「拿到新消息且再来一轮没有更新」或预算耗尽（每次调用 ≤POLL_WAIT 秒）。
+   * onlyFresh：probe 回包丢失时 after_id 只能给 0（会连历史消息一起读到），
+   * 用消息时间戳剔除 5 分钟前的旧内容，避免 AI 拿旧画面乱点过期按钮。
+   */
+  async function pollMessages(
+    bot: string,
+    afterId: number,
+    budgetS: number,
+    onlyFresh = false,
+  ): Promise<CheckinMsg[]> {
+    const deadline = Date.now() + budgetS * 1000
+    let got: CheckinMsg[] = []
+    while (Date.now() < deadline) {
+      const lastId = got.reduce((mx, m) => Math.max(mx, m.id), afterId)
+      const msgs = await readOnce(bot, lastId, POLL_WAIT)
+      if (msgs === null) {
+        await sleep(800) // 连续丢输出：歇口气接着轮，直到预算耗尽
+        continue
+      }
+      const fresh = onlyFresh
+        ? msgs.filter(
+            m => !m.date || Date.now() - parseBackendDate(m.date).getTime() < 5 * 60_000,
+          )
+        : msgs
+      if (fresh.length > 0) got = got.concat(fresh)
+      else if (got.length > 0) break // 已有内容且一轮无更新 → 收口
+      await sleep(400)
+    }
+    return got
   }
 
   /** 行内 hint 只有 ~140pt：长错误压成短语，完整文本留在 console + Storage。 */
@@ -162,22 +222,33 @@ function CheckinRow() {
   ): Promise<{ ok: boolean; text: string }> {
     flash("info", `${tag} 发送 /start…`)
     let messages: CheckinMsg[] = []
-    const probe = await tg("bot_checkin_probe", { chat: bot, text: "/start", wait: 12 }, 90)
+    const probe = await tg(
+      "bot_checkin_probe",
+      { chat: bot, text: "/start", wait: SEND_WAIT },
+      60,
+    )
     if (probe.ok) {
       messages = (probe.messages || []) as CheckinMsg[]
-      if (messages.length === 0) {
-        // 机器人回得慢（带图的菜单常 >6s）：不重发，只读 /start 之后的新消息再等 12s
-        flash("info", `${tag} 等待回复…`)
-        messages = await recover(bot, Number(probe.sent_id) || 0, 12)
-        if (messages.length === 0) throw new Error("机器人 24 秒没有回复")
-      }
     } else if (isTransportError(probe.etype)) {
-      // /start 很可能已经发出去了，只是回包在传输层丢了 → 只读恢复，绝不重发
+      // 宿主丢了 stdout，但 /start 很可能已经发出去了 → 只读恢复，绝不重发；
+      // sent_id 也随回包丢了，只能 after_id=0 + 只认 5 分钟内的新消息
       flash("info", `${tag} 回包丢失，读取回复…`)
-      messages = await recover(bot, 0, 12)
-      if (messages.length === 0) throw new Error(shortError(probe.error))
+      messages = await pollMessages(bot, 0, POLL_BUDGET, true)
+      if (messages.length === 0) throw new Error(probe.error || "后端无响应")
     } else {
       throw new Error(probe.error || "发送 /start 失败")
+    }
+    if (messages.filter(m => !m.out).length === 0) {
+      // 机器人回得慢（带图的菜单常 >6s）：不重发，轮询新消息直到预算耗尽
+      flash("info", `${tag} 等待回复…`)
+      const sentId = messages.reduce(
+        (mx, m) => Math.max(mx, m.id),
+        Number(probe.sent_id) || 0,
+      )
+      messages = messages.concat(await pollMessages(bot, sentId, POLL_BUDGET))
+      if (messages.filter(m => !m.out).length === 0) {
+        throw new Error(`机器人 ${POLL_BUDGET} 秒没有回复`)
+      }
     }
 
     let history = ""
@@ -196,10 +267,10 @@ function CheckinRow() {
         act.kind === "click"
           ? await tg(
               "bot_checkin_act",
-              { chat: bot, mode: "click", msg_id: act.msgId, data: act.data, after_id: afterId, wait: 6 },
-              90,
+              { chat: bot, mode: "click", msg_id: act.msgId, data: act.data, after_id: afterId, wait: SEND_WAIT },
+              60,
             )
-          : await tg("bot_checkin_act", { chat: bot, mode: "text", text: act.text, wait: 8 }, 90)
+          : await tg("bot_checkin_act", { chat: bot, mode: "text", text: act.text, wait: SEND_WAIT }, 60)
       // 点击的回包：alert 弹窗文案 / 失败原因（按钮过期、机器人超时等）
       let answer = (res.answer || null) as
         | { message?: string; url?: string; error?: string }
@@ -207,16 +278,16 @@ function CheckinRow() {
       let next: CheckinMsg[]
       if (res.ok) {
         next = (res.messages || []) as CheckinMsg[]
-        if (next.length === 0 && !answer?.message) {
+        if (next.filter(m => !m.out).length === 0 && !answer?.message) {
           flash("info", `${tag} 读取结果…`)
-          next = await recover(bot, afterId, 8)
+          next = next.concat(await pollMessages(bot, afterId, POLL_WAIT * 2))
         }
       } else if (isTransportError(res.etype)) {
         // 点击很可能已经生效、只是回包丢了 → 只读恢复，绝不重复点
         flash("info", `${tag} 回包丢失，读取结果…`)
         answer = null
-        next = await recover(bot, afterId, 8)
-        if (next.length === 0) throw new Error(shortError(res.error))
+        next = await pollMessages(bot, afterId, POLL_WAIT * 3)
+        if (next.length === 0) throw new Error(res.error || `${label}失败`)
       } else {
         throw new Error(res.error || `${label}失败`)
       }
@@ -305,6 +376,7 @@ function CheckinRow() {
   return (
     <SettingsRow
       icon="checkmark.circle"
+      iconAsset="robot"
       color="#34C759"
       title={running ? "机器人签到中…" : "机器人签到"}
       hint={hint ? hint.text : undefined}
@@ -403,6 +475,8 @@ function ListLimitRow({ p }: { p: PanelCtx }) {
 }
 
 export function SettingsScreen({ p }: { p: PanelCtx }) {
+  // 2026-10-12：顶栏右侧的忙碌转圈也删了（用户反馈是 bug）——
+  // 点「刷新全部」只有行内「刷新中…」+ 行右侧转圈，顶栏不再出现任何东西。
   return (
     <List
       listStyle="plain"
@@ -410,10 +484,6 @@ export function SettingsScreen({ p }: { p: PanelCtx }) {
       listRowInsets={{ top: 0, bottom: 0, leading: 16, trailing: 16 }}
       navigationTitle="设置"
       navigationBarTitleDisplayMode="inline"
-      toolbar={{
-        // 顶栏右侧的刷新按钮已删（2026-10-07）：忙碌时仅保留转圈
-        topBarTrailing: p.busy ? <ProgressView /> : undefined,
-      }}
     >
       <Banners p={p} hideBusy={label => label.startsWith("增量刷新")} />
 
