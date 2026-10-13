@@ -39,15 +39,7 @@
   ],
   "description" : "Telegram management dashboard powered by tg-hub (Telethon + SQLite): chats, sync, search, ranking and stats.",
   "permissions" : [
-    "calendar",
-    "reminders",
-    "alarms",
-    "homeKit",
-    "photos",
-    "health",
-    "clipboard",
-    "fileSystem",
-    "cloudSharedData"
+
   ],
   "contributors" : [
 
