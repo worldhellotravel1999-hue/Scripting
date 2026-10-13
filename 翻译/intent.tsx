@@ -127,8 +127,15 @@ async function run() {
     return
   }
 
-  await Navigation.present({ element: <AppStoreView url={url} /> })
-  Script.exit()
+  try {
+    await Navigation.present({ element: <AppStoreView url={url} /> })
+    Script.exit()
+  } catch (reason) {
+    const message = reason instanceof Error ? reason.message : String(reason)
+    const fallback = `App Store 介绍页打开失败：${message}`
+    await showScreenText(fallback)
+    Script.exit(Intent.text(fallback))
+  }
 }
 
 void run().catch(async (reason) => {

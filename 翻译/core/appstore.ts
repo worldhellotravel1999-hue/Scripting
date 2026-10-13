@@ -39,12 +39,22 @@ export function appStoreTextSlots(
     emptyText: "此版本未提供发布说明。",
   }
   const description = {
-    content: info.description?.trim(),
+    // App Store 介绍可能远超原生 Translation 会话的稳定范围；限制只作用于
+    // 介绍翻译，避免分享宿主因超长内容在原生翻译/渲染阶段退出。
+    content: limitAppStoreDescription(info.description),
     version: undefined as string | undefined,
     identity: "description",
     emptyText: "App Store 未提供应用说明。",
   }
   return swapped ? [description, notes] as const : [notes, description] as const
+}
+
+const MAX_APPSTORE_DESCRIPTION_LENGTH = 8000
+
+function limitAppStoreDescription(value: string | undefined) {
+  const text = typeof value === "string" ? value.trim() : ""
+  if (text.length <= MAX_APPSTORE_DESCRIPTION_LENGTH) return text || undefined
+  return `${text.slice(0, MAX_APPSTORE_DESCRIPTION_LENGTH)}\n\n（应用说明过长，已截取前 ${MAX_APPSTORE_DESCRIPTION_LENGTH} 个字符）`
 }
 
 function normalizeRegion(value: string) {
