@@ -1630,7 +1630,7 @@ function AppStoreContent(props: {
             title="不是有效的 App Store 链接"
             message="请从 App Store 分享应用链接到 Lingo。"
           />
-        ) : loading ? (
+        ) : loading && !info ? (
           <VStack alignment="leading" spacing={12} padding={{ vertical: 18 }}>
             <HStack spacing={10}>
               <ProgressView />

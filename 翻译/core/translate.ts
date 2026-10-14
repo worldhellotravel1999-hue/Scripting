@@ -202,11 +202,10 @@ function firstSuccess(tasks: Array<{ engine: EngineKind; task: Promise<string> }
 }
 
 /**
- * 谷歌快路径与系统引擎从同一时刻开跑，平衡两者进程：
- * - 谷歌健康：快时≈谷歌耗时（与旧路径一致）；
- * - 谷歌被限流/弱网：系统不再等谷歌白败（2~5s 超时）后才启动，
- *   慢场景直接砍掉串行叠加的等待；
- * - 谷歌冷却期：只跑系统，与旧路径一致。
+ * 短文本双引擎竞速，长文本先走谷歌，失败才启动原生翻译：
+ * - 谷歌健康时不创建长文本原生会话；
+ * - 谷歌被限流/弱网时最多等待快路径整体 5 秒，再逐段走系统；
+ * - 谷歌冷却期直接逐段走系统。
  * 进度回报同一时刻只属于一个引擎（优先谷歌，谷歌失败后交给系统），
  * 竞速结束后迟到的进度一律静默，不会覆盖已返回的完整译文。
  */
@@ -220,6 +219,31 @@ async function runEngineRace(
   const emit = (owner: EngineKind, value: string) => {
     if (finished || progressOwner !== owner || !value) return
     try { options.onProgress?.(value) } catch {}
+  }
+  // Long pages must not start a native session speculatively. The Google winner
+  // used to leave its native loser translating remaining chunks in the background.
+  if (googleAvailable && request.sourceText.length > SYSTEM_CHUNK_LENGTH) {
+    try {
+      const value = await runGoogleFastPath(request, (partial) => emit("google", partial))
+      finished = true
+      throwIfCancelled(request)
+      return { value, engine: "google" }
+    } catch (error) {
+      if (request.isCancelled?.()) {
+        finished = true
+        throw error
+      }
+      progressOwner = "system"
+    }
+    try {
+      const value = await runSystemEngine(request, options.translationHost, (partial) => emit("system", partial))
+      finished = true
+      throwIfCancelled(request)
+      return { value, engine: "system" }
+    } catch (error) {
+      finished = true
+      throw error
+    }
   }
   const tasks: Array<{ engine: EngineKind; task: Promise<string> }> = []
   if (googleAvailable) {
@@ -335,7 +359,7 @@ async function translateGroupWithBatchRetry(
 /**
  * 系统引擎整篇翻译（纯执行器）：缓存与在途共享已上移到 translateText 的竞速
  * 编排层，这里只负责分片、整篇 batch 快路径与分组/逐片回退。与谷歌快路径
- * 并行调用，输家自然完成即可，无需取消（原生 Translation 也没有取消 API）。
+ * 短文本可与谷歌并行；长文本仅在谷歌失败后启动原生 Translation。
  */
 async function runSystemEngine(
   request: TranslationRequest,
@@ -345,7 +369,7 @@ async function runSystemEngine(
   throwIfCancelled(request)
   const parts = splitTranslationText(request.sourceText)
   const useSequential = parts.length > 1 && (
-    request.preferSequential === true || parts.length > MAX_BATCH_PARTS
+    request.preferSequential === true || request.sourceText.length > SYSTEM_CHUNK_LENGTH
   )
   const task = (async () => {
     let lastError: unknown
@@ -369,11 +393,8 @@ async function runSystemEngine(
       }
     }
 
-    // Long App Store pages are translated in groups: each native translateBatch
-    // carries up to MAX_BATCH_PARTS chunks (same size as the short-text whole
-    // batch path), cutting native call count to ceil(N/4). A failed group falls
-    // back to per-chunk translation (with halving retry) so completed chunks
-    // are kept and progress is only reported by the outer loops.
+    // Long text sends one chunk per native request. Failed chunks can fall
+    // back to smaller requests; only the outer loop reports progress.
     try {
       throwIfCancelled(request)
       const translated: string[] = []
@@ -411,9 +432,10 @@ async function runSystemEngine(
         }
       }
 
+      const groupSize = useSequential ? 1 : MAX_BATCH_PARTS
       const groups: string[][] = []
-      for (let index = 0; index < parts.length; index += MAX_BATCH_PARTS) {
-        groups.push(parts.slice(index, index + MAX_BATCH_PARTS))
+      for (let index = 0; index < parts.length; index += groupSize) {
+        groups.push(parts.slice(index, index + groupSize))
       }
       for (const group of groups) {
         throwIfCancelled(request)
@@ -479,7 +501,7 @@ export async function translateText(text: string, options: TranslateTextOptions 
     sourceLanguageCode: detectedSource ?? selectedSource,
     targetLanguageCode,
     priority: options.priority,
-    preferSequential: options.preferSequential,
+    preferSequential: options.preferSequential ?? sourceText.length > SYSTEM_CHUNK_LENGTH,
     isCancelled: options.isCancelled,
   }
 

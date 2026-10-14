@@ -28,8 +28,8 @@ async function run() {
     onProgress: (value) => progress.push(value),
   })
   if (!result || progress.length < 2) throw new Error("long text did not report progressive output")
-  if (!batchCalls.length || batchCalls.some((texts) => texts.length < 1 || texts.length > 4)) {
-    throw new Error("long text submitted an invalid batch size")
+  if (batchCalls.length < 2 || batchCalls.some((texts) => texts.length !== 1)) {
+    throw new Error("sequential translation submitted multiple chunks to one native request")
   }
   if (result.includes("single:")) throw new Error("batch path unexpectedly fell back")
   const intermediateProgress = progress.slice(0, -1)
@@ -37,6 +37,25 @@ async function run() {
     throw new Error("intermediate progress output repeated")
   }
   passed.push("长文本逐段批量翻译与进度")
+
+  // Egern-like notes must be safe without any caller-specific flag.
+  const defaultCalls: string[][] = []
+  const defaultHost = {
+    translateBatch: async (value: { texts: string[] }) => {
+      defaultCalls.push(value.texts)
+      return value.texts.map(() => "译文")
+    },
+  } as Translation
+  const notes = Array.from({ length: 5 }, (_, index) => `Release ${index}. ${"x".repeat(770)}`).join("\n")
+  await translateText(notes, {
+    sourceLanguageCode: "en",
+    targetLanguageCode: "zh-Hans",
+    translationHost: defaultHost,
+  })
+  if (defaultCalls.length < 4 || defaultCalls.some((texts) => texts.length !== 1 || texts[0].length > 900)) {
+    throw new Error("default long translation sent an oversized native batch")
+  }
+  passed.push("默认长正文不发送多段原生批量请求")
 
   const fallbackHost = {
     translateBatch: async () => { throw new Error("batch unsupported") },

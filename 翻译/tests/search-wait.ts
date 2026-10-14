@@ -51,8 +51,13 @@ async function run() {
   assert((await queued).error instanceof SystemTranslationWaitError, "queue timeout")
   assert(nativeCalls === 1, "timeout must retain native lock")
   passed.push("原生/排队超时都有明确错误且未重叠调用")
-  const following = capture(immediate.translateBatch(request, ["c"]))
+  let nextStarted = false
+  const nextEngine = createSystemTranslationEngine({
+    translateBatch: async () => { nextStarted = true; return ["译文"] },
+  } as unknown as Translation)
+  const following = capture(nextEngine.translateBatch(request, ["c"]))
   await tick()
+  assert(!nextStarted, "timed-out native task still running; next task must not overlap")
   hanging.resolve(["迟到译文"])
   assert((await following).value?.translatedText === "译文", "recover after actual native completion")
   assert(nativeCalls === 1, "expired waiter did not run")

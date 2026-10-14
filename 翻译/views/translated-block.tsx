@@ -51,7 +51,7 @@ export function TranslatedBlock(props: {
       translationToken={props.translationToken}
       translationHost={props.translationHost}
       priority={props.priority}
-      preferSequential={props.preferSequential}
+      preferSequential={props.preferSequential ?? content.length > 900}
             translationEnabled={props.translationEnabled}
       translationDelayMs={props.translationDelayMs}
       isCancelled={props.isCancelled}
