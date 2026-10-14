@@ -85,17 +85,21 @@ export function buildSourceText(blocks: OCRBlock[]): string { return blocks.map(
  * - 任一步失败都只返回 null（可捕获的 JS 层错误，绝不进原生崩溃区）；
  * - 成功则 Vision 拿到的是全新解码的内存位图，与源文件是否还存在无关。
  */
+const inlineBitmaps = new WeakSet<object>()
+
 export function inlineImageBitmap(image: UIImage | null | undefined): UIImage | null {
   if (!image || typeof image !== "object"
     || typeof image.width !== "number" || typeof image.height !== "number") return null
   if (!Number.isFinite(image.width) || !Number.isFinite(image.height)
     || image.width <= 0 || image.height <= 0) return null
+  if (inlineBitmaps.has(image)) return image
   let data: Data | null = null
   try { data = image.toPNGData() } catch { data = null }
   if (!data) return null
   try {
     const copy = UIImage.fromData(data)
     if (!copy || !Number.isFinite(copy.width) || copy.width <= 0 || copy.height <= 0) return null
+    inlineBitmaps.add(copy)
     return copy
   } catch { return null }
 }

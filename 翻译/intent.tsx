@@ -35,27 +35,23 @@ async function inputImages(): Promise<UIImage[]> {
   // 拿到图的瞬间就强制解码落地（物化为内存位图）：分享扩展的临时截图
   // 文件可能在 present/OCR 之前被系统回收或受数据保护约束，UIImage 构造
   // 成功但后续解码失效会触发原生 OCR 空指针崩溃（2026-10-11 .ips 实锤）。
-  // 文件路径优先（与旧逻辑一致），路径图全部不可用时才退回参数图。
-  const fromPaths: UIImage[] = []
+  // 文件路径优先（与旧逻辑一致）；当前流程只处理第一张图，避免多张大图
+  // 同时解码并长期持有位图副本。所有路径不可用时才退回参数图。
   for (const path of inputImagePaths()) {
     try {
       const image = UIImage.fromFile(path)
-      if (image) {
-        const bitmap = inlineImageBitmap(image)
-        if (bitmap) fromPaths.push(bitmap)
-      }
+      const bitmap = inlineImageBitmap(image)
+      if (bitmap) return [bitmap]
     } catch {}
   }
-  if (fromPaths.length) return fromPaths
 
   const decoded = Intent.imagesParameter
   if (!Array.isArray(decoded)) return []
-  const fromParams: UIImage[] = []
-  for (const candidate of (decoded as UIImage[]).filter(Boolean)) {
+  for (const candidate of decoded as UIImage[]) {
     const bitmap = inlineImageBitmap(candidate)
-    if (bitmap) fromParams.push(bitmap)
+    if (bitmap) return [bitmap]
   }
-  return fromParams
+  return []
 }
 
 function inputCandidates() {

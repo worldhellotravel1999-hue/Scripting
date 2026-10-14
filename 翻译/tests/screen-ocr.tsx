@@ -1,5 +1,5 @@
 import { Script, ImageRenderer, Text, VStack } from "scripting"
-import { buildOCRBlocks, buildSourceText, recognizeScreenText, type OCRCandidate } from "../core/screen-ocr"
+import { buildOCRBlocks, buildSourceText, inlineImageBitmap, recognizeScreenText, type OCRCandidate } from "../core/screen-ocr"
 import { translateScreenImages } from "../core/screen-translation"
 
 const failures: string[] = []
@@ -62,7 +62,10 @@ async function main() {
       </VStack>,
       { scale: 2 },
     )
-    const text = await recognizeScreenText(image)
+    const inlineImage = inlineImageBitmap(image)
+    check("图片物化成功", inlineImage !== null)
+    if (inlineImage) check("重复图片物化复用位图", inlineImageBitmap(inlineImage) === inlineImage)
+    const text = await recognizeScreenText(inlineImage ?? image)
     check("真实 Vision 识别出英文", /hello\s+screen\s+translation/i.test(text), JSON.stringify(text))
     check("真实 Vision 识别出中文（语言顺序回归）", text.includes("打开设置界面"), JSON.stringify(text))
     // 同源/目标语言可直接返回 OCR 文本，无需网络或系统翻译；覆盖
