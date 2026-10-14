@@ -98,17 +98,29 @@ async function withSystemRequestSlot<T>(work: () => Promise<T>, isCancelled?: ()
     throw new Error("翻译任务已取消。")
   }
   systemRequestActiveCount += 1
-  // Keep ownership until the native Promise actually settles. A UI timeout or
-  // cancellation cannot cancel Translation and must not allow overlapping calls.
+  let slotReleased = false
+  const releaseSlot = () => {
+    if (slotReleased) return
+    slotReleased = true
+    systemRequestActiveCount = Math.max(0, systemRequestActiveCount - 1)
+    wakeNextSystemRequest()
+  }
+  // Native Translation cannot be cancelled. Release the queue reservation if its
+  // observer times out or the owner disappears, otherwise one stalled native
+  // Promise would block every later translation for the lifetime of the script.
   const nativeTask = (async () => {
     try {
       return await work()
     } finally {
-      systemRequestActiveCount = Math.max(0, systemRequestActiveCount - 1)
-      wakeNextSystemRequest()
+      releaseSlot()
     }
   })()
-  return await observeSystemRequest(nativeTask, isCancelled)
+  try {
+    return await observeSystemRequest(nativeTask, isCancelled)
+  } catch (error) {
+    if (error instanceof SystemTranslationWaitError) releaseSlot()
+    throw error
+  }
 }
 
 export function createSystemTranslationEngine(translationHost?: Translation) {
