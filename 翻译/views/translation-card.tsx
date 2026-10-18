@@ -17,6 +17,7 @@ import {
 } from "scripting"
 import { translateText } from "../core/translate"
 import { detectedAutoSourceLanguage } from "../core/source-language"
+import { subscribeSpeaking, toggleSpeak, stopSpeaking } from "../core/tts"
 import { SystemTranslationWaitError } from "../core/system_engine"
 import { finishTranslation } from "../core/session"
 import { safeTimeout } from "../core/guarded"
@@ -226,6 +227,65 @@ function CircleActionButton(props: {
       <ZStack frame={{ width: 50, height: 50 }}>
         <Circle fill="#D0D3DA" frame={{ width: 50, height: 50 }} />
         <Image systemName={props.systemName} font="title3" foregroundStyle={foreground} />
+      </ZStack>
+    </Button>
+  )
+}
+
+/** 原文 / 译文标题行的朗读按钮：定时器驱动的呼吸灯——未播放时淡光晕缓慢呼吸，播放时光晕变亮、胀缩加大。 */
+function SpeakButton(props: { ttsKey: string; text: string; languageCode: string }) {
+  const [speaking, setSpeaking] = useState(false)
+  const [pulse, setPulse] = useState(false)
+  useEffect(() => {
+    return subscribeSpeaking((key) => setSpeaking(key === props.ttsKey))
+  }, [props.ttsKey])
+  // repeatForever 对 value 驱动动画不生效，改用定时器往复翻转 pulse，
+  // 每次 value 变化都重放动画，形成稳定呼吸。播放时周期更短、幅度更大。
+  useEffect(() => {
+    let timer: any = null
+    const schedule = () => {
+      timer = safeTimeout(() => {
+        setPulse((current) => !current)
+        schedule()
+      }, speaking ? 850 : 1900)
+    }
+    setPulse(false)
+    schedule()
+    return () => { if (timer) clearTimeout(timer) }
+  }, [speaking])
+  const anim = { animation: Animation.smooth({ duration: speaking ? 0.85 : 1.9 }), value: pulse }
+  return (
+    <Button
+      action={() => { void toggleSpeak(props.ttsKey, props.text, props.languageCode) }}
+      disabled={!props.text.trim()}
+      buttonStyle="plain"
+    >
+      <ZStack frame={{ width: 30, height: 30 }}>
+        <Circle
+          fill={speaking
+            ? { colors: ["rgba(90,160,255,0.40)", "rgba(170,120,255,0.35)"], startPoint: "top", endPoint: "bottom" }
+            : { colors: ["rgba(90,160,255,0.14)", "rgba(170,120,255,0.12)"], startPoint: "top", endPoint: "bottom" }}
+          frame={{ width: 26, height: 26 }}
+          blur={6}
+          opacity={pulse ? (speaking ? 0.95 : 0.45) : 0.15}
+          scaleEffect={pulse ? (speaking ? 1.3 : 1.08) : 0.85}
+          animation={anim}
+        />
+        <Image
+          systemName={speaking ? "speaker.wave.2.fill" : "speaker.wave.2"}
+          font="title3"
+          foregroundStyle={{
+            colors: speaking
+              ? ["rgba(80,155,255,0.95)", "rgba(160,110,255,0.9)"]
+              : ["rgba(80,155,255,0.75)", "rgba(160,110,255,0.7)"],
+            startPoint: "top",
+            endPoint: "bottom",
+          }}
+          opacity={speaking ? 0.95 : 0.75}
+          scaleEffect={pulse ? (speaking ? 1.08 : 1.03) : 0.97}
+          animation={anim}
+          contentTransition="symbolEffect"
+        />
       </ZStack>
     </Button>
   )
@@ -445,6 +505,7 @@ export function TranslationCard(props: TranslationCardProps) {
       if (submitTimer.current) clearTimeout(submitTimer.current)
       clearWatchdog()
       requestId.current += 1
+      stopSpeaking()
     }
   }, [])
 
@@ -544,6 +605,7 @@ export function TranslationCard(props: TranslationCardProps) {
   function clear() {
     requestId.current += 1
     completedRef.current = false
+    stopSpeaking()
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
     sourceTextRef.current = ""
     lastEditedTextRef.current = ""
@@ -607,6 +669,7 @@ export function TranslationCard(props: TranslationCardProps) {
           <HStack spacing={2} frame={{ height: 28, alignment: "leading" as any }}>
             <Text font="title3" fontWeight="semibold">{languageShortLabel(shownSourceLanguage)}</Text>
           </HStack>
+          {sourceText.trim() ? <SpeakButton ttsKey="source-compact" text={sourceText} languageCode={shownSourceLanguage} /> : null}
           <Spacer />
         </HStack>
         <VStack alignment="leading" contextMenu={{ menuItems: <CopyButton title="复制原文" text={sourceText} /> }}>
@@ -620,6 +683,7 @@ export function TranslationCard(props: TranslationCardProps) {
           <HStack spacing={2} frame={{ height: 28, alignment: "leading" as any }}>
             <Text font="title3" fontWeight="semibold">{languageShortLabel(item.languageCode)}</Text>
           </HStack>
+          {item.text ? <SpeakButton ttsKey={`target-compact-${item.languageCode}`} text={item.text} languageCode={item.languageCode} /> : null}
           <Spacer />
           {item.text ? (
             <Image systemName="checkmark.circle.fill" foregroundStyle="systemGreen" />
@@ -651,6 +715,7 @@ export function TranslationCard(props: TranslationCardProps) {
             <HStack spacing={2} frame={{ height: 28, alignment: "leading" as any }}>
               <Text font="title3" fontWeight="semibold">{languageShortLabel(shownSourceLanguage)}</Text>
             </HStack>
+            {sourceText.trim() ? <SpeakButton ttsKey="source" text={sourceText} languageCode={shownSourceLanguage} /> : null}
             <Spacer />
             {!readOnly && sourceText.trim() ? (
               <IconButton systemName="xmark.circle.fill" foregroundStyle="secondaryLabel" action={clear} />
@@ -679,6 +744,7 @@ export function TranslationCard(props: TranslationCardProps) {
                 {languageShortLabel(item.languageCode)}
               </AnimText>
             </HStack>
+            {item.text ? <SpeakButton ttsKey={`target-${props.id}-${item.languageCode}`} text={item.text} languageCode={item.languageCode} /> : null}
             <Spacer />
             {item.loading ? <ProgressView /> : item.text ? (
               <Image
