@@ -3,7 +3,7 @@ import { AnimTextGlassBadge } from "./glass-badge"
 import { fetchAppVersions, fetchVersionHistoryNotes, mergeVersionNotes, type AppVersionEntry, type AppVersionNotes } from "../core/versions"
 
 /** 版本 ID 和历史说明独立加载；任一来源成功即可查看，失败允许重试。 */
-function useAppVersions(appid: string, region: string, version: string, currentNotes?: string) {
+function useAppVersions(appid: string, region: string, version: string, currentNotes: string | undefined, enabled: boolean) {
   const key = `${appid}:${region}`
   const [versions, setVersions] = useState<{ key: string; entries: AppVersionEntry[]; error: boolean } | null>(null)
   const [history, setHistory] = useState<{ key: string; entries: AppVersionNotes[]; error: string } | null>(null)
@@ -12,6 +12,7 @@ function useAppVersions(appid: string, region: string, version: string, currentN
     let cancelled = false
     setVersions(null)
     setHistory(null)
+    if (!enabled) return
     void fetchAppVersions(appid).then(
       entries => { if (!cancelled) setVersions({ key, entries, error: false }) },
       () => { if (!cancelled) setVersions({ key, entries: [], error: true }) },
@@ -21,7 +22,7 @@ function useAppVersions(appid: string, region: string, version: string, currentN
       () => { if (!cancelled) setHistory({ key, entries: [], error: "更新说明查询失败" }) },
     )
     return () => { cancelled = true }
-  }, [appid, region, token])
+  }, [appid, region, token, enabled])
   const base = versions?.key === key ? versions.entries : null
   const fetched = history?.key === key ? history : null
   const notes = useMemo(() => {
@@ -63,7 +64,10 @@ export function VersionBadgeMenu(props: {
   foregroundStyle?: any
 }) {
   const region = props.region || "us"
-  const { entries, notesLoading, notesError, versionsLoading, versionsError, retry } = useAppVersions(props.appid, region, props.version, props.currentNotes)
+  const key = `${props.appid}:${region}`
+  const [requestedKey, setRequestedKey] = useState<string | null>(null)
+  const requested = requestedKey === key
+  const { entries, notesLoading, notesError, versionsLoading, versionsError, retry } = useAppVersions(props.appid, region, props.version, props.currentNotes, requested)
   const [isPresented, setIsPresented] = useState(false)
   /** 阅读态独立于版本列表；关闭弹层不清除主卡片已选的译文。 */
   const [viewedNotes, setViewedNotes] = useState<AppVersionNotes | null>(null)
@@ -93,7 +97,12 @@ export function VersionBadgeMenu(props: {
   useEffect(() => () => {
     if (autoCloseRef.current) clearTimeout(autoCloseRef.current)
   }, [])
-  useEffect(() => { setViewedNotes(null); setActiveEntry(null) }, [props.appid, region])
+  useEffect(() => {
+    setViewedNotes(null)
+    setActiveEntry(null)
+    setRequestedKey(null)
+    setIsPresented(false)
+  }, [props.appid, region])
   const expandedNotes = viewedNotes?.notes || ""
   const activeNotes = activeEntry?.notes?.trim() || ""
   const activeActionCount = activeEntry
@@ -136,7 +145,7 @@ export function VersionBadgeMenu(props: {
     <ProgressView progressViewStyle="circular" padding={16} frame={{ maxWidth: "infinity" }} />
   )
 
-  const versionItems = viewedNotes || activeEntry ? [] : (entries ?? []).map((entry) => (
+  const versionItems = !isPresented || viewedNotes || activeEntry ? [] : (entries ?? []).map((entry) => (
     <Button
       key={`vm-${entry.versionId}-${entry.version}`}
       buttonStyle="plain"
@@ -206,6 +215,7 @@ export function VersionBadgeMenu(props: {
     <Button
       buttonStyle="plain"
       action={() => {
+        setRequestedKey(key)
         setViewedNotes(null)
         setActiveEntry(null)
         setIsPresented(true)

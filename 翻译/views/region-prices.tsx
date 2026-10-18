@@ -233,7 +233,8 @@ export function PriceToggle(props: {
   onToggle: () => void
   foregroundStyle?: any
 }) {
-  const { prices: loaded } = useRegionPriceList(props.appid, ["us"])
+  // 头部仅显示本体价；内购网页等到价格面板展开后再抓取、解析。
+  const { prices: loaded } = useRegionPriceLoader(props.appid, ["us"], false)
   const prices = loaded ?? undefined
 
   const primary = prices?.find((item) => item.region.toLowerCase() === "us")
@@ -262,8 +263,8 @@ export function PriceToggle(props: {
     </HStack>
   )
 }
-/** 渐进加载多区价格（三个入口共用的 state + effect；逻辑与依赖逐字来自原三份重复） */
-function useRegionPriceLoader(appid: string, regionCodes: string[]) {
+/** 渐进加载多区价格；头部摘要可跳过内购抓取。 */
+function useRegionPriceLoader(appid: string, regionCodes: string[], includeInAppPurchases = true) {
   const regionSignature = regionCodes.join(",")
   const [prices, setPrices] = useState<RegionPrice[] | null>(null)
   const [error, setError] = useState("")
@@ -277,7 +278,7 @@ function useRegionPriceLoader(appid: string, regionCodes: string[]) {
       try {
         const result = await getRegionPrices(appid, regionCodes, (next) => {
           if (!cancelled) setPrices(next)
-        })
+        }, { includeInAppPurchases })
         if (!cancelled) setPrices(result)
       } catch (reason) {
         if (!cancelled) {
@@ -290,7 +291,7 @@ function useRegionPriceLoader(appid: string, regionCodes: string[]) {
     return () => {
       cancelled = true
     }
-  }, [appid, regionSignature, token])
+  }, [appid, regionSignature, token, includeInAppPurchases])
 
   return {
     prices,
@@ -311,11 +312,6 @@ function useRegionSelection() {
     setRegionCodes(next)
   }
   return { regionCodes, replaceRegion }
-}
-
-/** 取完整多区价格列表，供各入口的价格胶囊（展开态）共用 */
-function useRegionPriceList(appid: string, regionCodes: string[] = DEFAULT_REGION_CODES) {
-  return useRegionPriceLoader(appid, regionCodes)
 }
 
 /**

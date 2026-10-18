@@ -107,14 +107,16 @@ async function runScreenTranslation(images: UIImage[]) {
 }
 
 async function run() {
-  const images = await inputImages()
-  if (images.length) {
-    await runScreenTranslation(images)
-    return
-  }
-
+  // App Store 分享项可能同时提供链接与预览图。有效链接必须先分流，
+  // 避免读取惰性 imagesParameter 或解码预览图后误入截图/OCR 管线。
   const url = firstAppStoreURL()
   if (!url) {
+    const images = await inputImages()
+    if (images.length) {
+      await runScreenTranslation(images)
+      return
+    }
+
     const message = inputImagePaths().length
       ? "未收到可读取的截图（文件可能已被系统回收或受数据保护限制），请重新分享一次，并确认传入的是图片而非文件链接。"
       : "未收到图片或 App Store 链接。请从照片分享截图，或让快捷指令传入截图。"

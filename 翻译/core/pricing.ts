@@ -133,8 +133,8 @@ const regionPriceInFlight = new Map<string, Promise<RegionPrice>>()
 const regionPriceProgress = new Map<string, RegionPrice>()
 const priceListeners = new Map<string, Set<(price: RegionPrice) => void>>()
 
-function publishPrice(appid: string, price: RegionPrice) {
-  const key = cacheKey(appid, { code: price.region })
+function publishPrice(appid: string, price: RegionPrice, includeInAppPurchases = true) {
+  const key = cacheKey(appid, { code: price.region }, includeInAppPurchases)
   regionPriceProgress.set(key, price)
   for (const listener of priceListeners.get(key) ?? []) listener(price)
 }
@@ -148,25 +148,27 @@ function sleep(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms))
 }
 
-function cacheKey(appid: string, region: { code: string }) {
-  return `${appid}:${region.code.toLowerCase()}`
+function cacheKey(appid: string, region: { code: string }, includeInAppPurchases = true) {
+  // 头部摘要不含内购，必须与展开面板的完整结果隔离缓存和在途请求。
+  return `${appid}:${region.code.toLowerCase()}${includeInAppPurchases ? "" : ":summary"}`
 }
 
 function cachedRegionPrice(
   appid: string,
   region: { code: string },
+  includeInAppPurchases = true,
 ): RegionPrice | null {
-  const entry = regionPriceCache.get(cacheKey(appid, region))
+  const entry = regionPriceCache.get(cacheKey(appid, region, includeInAppPurchases))
   if (!entry) return null
   if (Date.now() - entry.at > REGION_PRICE_TTL) {
-    regionPriceCache.delete(cacheKey(appid, region))
+    regionPriceCache.delete(cacheKey(appid, region, includeInAppPurchases))
     return null
   }
   return entry.price
 }
 
-function storeRegionPrice(appid: string, price: RegionPrice) {
-  regionPriceCache.set(cacheKey(appid, { code: price.region }), {
+function storeRegionPrice(appid: string, price: RegionPrice, includeInAppPurchases = true) {
+  regionPriceCache.set(cacheKey(appid, { code: price.region }, includeInAppPurchases), {
     at: Date.now(),
     price,
   })
@@ -507,6 +509,7 @@ async function lookupRegion(
   appid: string,
   region: { code: string; name: string; locale: string },
   ratesPromise: Promise<Record<string, number>>,
+  includeInAppPurchases = true,
 ): Promise<RegionPrice> {
   const base: RegionPrice = {
     region: region.code.toUpperCase(),
@@ -522,7 +525,7 @@ async function lookupRegion(
   try {
     const result = await fetchLookupResult(appid, region)
     const trackViewURL = String(result?.trackViewUrl || "")
-    let current = { ...base, inAppLoading: true }
+    let current = { ...base, inAppLoading: includeInAppPurchases }
     if (result) {
       const currency = String(result.currency || "").toUpperCase()
       const expected = expectedCurrency(region.code)
@@ -538,7 +541,7 @@ async function lookupRegion(
       }
     }
     // 本体价先发布；内购和汇率各自完成时更新，不相互等待。
-    publishPrice(appid, current)
+    publishPrice(appid, current, includeInAppPurchases)
     let rates: Record<string, number> = {}
     const applyRates = () => {
       current = {
@@ -548,14 +551,14 @@ async function lookupRegion(
           ...item, cny: convertToCny(item.price, item.currency, rates),
         })),
       }
-      publishPrice(appid, current)
+      publishPrice(appid, current, includeInAppPurchases)
     }
     await Promise.all([
       ratesPromise.then((value) => { rates = value; applyRates() }),
-      fetchInAppPurchases(appid, region, {}, trackViewURL).then((inApp) => {
+      includeInAppPurchases ? fetchInAppPurchases(appid, region, {}, trackViewURL).then((inApp) => {
         current = { ...current, inAppPurchases: inApp.purchases, inAppError: inApp.error, inAppLoading: false }
         applyRates()
-      }),
+      }) : Promise.resolve(),
     ])
     return current
   } catch {
@@ -567,7 +570,9 @@ export async function getRegionPrices(
   appid: string,
   regionCodes: string[] = DEFAULT_REGION_CODES,
   onUpdate?: (prices: RegionPrice[]) => void,
+  options: { includeInAppPurchases?: boolean } = {},
 ): Promise<RegionPrice[]> {
+  const includeInAppPurchases = options.includeInAppPurchases !== false
   const selected: RegionDefinition[] = []
   for (const value of regionCodes) {
     const region = REGION_CATALOG.find((item) => item.code === String(value).toLowerCase())
@@ -578,11 +583,11 @@ export async function getRegionPrices(
   const snapshot = () => selected.map((region) => values.get(region.code)!)
   const cleanups: (() => void)[] = []
   for (const region of selected) {
-    const key = cacheKey(appid, region)
-    values.set(region.code, cachedRegionPrice(appid, region) ?? regionPriceProgress.get(key) ?? {
+    const key = cacheKey(appid, region, includeInAppPurchases)
+    values.set(region.code, cachedRegionPrice(appid, region, includeInAppPurchases) ?? regionPriceProgress.get(key) ?? {
       region: region.code.toUpperCase(), name: region.name, currency: region.currency,
       price: null, formatted: "", cny: null, unavailable: false,
-      inAppPurchases: [], loading: true, inAppLoading: true,
+      inAppPurchases: [], loading: true, inAppLoading: includeInAppPurchases,
     })
     if (onUpdate) {
       const listeners = priceListeners.get(key) ?? new Set<(price: RegionPrice) => void>()
@@ -601,19 +606,19 @@ export async function getRegionPrices(
   try {
     onUpdate?.(snapshot())
     // 汇率并行启动；失败只影响人民币换算。
-    const needsRates = selected.some((region) => !cachedRegionPrice(appid, region))
+    const needsRates = selected.some((region) => !cachedRegionPrice(appid, region, includeInAppPurchases))
     const rates = needsRates ? fetchCnyRates().catch(() => ({})) : Promise.resolve({})
     return await Promise.all(selected.map((region) => {
-      const hit = cachedRegionPrice(appid, region)
+      const hit = cachedRegionPrice(appid, region, includeInAppPurchases)
       if (hit) return Promise.resolve(hit)
-      const key = cacheKey(appid, region)
+      const key = cacheKey(appid, region, includeInAppPurchases)
       const existing = regionPriceInFlight.get(key)
       if (existing) return existing
-      const request = lookupRegion(appid, region, rates).then((price) => {
+      const request = lookupRegion(appid, region, rates, includeInAppPurchases).then((price) => {
         const conversionComplete = (price.price === 0 || price.cny !== null)
           && price.inAppPurchases.every((item) => item.price === null || item.cny !== null)
-        if (!price.unavailable && !price.inAppError && conversionComplete) storeRegionPrice(appid, price)
-        publishPrice(appid, price)
+        if (!price.unavailable && !price.inAppError && conversionComplete) storeRegionPrice(appid, price, includeInAppPurchases)
+        publishPrice(appid, price, includeInAppPurchases)
         return price
       }).finally(() => {
         if (regionPriceInFlight.get(key) === request) {
