@@ -17,7 +17,7 @@ import {
 } from "scripting"
 import { translateText } from "../core/translate"
 import { detectedAutoSourceLanguage } from "../core/source-language"
-import { subscribeSpeaking, toggleSpeak, stopSpeaking } from "../core/tts"
+import { subscribeSpeaking, toggleSpeak, restartSpeak, stopSpeaking, type TTSState } from "../core/tts"
 import { SystemTranslationWaitError } from "../core/system_engine"
 import { finishTranslation } from "../core/session"
 import { safeTimeout } from "../core/guarded"
@@ -232,16 +232,19 @@ function CircleActionButton(props: {
   )
 }
 
-/** 原文 / 译文标题行的朗读按钮：定时器驱动的呼吸灯——未播放时淡光晕缓慢呼吸，播放时光晕变亮、胀缩加大。 */
+/** 原文 / 译文标题行的朗读按钮：定时器驱动的呼吸灯 + 三态切换（空闲淡呼吸 / 播放亮呼吸 / 暂停静止）。 */
 function SpeakButton(props: { ttsKey: string; text: string; languageCode: string }) {
-  const [speaking, setSpeaking] = useState(false)
+  const [state, setState] = useState<TTSState>("idle")
   const [pulse, setPulse] = useState(false)
   useEffect(() => {
-    return subscribeSpeaking((key) => setSpeaking(key === props.ttsKey))
+    return subscribeSpeaking((payload) => setState(payload.key === props.ttsKey ? payload.state : "idle"))
   }, [props.ttsKey])
+  const speaking = state === "speaking"
+  const paused = state === "paused"
   // repeatForever 对 value 驱动动画不生效，改用定时器往复翻转 pulse，
-  // 每次 value 变化都重放动画，形成稳定呼吸。播放时周期更短、幅度更大。
+  // 每次 value 变化都重放动画，形成稳定呼吸。播放时周期更短、幅度更大；暂停时静止。
   useEffect(() => {
+    if (paused) return
     let timer: any = null
     const schedule = () => {
       timer = safeTimeout(() => {
@@ -252,11 +255,25 @@ function SpeakButton(props: { ttsKey: string; text: string; languageCode: string
     setPulse(false)
     schedule()
     return () => { if (timer) clearTimeout(timer) }
-  }, [speaking])
+  }, [speaking, paused])
   const anim = { animation: Animation.smooth({ duration: speaking ? 0.85 : 1.9 }), value: pulse }
+  // 连点两下（450ms 内）→ 从头重播；单次点击 → 暂停/续播。
+  // 用时间戳判断而非系统双击手势：单击 action 立即响应，双击的第一次
+  // 点先暂停/续播、第二次紧接重播，最终状态就是从头播放，无手势冲突。
+  const lastTapAt = useRef(0)
+  function handleTap() {
+    const now = Date.now()
+    if (now - lastTapAt.current < 450) {
+      lastTapAt.current = 0
+      void restartSpeak(props.ttsKey, props.text, props.languageCode)
+      return
+    }
+    lastTapAt.current = now
+    void toggleSpeak(props.ttsKey, props.text, props.languageCode)
+  }
   return (
     <Button
-      action={() => { void toggleSpeak(props.ttsKey, props.text, props.languageCode) }}
+      action={handleTap}
       disabled={!props.text.trim()}
       buttonStyle="plain"
     >
@@ -267,12 +284,12 @@ function SpeakButton(props: { ttsKey: string; text: string; languageCode: string
             : { colors: ["rgba(90,160,255,0.14)", "rgba(170,120,255,0.12)"], startPoint: "top", endPoint: "bottom" }}
           frame={{ width: 26, height: 26 }}
           blur={6}
-          opacity={pulse ? (speaking ? 0.95 : 0.45) : 0.15}
-          scaleEffect={pulse ? (speaking ? 1.3 : 1.08) : 0.85}
+          opacity={paused ? 0.5 : (pulse ? (speaking ? 0.95 : 0.45) : 0.15)}
+          scaleEffect={paused ? 1 : (pulse ? (speaking ? 1.3 : 1.08) : 0.85)}
           animation={anim}
         />
         <Image
-          systemName={speaking ? "speaker.wave.2.fill" : "speaker.wave.2"}
+          systemName={paused ? "pause.fill" : speaking ? "speaker.wave.2.fill" : "speaker.wave.2"}
           font="title3"
           foregroundStyle={{
             colors: speaking
@@ -282,7 +299,7 @@ function SpeakButton(props: { ttsKey: string; text: string; languageCode: string
             endPoint: "bottom",
           }}
           opacity={speaking ? 0.95 : 0.75}
-          scaleEffect={pulse ? (speaking ? 1.08 : 1.03) : 0.97}
+          scaleEffect={paused ? 1 : (pulse ? (speaking ? 1.08 : 1.03) : 0.97)}
           animation={anim}
           contentTransition="symbolEffect"
         />

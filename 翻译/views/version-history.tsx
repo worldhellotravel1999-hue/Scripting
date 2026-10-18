@@ -105,7 +105,18 @@ export function VersionBadgeMenu(props: {
     setIsPresented(false)
   }, [props.appid, region])
   const expandedNotes = viewedNotes?.notes || ""
-  const activeNotes = activeEntry?.notes?.trim() || ""
+  /**
+   * 选中行菜单实时跟随最新合并结果：历史说明接口常比版本号接口慢，
+   * 立即列表就能点按；旧实现用点按瞬间的快照，说明晚到也不补，
+   * 首次打开时「查看新说明」不出现，要关掉重开才显示。
+   * 这里每次渲染都按版本号 + 版本 ID 从合并后的 entries 重新取说明，
+   * 菜单开着也会在说明到达的瞬间出现按钮。
+   */
+  const activeLive = useMemo(() => {
+    if (!activeEntry) return null
+    return entries?.find(item => item.version === activeEntry.version && item.versionId === activeEntry.versionId) || activeEntry
+  }, [activeEntry, entries])
+  const activeNotes = activeLive?.notes?.trim() || ""
   const activeActionCount = activeEntry
     ? 1 + (activeNotes ? 1 : 0) + (activeEntry.versionId ? 2 : 0)
     : 0

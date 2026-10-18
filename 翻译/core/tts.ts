@@ -1,24 +1,46 @@
 /**
  * 系统 TTS 朗读：用系统合成语音朗读原文 / 译文。
- * - 每个播放点有唯一 key；再次点同一个 key 即停止。
- * - 播放状态通过订阅广播，按钮据此切换 播放/停止 图标。
+ * 三态：空闲 → 播放 ⇄ 暂停。
+ *
+ * 两个关键约束：
+ * 1. 不信任本地状态机和 Speech.speak 的 promise 时机（App UI 运行时里可能提前
+ *    resolve）。每次动作都通过 Speech.isSpeaking / isPaused 询问引擎真实状态。
+ * 2. 所有动作经过串行队列（enqueue），双击/连点时前一个动作（暂停/续播）
+ *    完整落定后重播才开始，避免交叉执行把新语音又暂停在开头。
  */
 
-type TTSListener = (key: string | null) => void
+export type TTSState = "idle" | "speaking" | "paused"
 
-let playingKey: string | null = null
+type TTSListener = (payload: { key: string | null; state: TTSState }) => void
+
+let currentKey: string | null = null
+let currentState: TTSState = "idle"
 const listeners = new Set<TTSListener>()
 
 function notify() {
   for (const listener of listeners) {
-    try { listener(playingKey) } catch {}
+    try { listener({ key: currentKey, state: currentState }) } catch {}
   }
 }
 
-/** 订阅当前正在朗读的 key（null 表示空闲），返回取消订阅函数。 */
+function setLocal(key: string | null, state: TTSState) {
+  currentKey = key
+  currentState = state
+  notify()
+}
+
+/** 串行队列：动作按提交顺序逐个完整执行，后一个动作开始时前一个已落定。 */
+let queueTail: Promise<void> = Promise.resolve()
+function enqueue(task: () => Promise<void>): Promise<void> {
+  const run = queueTail.then(task, task)
+  queueTail = run.then(() => undefined, () => undefined)
+  return run
+}
+
+/** 订阅当前朗读状态，返回取消订阅函数。 */
 export function subscribeSpeaking(listener: TTSListener): () => void {
   listeners.add(listener)
-  listener(playingKey)
+  listener({ key: currentKey, state: currentState })
   return () => { listeners.delete(listener) }
 }
 
@@ -66,23 +88,19 @@ async function resolveVoiceIdentifier(code: string): Promise<string | undefined>
   return matches[0].identifier
 }
 
-/**
- * 朗读一段文本；若该 key 正在朗读则停止。
- * 语音解析失败时回退系统默认语音，出错静默（不打断界面）。
- */
-export async function toggleSpeak(key: string, text: string, languageCode: string) {
-  if (playingKey === key) {
-    playingKey = null
-    notify()
-    try { await Speech.stop() } catch {}
-    return
-  }
-  const value = text.trim()
-  if (!value) return
-  playingKey = key
-  notify()
-  // 先停掉可能存在的上一段朗读，避免队列里叠音。
+/** 引擎真实状态。isSpeaking 在暂停时也为 true，必须先看 isPaused。 */
+async function engineState(): Promise<{ speaking: boolean; paused: boolean }> {
+  let speaking = false
+  let paused = false
+  try { paused = (await Speech.isPaused) === true } catch {}
+  try { speaking = (await Speech.isSpeaking) === true } catch {}
+  return { speaking: speaking && !paused, paused }
+}
+
+async function startNewSpeak(key: string, value: string, languageCode: string) {
+  // 清掉旧队列（含暂停中的），再开新的一段。
   try { await Speech.stop() } catch {}
+  setLocal(key, "speaking")
   const options: SpeechSynthesisOptions = {}
   try {
     const identifier = await resolveVoiceIdentifier(languageCode)
@@ -91,16 +109,63 @@ export async function toggleSpeak(key: string, text: string, languageCode: strin
   try {
     await Speech.speak(value, options)
   } catch {}
-  if (playingKey === key) {
-    playingKey = null
-    notify()
+  // promise 返回后核对引擎：仍在播/在暂停说明 promise 提前返回（App UI 运行时），
+  // 保持 speaking 状态；真正播完才清成空闲。
+  if (currentKey === key) {
+    const engine = await engineState()
+    if (currentKey === key && !engine.speaking && !engine.paused) setLocal(null, "idle")
   }
+}
+
+async function toggleSpeakImpl(key: string, text: string, languageCode: string) {
+  const value = text.trim()
+  if (!value) return
+  if (currentKey === key) {
+    const engine = await engineState()
+    if (engine.paused) {
+      // 暂停中 → 从暂停处续播。
+      try { await Speech.resume() } catch {}
+      if (currentKey === key) setLocal(key, "speaking")
+      return
+    }
+    if (engine.speaking) {
+      // 播放中 → 立即暂停。
+      try { await Speech.pause() } catch {}
+      if (currentKey === key) {
+        const after = await engineState()
+        setLocal(key, after.paused ? "paused" : after.speaking ? "speaking" : "idle")
+      }
+      return
+    }
+    // 状态说是当前 key，但引擎已经空闲（播完/被系统打断）→ 重新播放。
+    await startNewSpeak(key, value, languageCode)
+    return
+  }
+  await startNewSpeak(key, value, languageCode)
+}
+
+/**
+ * 播放 / 暂停 / 续播一段文本。以引擎真实状态为准，出错静默。
+ * 动作进串行队列：双击时前一次点击的暂停/续播先完整落定，重播随后执行。
+ */
+export function toggleSpeak(key: string, text: string, languageCode: string): Promise<void> {
+  return enqueue(() => toggleSpeakImpl(key, text, languageCode))
+}
+
+/** 长按/连点：无论当前在播/暂停/空闲，都清掉队列后从头播放这段文本。 */
+export function restartSpeak(key: string, text: string, languageCode: string): Promise<void> {
+  return enqueue(async () => {
+    const value = text.trim()
+    if (!value) return
+    await startNewSpeak(key, value, languageCode)
+  })
 }
 
 /** 立即停止当前朗读（卡片销毁 / 清空文本时调用）。 */
 export function stopSpeaking() {
-  if (playingKey === null) return
-  playingKey = null
-  notify()
-  try { void Speech.stop() } catch {}
+  if (currentKey === null) return
+  setLocal(null, "idle")
+  enqueue(async () => {
+    try { await Speech.stop() } catch {}
+  })
 }
