@@ -1,3 +1,4 @@
+import { AbortController, type AbortSignal } from "scripting"
 import type { TranslationRequest } from "./types"
 import { loadPreferences } from "./preferences"
 import { detectedAutoSourceLanguage, stableAutoSource } from "./source-language"
@@ -16,7 +17,9 @@ const CACHE_LIMIT = 80
 const GOOGLE_CONCURRENCY = 4
 /**
  * 谷歌快路径整体限时：多分片长文本弱网下不再逐片叠加等待。
- * 系统引擎已与谷歌并行开跑，超时后由它直接胜出，不再「先白等再串行」。
+ * 单个分片本身已有 2 秒超时，断网时第一轮就会失败；这里的整体上限只是
+ * 防止分词/调度异常时无限等待，不能压到多轮并发分片都跑不完的程度，
+ * 否则健康但偏慢的网络会被过早放弃、退回慢得多的串行原生翻译。
  */
 const GOOGLE_FAST_PATH_TIMEOUT_MS = 5000
 
@@ -113,6 +116,8 @@ function cacheKey(request: TranslationRequest) {
 async function runGoogleFastPath(
   request: TranslationRequest,
   onProgress?: (value: string) => void,
+  timeoutMs = GOOGLE_FAST_PATH_TIMEOUT_MS,
+  parentSignal?: AbortSignal,
 ): Promise<string> {
   // 谷歌免费网页接口（移植自 App Store工具）：网络请求可并发，速度远快于系统原生串行翻译。
   // 任何失败直接抛出，由竞速器交给并行中的系统引擎收尾（不再串行等待）。
@@ -124,13 +129,26 @@ async function runGoogleFastPath(
   const results: string[] = new Array(partsCount).fill("")
   const failures: unknown[] = []
   let nextIndex = 0
+  const controller = new AbortController()
+  const cancelFromParent = () => controller.abort(parentSignal?.reason)
+  if (parentSignal?.aborted) cancelFromParent()
+  else parentSignal?.addEventListener("abort", cancelFromParent)
+  let cancellationCheck: ReturnType<typeof setTimeout> | undefined
+  const checkCancellation = () => {
+    if (request.isCancelled?.()) {
+      controller.abort(new Error("翻译任务已取消。"))
+      return
+    }
+    if (!controller.signal.aborted) cancellationCheck = setTimeout(checkCancellation, 100)
+  }
+  checkCancellation()
   const worker = async () => {
-    while (true) {
+    while (!controller.signal.aborted) {
       const index = nextIndex
       nextIndex += 1
       if (index >= partsCount) return
       try {
-        results[index] = await translateGoogleChunk(parts[index], sourceLanguage, request.targetLanguageCode)
+        results[index] = await translateGoogleChunk(parts[index], sourceLanguage, request.targetLanguageCode, controller.signal)
         throwIfCancelled(request)
         // 以「第一个连续完成前缀」汇报进度，乱序完成的片段不重复渲染。
         let done = 0
@@ -138,8 +156,11 @@ async function runGoogleFastPath(
         const partial = results.slice(0, done).join("")
         if (partial) onProgress?.(partial)
       } catch (error) {
-        if (request.isCancelled?.()) throw error
+        if (request.isCancelled?.() || controller.signal.aborted) throw error
         failures.push(error)
+        // A failed chunk makes this fast path unusable. Abort active requests
+        // and stop workers from dispatching more chunks before system fallback.
+        controller.abort(error)
         return
       }
     }
@@ -148,27 +169,39 @@ async function runGoogleFastPath(
   try {
     await Promise.race([
       Promise.all(Array.from({ length: Math.min(GOOGLE_CONCURRENCY, partsCount) }, worker)),
-      // 弱网下多分片会逐片叠加等待：整体限时一到直接按失败处理，由并行的系统引擎胜出。
       new Promise<never>((_, reject) => {
-        fastPathTimer = setTimeout(
-          () => reject(new Error("Google 翻译请求超时。")),
-          GOOGLE_FAST_PATH_TIMEOUT_MS,
-        )
+        fastPathTimer = setTimeout(() => {
+          const error = new Error("Google 翻译请求超时。")
+          controller.abort(error)
+          reject(error)
+        }, timeoutMs)
       }),
     ])
   } catch (error) {
-    // 整体限时/传输失败同样进入冷却：弱网下下一篇直接走系统，不再白等。
-    // 用户取消不算引擎故障，不标记。注意：race 失败后仍在跑的 worker 会把
-    // 后续成功/失败写入 results/failures，但 results 已无人读取、failures 的
-    // markGoogleEngineBlocked 与此处重复标记等价，无副作用。
-    if (!request.isCancelled?.()) markGoogleEngineBlocked()
+    // Cancellation is not an engine failure. Aborting the controller prevents
+    // background chunk requests from being dispatched after this attempt.
+    if (!request.isCancelled?.() && !parentSignal?.aborted) {
+      // If at least one chunk already came back, the network/endpoint works and
+      // only this attempt was slow. Cooling Google down for two minutes here
+      // would silently push every later long text onto the slow serial native
+      // path, which feels like "translation got slower".
+      const progressed = results.some((value) => !!value)
+      if (!progressed) markGoogleEngineBlocked()
+    }
     throw error
   } finally {
     if (fastPathTimer !== undefined) clearTimeout(fastPathTimer)
+    if (cancellationCheck !== undefined) clearTimeout(cancellationCheck)
+    parentSignal?.removeEventListener("abort", cancelFromParent)
+    if (!controller.signal.aborted) controller.abort()
   }
   throwIfCancelled(request)
   if (failures.length > 0) {
-    markGoogleEngineBlocked()
+    // Same rule as the timeout path: a partial success means the endpoint is
+    // reachable. Blocking it for two minutes here would turn one slow chunk
+    // into two minutes of serial native fallback for every long text.
+    const progressed = results.some((value) => !!value)
+    if (!progressed) markGoogleEngineBlocked()
     throw failures[0] instanceof Error ? failures[0] : new Error("Google 翻译失败。")
   }
   const combined = results.join("").trim()
@@ -220,11 +253,25 @@ async function runEngineRace(
     if (finished || progressOwner !== owner || !value) return
     try { options.onProgress?.(value) } catch {}
   }
-  // Long pages must not start a native session speculatively. The Google winner
-  // used to leave its native loser translating remaining chunks in the background.
+  const googleController = new AbortController()
+  const systemController = new AbortController()
+  const systemRequest: TranslationRequest = {
+    ...request,
+    isCancelled: () => request.isCancelled?.() === true || systemController.signal.aborted,
+  }
+
+  // Long descriptions keep the Google-only fast path (no speculative native
+  // session), so a healthy Google answer stays a single round of parallel
+  // requests. Dead networks fail on the 2s per-chunk timeout instead of
+  // stacking the whole overall budget.
   if (googleAvailable && request.sourceText.length > SYSTEM_CHUNK_LENGTH) {
     try {
-      const value = await runGoogleFastPath(request, (partial) => emit("google", partial))
+      const value = await runGoogleFastPath(
+        request,
+        (partial) => emit("google", partial),
+        GOOGLE_FAST_PATH_TIMEOUT_MS,
+        googleController.signal,
+      )
       finished = true
       throwIfCancelled(request)
       return { value, engine: "google" }
@@ -236,7 +283,7 @@ async function runEngineRace(
       progressOwner = "system"
     }
     try {
-      const value = await runSystemEngine(request, options.translationHost, (partial) => emit("system", partial))
+      const value = await runSystemEngine(systemRequest, options.translationHost, (partial) => emit("system", partial))
       finished = true
       throwIfCancelled(request)
       return { value, engine: "system" }
@@ -245,10 +292,15 @@ async function runEngineRace(
       throw error
     }
   }
+
   const tasks: Array<{ engine: EngineKind; task: Promise<string> }> = []
   if (googleAvailable) {
-    const googleTask = runGoogleFastPath(request, (value) => emit("google", value))
-    // 谷歌失败后进度权交给系统引擎，让它的分片进度继续可见。
+    const googleTask = runGoogleFastPath(
+      request,
+      (value) => emit("google", value),
+      GOOGLE_FAST_PATH_TIMEOUT_MS,
+      googleController.signal,
+    )
     googleTask.catch(() => {
       if (!finished && progressOwner === "google") progressOwner = "system"
     })
@@ -256,15 +308,19 @@ async function runEngineRace(
   }
   tasks.push({
     engine: "system",
-    task: runSystemEngine(request, options.translationHost, (value) => emit("system", value)),
+    task: runSystemEngine(systemRequest, options.translationHost, (value) => emit("system", value)),
   })
   try {
     const winner = await firstSuccess(tasks)
     finished = true
+    if (winner.engine === "google") systemController.abort()
+    else googleController.abort()
     throwIfCancelled(request)
     return winner
   } catch (error) {
     finished = true
+    googleController.abort()
+    systemController.abort()
     throw error
   }
 }

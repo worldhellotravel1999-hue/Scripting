@@ -23,6 +23,8 @@
 - 链路：谷歌免费网页优先（并发快路径），失败回退系统原生；冷却期内直接走系统（`core/google_engine.ts`）
 - 弱网慢的原因是“谷歌连不上时白等”：旧逻辑每段串行试 2 个端点（3s+3s），长文本多分片再叠加
 - 2.4.26：单请求 3s→2s；词典端点超时/断连直接失败（只有 HTTP 非 ok/空译文这种“网络通但被限”才试 gtx）；整个谷歌快路径 5s 整体限时，超时直接回退系统。UI/缓存/重试逻辑未动
+- 2026-10-18：长文本整体上限保持 5s。实测 5948 字符健康网络 1.7–3.1s 返回（首进度 0.9–1.3s），曾试 2.8s 会误杀正常翻译并退回串行原生。整体超时或单分片失败时，只要已有分片成功就不再标记 2 分钟冷却（避免一次慢分片让后续长文全走慢速原生）
+- App Store 长文本上限（2026-10-18）：`appStoreTextSlots` 把发布说明与应用说明统一限制在 8000 字符（超出追加截断提示）。发布说明此前无上限，分享扩展里会拆出几十个原生分片并渲染超长文本。回归：`tests/selected-version-notes.ts`、`tests/appstore-long-race.ts`
 
 ## 系统翻译界面（Translation UI，2.4.30 起）
 - 系统面板 UI（2.4.38 起）：与主 Translate 卡片列表完全同一套容器渲染——`List listStyle="plain" scrollContentBackground="hidden" background=#F2F2F7/#000 + Section`（语言栏一个 Section、卡片一个 Section），视觉上是连续整体、没有散块分割感；translationHost 挂在 List 上。（2.4.34~2.4.37 曾临时用 ScrollView+spacing 18，因「分割不是一个整体」已回退。）
@@ -31,6 +33,6 @@
 ## 环境限制（重要）
 - 设备上 `node` 是 Scripting shim：`scripting-ts eval` 无 fs 读写权限、stdin 不可用（readFileSync(0) ENOENT）；`require()` 只加载 CJS
 - 测 HTML 解析的可行方案：awk 把 HTML 转成内联转义字符串数组生成 .cjs 测试脚本再 `node` 运行
-- `scripting-ts run`（App 运行时）在本环境会无限挂起，不可用
+- `scripting-ts run <file> --timeout N` 在本环境实测可用（2026-10-18 跑通翻译回归）；不带超时仍可能挂起。`scripting-ts eval` 无 fs 读写权限、stdin 不可用（readFileSync(0) ENOENT）；`require()` 只加载 CJS
 - shell 无 `printf`；复杂引号命令会损坏 → awk 脚本一律写文件用 `-f`；stdout 常为空 → 重定向到文件再读
 - TypeScript 诊断现有 5 个历史遗留错误（`Dialog` 不存在于 scripting 模块 ×3、intent.tsx 比较类型、translation-card.tsx ShapeStyle），与 pricing/region-prices 无关

@@ -31,6 +31,24 @@ try {
   const refreshed = appStoreTextSlots({ ...app, version: "3.1", releaseNotes: "New" }, old, false)
   assert(refreshed[0].version === old.version && refreshed[0].content === old.notes, "刷新应保留主动选择")
   assert(app.releaseNotes === "Current notes" && app.version === "3.0", "不改写商店当前版本")
-  console.log("PASS: current/historical selection, slot swap, description isolation, same-text different versions, missing/empty notes, refresh")
+
+  // 超长发布说明曾是无上限输入：分享扩展里会拆出几十个原生翻译分片并渲染
+  // 整篇长文本。截断必须同时保留版本归属、稳定身份和明确的截断提示。
+  const hugeNotes = "注".repeat(9000)
+  const huge = appStoreTextSlots({ ...app, releaseNotes: hugeNotes }, null, false)
+  assert(huge[0].content!.startsWith("注".repeat(8000)), "超长发布说明必须截断到上限")
+  assert(huge[0].content!.includes("发布说明过长，已截取前 8000 个字符"), "发布说明截断需要提示")
+  assert(huge[0].version === "3.0", "截断不能丢失版本归属")
+  assert(huge[0].identity !== current.identity, "截断后的说明必须有独立译文身份")
+  const hugeAgain = appStoreTextSlots({ ...app, releaseNotes: `${hugeNotes}\n\n` }, null, false)
+  assert(hugeAgain[0].identity === huge[0].identity, "仅尾部空白变化不应重启长说明翻译")
+  const hugeSelected = appStoreTextSlots(app, { version: "2.0", notes: hugeNotes }, false)
+  assert(hugeSelected[0].content === huge[0].content && hugeSelected[0].version === "2.0", "历史版本同样受上限保护")
+  const hugeDescriptionText = "x".repeat(9000)
+  const hugeDescription = appStoreTextSlots({ ...app, description: hugeDescriptionText }, null, false)
+  assert(hugeDescription[1].content!.startsWith("x".repeat(8000)), "超长应用说明必须截断到上限")
+  assert(hugeDescription[1].content!.includes("应用说明过长，已截取前 8000 个字符"), "应用说明截断需要提示")
+  assert(hugeDescription[1].content!.length < hugeDescriptionText.length, "应用说明截断后长度必须变小")
+  console.log("PASS: current/historical selection, slot swap, description isolation, same-text different versions, missing/empty notes, refresh, oversized notes/description caps")
   Script.exit("PASS")
 } catch (error) { console.error(String(error)); Script.exit("FAIL") }

@@ -1,4 +1,4 @@
-import { fetch } from "scripting"
+import { fetch, type AbortSignal } from "scripting"
 
 
 /**
@@ -38,16 +38,6 @@ function mapGoogleLanguage(code: string | undefined): string {
   return code
 }
 
-function withTimeout<T>(task: Promise<T>, ms: number): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("Google 翻译请求超时。")), ms)
-    task.then(
-      (value) => { clearTimeout(timer); resolve(value) },
-      (error) => { clearTimeout(timer); reject(error) },
-    )
-  })
-}
-
 /** 两个端点的响应结构一致：`["译文"]` 或 `[[["译文","原文",...],...],...]`。 */
 function parseGooglePayload(data: unknown): string {
   if (Array.isArray(data) && typeof data[0] === "string") return data[0]
@@ -61,16 +51,14 @@ function parseGooglePayload(data: unknown): string {
   return out
 }
 
-async function googleFetch(url: string, ms: number): Promise<string> {
-  const response = await withTimeout(
-    fetch(url, {
-      timeout: Math.ceil(ms / 1000),
-      // 被限流时 Google 302 到 www.google.com/sorry（整页 HTML，还要再等 ~2s）。
-      // 取消跟随重定向：拿到 3xx 立即以非 ok 失败，省一次完整下载。
-      handleRedirect: async () => null,
-    }),
-    ms,
-  )
+async function googleFetch(url: string, ms: number, signal?: AbortSignal): Promise<string> {
+  const response = await fetch(url, {
+    timeout: Math.ceil(ms / 1000),
+    signal,
+    // 被限流时 Google 302 到 www.google.com/sorry（整页 HTML，还要再等 ~2s）。
+    // 取消跟随重定向：拿到 3xx 立即以非 ok 失败，省一次完整下载。
+    handleRedirect: async () => null,
+  })
   if (!response.ok) throw new Error("Google 翻译 HTTP " + response.status)
   const data: unknown = await response.json()
   const value = parseGooglePayload(data).trim()
@@ -83,6 +71,7 @@ export async function translateGoogleChunk(
   text: string,
   sourceLanguageCode: string | undefined,
   targetLanguageCode: string,
+  signal?: AbortSignal,
 ): Promise<string> {
   const sourceText = String(text || "").trim()
   if (!sourceText) return ""
@@ -95,13 +84,14 @@ export async function translateGoogleChunk(
   // 「网络通但端点被限」（HTTP 非 ok、空译文）时，才值得试第二个端点；
   // 超时/断网等 fetch 层错误直接抛，由调用方回退系统引擎。
   try {
-    return await googleFetch(dictUrl, GOOGLE_TIMEOUT_MS)
+    return await googleFetch(dictUrl, GOOGLE_TIMEOUT_MS, signal)
   } catch (error) {
+    if (signal?.aborted) throw error
     const message = error instanceof Error ? error.message : String(error)
     const endpointLimited = message.indexOf("HTTP") >= 0
       || message.indexOf("可用译文") >= 0
     if (!endpointLimited) throw error
-    return googleFetch(gtxUrl, GOOGLE_TIMEOUT_MS)
+    return googleFetch(gtxUrl, GOOGLE_TIMEOUT_MS, signal)
   }
 }
 
