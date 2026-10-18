@@ -1,6 +1,7 @@
 import { Button, HStack, Image, LazyVStack, ProgressView, RoundedRectangle, ScrollView, Text, VStack, useEffect, useMemo, useRef, useState } from "scripting"
 import { AnimTextGlassBadge } from "./glass-badge"
 import { fetchAppVersions, fetchVersionHistoryNotes, mergeVersionNotes, type AppVersionEntry, type AppVersionNotes } from "../core/versions"
+import { safeTimeout } from "../core/guarded"
 
 /** 版本 ID 和历史说明独立加载；任一来源成功即可查看，失败允许重试。 */
 function useAppVersions(appid: string, region: string, version: string, currentNotes: string | undefined, enabled: boolean) {
@@ -16,11 +17,11 @@ function useAppVersions(appid: string, region: string, version: string, currentN
     void fetchAppVersions(appid).then(
       entries => { if (!cancelled) setVersions({ key, entries, error: false }) },
       () => { if (!cancelled) setVersions({ key, entries: [], error: true }) },
-    )
+    ).catch(() => {})
     void fetchVersionHistoryNotes(appid, region).then(
       entries => { if (!cancelled) setHistory({ key, entries, error: "" }) },
       () => { if (!cancelled) setHistory({ key, entries: [], error: "更新说明查询失败" }) },
-    )
+    ).catch(() => {})
     return () => { cancelled = true }
   }, [appid, region, token, enabled])
   const base = versions?.key === key ? versions.entries : null
@@ -117,7 +118,12 @@ export function VersionBadgeMenu(props: {
   const panelHeight = Math.min(maxPanelHeight, contentHeight + (showNotesStatus ? 36 : 0))
 
   async function copyText(text: string) {
-    await Pasteboard.setString(text)
+    try {
+      await Pasteboard.setString(text)
+    } catch {
+      // 剪贴板不可用（扩展宿主限制）时保持弹层，不向全局抛未处理拒绝。
+      return
+    }
     try { HapticFeedback.lightImpact() } catch {}
     setIsPresented(false)
     setActiveEntry(null)
@@ -179,7 +185,7 @@ export function VersionBadgeMenu(props: {
             setActiveEntry(null)
             props.onSelectNotes?.(selected)
             if (autoCloseRef.current) clearTimeout(autoCloseRef.current)
-            autoCloseRef.current = setTimeout(() => {
+            autoCloseRef.current = safeTimeout(() => {
               autoCloseRef.current = undefined
               setIsPresented(false)
               setViewedNotes(null)

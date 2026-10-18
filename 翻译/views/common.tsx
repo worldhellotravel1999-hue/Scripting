@@ -161,7 +161,11 @@ export function CopyButton(props: { title?: string; text: string }) {
       disabled={!value.trim()}
       action={async () => {
         if (!value.trim()) return
-        await Pasteboard.setString(value)
+        try {
+          await Pasteboard.setString(value)
+        } catch {
+          return
+        }
         try { HapticFeedback.lightImpact() } catch {}
       }}
     />

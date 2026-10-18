@@ -1,6 +1,7 @@
 import { Text, TextField, VStack, WebView, useEffect, useRef, useState } from "scripting"
 import { fontResource, useFontSettings, type FontRole, type ImportedFont } from "../core/fonts"
 import { fontTextHTML } from "../core/font-text-html"
+import { safeTimeout } from "../core/guarded"
 import { AnimText } from "./anim-text"
 
 type FontTextProps = {
@@ -111,7 +112,7 @@ function ImportedFontText(props: FontTextProps & { selectedFont: ImportedFont })
           lineSpacing: props.lineSpacing,
         }))
         if (!active) { await removePage(); return }
-        timer = setTimeout(() => {
+        timer = safeTimeout(() => {
           if (active && !fontReady.current) setError("字体暂未加载完成，先显示系统字体。")
         }, 30000)
         const loaded = await controller.loadFile(htmlPath, resource.directory)

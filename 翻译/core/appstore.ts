@@ -69,11 +69,12 @@ function normalizeRegion(value: string) {
 }
 
 function appStoreURLFromInput(input: string) {
-  const raw = String(input || "").trim()
+  // 分享文本/富文本复制可能附带零宽字符或中文引号；它们不是 URL 的一部分。
+  const raw = String(input || "").replace(/[\u200B-\u200D\u2060\uFEFF]/g, "").trim()
   if (!raw) return ""
-  const match = raw.match(/(?:(?:https?|itms-apps):\/\/)?(?:itunes|apps)\.apple\.com\/[^\s<>"']+/i)
+  const match = raw.match(/(?:(?:https?|itms-apps):\/\/)?(?:itunes|apps)\.apple\.com\/[^\s<>"'“”‘’「」『』《》]+/i)
   return String(match?.[0] || "")
-    .replace(/[\])}>.,;!，。；！、]+$/g, "")
+    .replace(/[\])}>.,;!，。；！、）】]+$/g, "")
     .trim()
 }
 

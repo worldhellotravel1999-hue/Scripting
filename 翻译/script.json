@@ -3,7 +3,7 @@
   "name": "翻译",
   "entry": "index.tsx",
   "contributors": [],
-  "version": "2.4.55",
+  "version": "2.4.58",
   "iconImage": "",
   "localizedNames": {
     "ja": "Adult",
@@ -29,6 +29,7 @@
   "color": "rgba(28, 140, 255, 1)",
   "intentInputTypes": [
     "URLs",
+    "Texts",
     "Images"
   ],
   "localizedDescriptions": {

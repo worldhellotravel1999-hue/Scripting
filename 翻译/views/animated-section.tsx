@@ -1,4 +1,5 @@
 import { VStack, useEffect, useState } from "scripting"
+import { safeTimeout } from "../core/guarded"
 
 /**
  * AnimatedSection — 区块级联入场动画包装。
@@ -10,7 +11,7 @@ export function AnimatedSection(props: {
 }) {
   const [shown, setShown] = useState(false)
   useEffect(() => {
-    const timer = setTimeout(() => setShown(true), 60 + props.index * 90)
+    const timer = safeTimeout(() => setShown(true), 60 + props.index * 90)
     return () => clearTimeout(timer)
   }, [])
 

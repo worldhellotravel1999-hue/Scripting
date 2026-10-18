@@ -19,6 +19,7 @@ import { translateText } from "../core/translate"
 import { detectedAutoSourceLanguage } from "../core/source-language"
 import { SystemTranslationWaitError } from "../core/system_engine"
 import { finishTranslation } from "../core/session"
+import { safeTimeout } from "../core/guarded"
 import { CopyButton, languageShortLabel } from "./common"
 import { FontText } from "./font-text"
 import { AnimText } from "./anim-text"
@@ -35,7 +36,7 @@ function LoadingCaption(props: { active: boolean }) {
   useEffect(() => {
     if (!props.active) return
     const schedule = () => {
-      timerRef.current = setTimeout(() => {
+      timerRef.current = safeTimeout(() => {
         setIndex((current) => (current + 1) % LOADING_PHRASES.length)
         schedule()
       }, 1800)
@@ -312,7 +313,7 @@ export function TranslationCard(props: TranslationCardProps) {
 
     setIsTranslating(true)
     clearWatchdog()
-    watchdogTimer.current = setTimeout(() => {
+    watchdogTimer.current = safeTimeout(() => {
       clearWatchdog()
       if (isCancelled()) return
       // Invalidate this run so a late native response cannot restore stale text.
@@ -506,7 +507,7 @@ export function TranslationCard(props: TranslationCardProps) {
     clearWatchdog()
     if (!autoTranslate || !translationEnabled || !sourceTextRef.current.trim()) return
     const delay = props.translationDelayMs ?? (readOnly ? 0 : 700)
-    debounceTimer.current = setTimeout(() => { void runTranslation() }, Math.max(0, delay))
+    debounceTimer.current = safeTimeout(() => { void runTranslation() }, Math.max(0, delay))
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
       clearWatchdog()
@@ -534,7 +535,7 @@ export function TranslationCard(props: TranslationCardProps) {
 
   function submitTranslation() {
     if (submitTimer.current) clearTimeout(submitTimer.current)
-    submitTimer.current = setTimeout(() => {
+    submitTimer.current = safeTimeout(() => {
       submitTimer.current = null
       void runTranslation()
     }, 60)
@@ -557,7 +558,8 @@ export function TranslationCard(props: TranslationCardProps) {
       .filter((item) => item.text.trim())
       .map((item) => item.text.trim())
       .join("\n\n")
-    if (value) await Pasteboard.setString(value)
+    if (!value) return
+    try { await Pasteboard.setString(value) } catch {}
   }
 
   const shownSourceLanguage = (props.autoCorrectSourceLanguage || props.sourceLanguage === "auto")
@@ -657,14 +659,19 @@ export function TranslationCard(props: TranslationCardProps) {
 
           <ZStack alignment="leading" padding={{ top: 12, bottom: 4 }} frame={{ maxWidth: "infinity" as any, alignment: "leading" as any }}
             {...(readOnly && !props.onMenuRequest ? { contextMenu: { menuItems: <CopyButton title="复制原文" text={sourceText} /> } } : {})}>
-            <FontText role="source" lineSpacing={4} text={readOnly ? sourceText || "—" : sourceText} selectable={!menuActions}
+            <FontText role="source" lineSpacing={4} text={readOnly ? sourceText || "—" : sourceText} selectable={!menuActions && sourceText.length <= 1200} 
               flat={props.flat} foregroundStyle={props.foregroundStyle} gradientColors={props.gradientColors} editable={!readOnly} onChanged={updateInputText} onTextSubmit={submitTranslation} />
             {menuActions ? menuOverlay(menuActions.source) : null}
           </ZStack>
         </>
   )
 
-  const resultsSection = results.map((item, index) => (
+  const resultsSection = results.map((item, index) => {
+    // 长译文（商店更新说明/应用说明可达 8000 字）逐片回吐进度时，若整篇重放
+    // contentTransition 或开启文本选择，分享扩展的内存与排版开销会被放大到
+    // 每次进度都重新布局整篇。长文本关闭这两项：其余样式与复制菜单不变。
+    const longText = item.text.length > 1200
+    return (
         <VStack key={item.languageCode} alignment="leading" spacing={12} padding={{ top: translationOnly ? 0 : (index === 0 ? (props.translationFirst ? 0 : 16) : 20), bottom: props.translationFirst ? (index === results.length - 1 ? 0 : 8) : 8 }}>
           <HStack spacing={8} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
             <HStack spacing={2} frame={{ height: 28, alignment: "leading" as any }}>
@@ -687,12 +694,12 @@ export function TranslationCard(props: TranslationCardProps) {
           {item.text ? (
             menuActions ? (
               <ZStack alignment="leading" frame={{ maxWidth: "infinity" as any, alignment: "leading" as any }}>
-                <FontText role="target" animated={!translationOnly} selectable={false} flat={props.flat} foregroundStyle={props.foregroundStyle} gradientColors={props.gradientColors} lineSpacing={4} text={item.text} />
+                <FontText role="target" animated={!translationOnly && !longText} selectable={false} flat={props.flat} foregroundStyle={props.foregroundStyle} gradientColors={props.gradientColors} lineSpacing={4} text={item.text} />
                 {menuOverlay(() => menuActions.target(item.text))}
               </ZStack>
             ) : (
               <VStack alignment="leading" contextMenu={{ menuItems: <CopyButton title="复制" text={item.text} /> }}>
-                <FontText role="target" animated={!translationOnly} selectable flat={props.flat} foregroundStyle={props.foregroundStyle} gradientColors={props.gradientColors} lineSpacing={4} text={item.text} />
+                <FontText role="target" animated={!translationOnly && !longText} selectable={!longText} flat={props.flat} foregroundStyle={props.foregroundStyle} gradientColors={props.gradientColors} lineSpacing={4} text={item.text} />
               </VStack>
             )
           ) : null}
@@ -709,7 +716,7 @@ export function TranslationCard(props: TranslationCardProps) {
               : <LoadingCaption active={item.loading} />
           ) : null}
         </VStack>
-  ))
+  )})
 
   return (
     <CardFrame compact={false} targetCount={normalizedTargets.length} readOnly={readOnly} flat={props.flat} onDelete={props.onDelete ? () => props.onDelete?.(props.id) : undefined}>

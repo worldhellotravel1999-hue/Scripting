@@ -1,6 +1,7 @@
 import { Button, Menu, Text } from "scripting"
 import { FontError, deleteFont, importFont, selectFont, useFontSettings } from "../core/fonts"
 import type { FontRole } from "../core/fonts"
+import { safeTimeout } from "../core/guarded"
 
 // Shared by both role menus; acquire before scheduling to prevent rapid double taps.
 let actionPending = false
@@ -8,7 +9,7 @@ let actionPending = false
 function scheduleAction(action: () => void | Promise<unknown>): void {
   if (actionPending) return
   actionPending = true
-  setTimeout(() => {
+  safeTimeout(() => {
     void (async () => {
       try {
         await action()

@@ -1,4 +1,5 @@
 import { Button, Canvas, HStack, Image, ImageRenderer, ProgressView, Rectangle, RoundedRectangle, Text, TextField, VStack, ZStack, useEffect, useState } from "scripting"
+import { safeTimeout } from "../core/guarded"
 
 /** 图标导出格式：PNG / JPEG（不透明，铺白底）/ HEIF（透明） */
 type IconFormat = "png" | "jpeg" | "heic"
@@ -107,7 +108,7 @@ export function IconDownloadPanel(props: {
 
   useEffect(() => {
     if (!feedback) return
-    const timer = setTimeout(() => setFeedback(null), 1600)
+    const timer = safeTimeout(() => setFeedback(null), 1600)
     return () => clearTimeout(timer)
   }, [feedback])
 
@@ -308,7 +309,7 @@ export function LinkBadgeButton(props: {
   const [copied, setCopied] = useState(false)
   useEffect(() => {
     if (!copied) return
-    const timer = setTimeout(() => setCopied(false), 1200)
+    const timer = safeTimeout(() => setCopied(false), 1200)
     return () => clearTimeout(timer)
   }, [copied])
 

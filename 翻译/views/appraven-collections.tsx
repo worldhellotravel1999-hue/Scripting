@@ -51,6 +51,7 @@ import {
   type AppRavenCollectionItem,
   type AppRavenSession,
 } from "../core/appraven"
+import { safeTimeout } from "../core/guarded"
 import { AppStoreIcon } from "./app-store"
 import { AnimatedSection } from "./animated-section"
 
@@ -147,7 +148,7 @@ function useErrorNudge(trigger: string) {
   useEffect(() => {
     if (!trigger) return
     setScale(1.045)
-    const timer = setTimeout(() => setScale(1), 240)
+    const timer = safeTimeout(() => setScale(1), 240)
     return () => clearTimeout(timer)
   }, [trigger])
   return scale
@@ -313,7 +314,7 @@ function SinglePageCollections(props: CollectionPageProps) {
   useEffect(() => {
     if (!loginError) return
     if (loginErrorTimerRef.current) clearTimeout(loginErrorTimerRef.current)
-    loginErrorTimerRef.current = setTimeout(() => {
+    loginErrorTimerRef.current = safeTimeout(() => {
       loginErrorTimerRef.current = null
       setLoginError("")
     }, 1000)
@@ -411,7 +412,7 @@ function SinglePageCollections(props: CollectionPageProps) {
   useEffect(() => {
     let stopped = false
     const schedule = () => {
-      pulseTimerRef.current = setTimeout(() => {
+      pulseTimerRef.current = safeTimeout(() => {
         if (stopped) return
         setDeletePulse(value => 1 - value)
         schedule()
@@ -460,7 +461,7 @@ function SinglePageCollections(props: CollectionPageProps) {
     setFxPop(previous => ({ ...previous, [collectionId]: true }))
     const existing = fxTimersRef.current.get(collectionId)
     if (existing) clearTimeout(existing)
-    fxTimersRef.current.set(collectionId, setTimeout(() => {
+    fxTimersRef.current.set(collectionId, safeTimeout(() => {
       setFxPop(previous => {
         if (!previous[collectionId]) return previous
         const next = { ...previous }
@@ -577,7 +578,7 @@ function SinglePageCollections(props: CollectionPageProps) {
     if (loginLoading) return
     // 长按识别后松手可能再补一次点按，先把接下来 ~0.7s 内的点按吞掉，避免误收起 Cookie 行。
     ravenTapGuardRef.current = true
-    setTimeout(() => { ravenTapGuardRef.current = false }, 700)
+    safeTimeout(() => { ravenTapGuardRef.current = false }, 700)
     try { HapticFeedback.lightImpact() } catch {}
     void (cookie.trim() ? submitCookie() : submitPassword())
   }
@@ -1016,7 +1017,7 @@ function SinglePageCollections(props: CollectionPageProps) {
                     setDeleteArmedId(item.id)
                     try { HapticFeedback.lightImpact() } catch {}
                     if (deleteArmedTimerRef.current) clearTimeout(deleteArmedTimerRef.current)
-                    deleteArmedTimerRef.current = setTimeout(() => {
+                    deleteArmedTimerRef.current = safeTimeout(() => {
                       deleteArmedTimerRef.current = null
                       setDeleteArmedId(current => (current === item.id ? null : current))
                     }, 1500)

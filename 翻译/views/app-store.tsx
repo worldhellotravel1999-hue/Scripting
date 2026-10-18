@@ -46,6 +46,7 @@ import { IconPill, IconDownloadPanel, LinkBadgeButton } from "./icon-download"
 import { TranslationHistoryPanel } from "./translation-history"
 import { AppRavenCollectionsPage } from "./appraven-collections"
 import { isAppRavenLoggedOut } from "../core/appraven"
+import { safeAnimate, safeTimeout } from "../core/guarded"
 
 
 const TEXT_GRADIENT_STORAGE_KEY = "lingo_appstore_text_gradient_v1"
@@ -93,7 +94,7 @@ function ResetBadgeButton(props: { hasExpanded: boolean; onTap: () => void; fore
   const [feedback, setFeedback] = useState<"done" | "noop" | null>(null)
   useEffect(() => {
     if (!feedback) return
-    const timer = setTimeout(() => setFeedback(null), 1200)
+    const timer = safeTimeout(() => setFeedback(null), 1200)
     return () => clearTimeout(timer)
   }, [feedback])
 
@@ -192,7 +193,7 @@ function DownIconBadge(props: {
   const [failed, setFailed] = useState(false)
   useEffect(() => {
     if (!failed) return
-    const timer = setTimeout(() => setFailed(false), 1200)
+    const timer = safeTimeout(() => setFailed(false), 1200)
     return () => clearTimeout(timer)
   }, [failed])
 
@@ -275,7 +276,7 @@ function RatingCollectionsButton(props: {
     let stopped = false
     let timer: ReturnType<typeof setTimeout> | null = null
     const schedule = () => {
-      timer = setTimeout(() => {
+      timer = safeTimeout(() => {
         if (stopped) return
         setStarPulse((value) => 1 - value)
         schedule()
@@ -299,12 +300,8 @@ function RatingCollectionsButton(props: {
       return
     }
     setSheetReady(false)
-    const timer = setTimeout(() => {
-      try {
-        withAnimation(() => setSheetReady(true))
-      } catch {
-        setSheetReady(true)
-      }
+    const timer = safeTimeout(() => {
+      safeAnimate(() => setSheetReady(true), () => setSheetReady(true))
     }, 320)
     return () => clearTimeout(timer)
   }, [isPresented, tick])
@@ -444,7 +441,7 @@ function RemovePickedButton(props: { onRemove: () => void }) {
     let stopped = false
     let timer: ReturnType<typeof setTimeout> | null = null
     const schedule = () => {
-      timer = setTimeout(() => {
+      timer = safeTimeout(() => {
         if (stopped) return
         setPulse((value) => 1 - value)
         schedule()
@@ -792,7 +789,7 @@ function AppSearchSection(props: {
     // 顶部；第二次调用覆盖 WebView 晚卸载的极端情况，不强制重渲染列表。
     const key = `${app.appid}-${app.selectionId}`
     for (const delay of [140, 560]) {
-      setTimeout(() => {
+      safeTimeout(() => {
         if (!mountedRef.current || !isSelected(app)) return
         props.onScrollToApp?.(key)
       }, delay)
@@ -819,7 +816,7 @@ function AppSearchSection(props: {
         : undefined
       const key = neighbor ? `${neighbor.appid}-${neighbor.selectionId}` : "app-search-card"
       for (const delay of [140, 560]) {
-        setTimeout(() => {
+        safeTimeout(() => {
           if (!mountedRef.current) return
           props.onScrollToApp?.(key)
         }, delay)
@@ -906,7 +903,7 @@ function AppSearchSection(props: {
     clearSearch()
     // 滚动定位到该应用区（等布局完成后）
     const key = `${target.appid}-${target.selectionId}`
-    setTimeout(() => {
+    safeTimeout(() => {
       if (mountedRef.current) props.onScrollToApp?.(key)
     }, 120)
     // 历史记录不保存正文，拉取详情获得更新/说明
@@ -1306,33 +1303,49 @@ function AppStoreContent(props: {
   const scrollProxyRef = useRef<ScrollViewProxy>()
   /** 分享按钮长按识别后，松手可能再补出一次点按：接下来 ~0.7s 内吞掉，避免误跳转。 */
   const shareTapGuardRef = useRef(false)
-  /** 折叠后把对应应用区滚回视口顶部：内容高度骤减时 ScrollView 会停在旧偏移
-   *  形成过度滚动空白；scrollTo 会一次性夹紧偏移，避免需要手动点击回弹。 */
+  /**
+   * 折叠后把对应应用区滚回视口顶部：内容高度骤减时 ScrollView 会停在旧偏移
+   * 形成过度滚动空白；scrollTo 会一次性夹紧偏移，避免需要手动点击回弹。
+   *
+   * 这里必须全程不外抛：本函数主要被 setTimeout 回调调用（「查看新说明」
+   * 就是其中一条），而定时代回调里的同步异常会直接终止整个脚本。旧实现
+   * 的 catch 分支又直接调 proxy.scrollTo，一旦滚动本身失败就整页消失。
+   */
   const scrollToApp = (key: string) => {
     const proxy = scrollProxyRef.current
     if (!proxy) return
-    try {
-      withAnimation(() => {
+    const scroll = () => {
+      try {
         proxy.scrollTo(key, "top")
-      })
-    } catch {
-      proxy.scrollTo(key, "top")
+      } catch {}
     }
+    safeAnimate(scroll, scroll)
   }
   const [textGradientIndex, setTextGradientIndex] = useState<number | null>(() => {
-    const stored = Storage.get<number>(TEXT_GRADIENT_STORAGE_KEY, { shared: true })
-    if (stored === null || stored === -1) return null
-    return Number.isInteger(stored) && stored >= 0 && stored < TEXT_GRADIENTS.length ? stored : 0
+    // 渲染期读共享 Storage：读取异常不应该弄崩整页（项目内其它 Storage 读取都包了 try）。
+    try {
+      const stored = Storage.get<number>(TEXT_GRADIENT_STORAGE_KEY, { shared: true })
+      if (stored === null || stored === -1) return null
+      return Number.isInteger(stored) && stored >= 0 && stored < TEXT_GRADIENTS.length ? stored : 0
+    } catch {
+      return null
+    }
   })
   const textGradient = textGradientIndex === null ? undefined : TEXT_GRADIENTS[textGradientIndex]
   const textForeground = textGradient || { light: "#000000", dark: "#FFFFFF" }
   useEffect(() => {
-    Storage.set(TEXT_GRADIENT_STORAGE_KEY, textGradientIndex === null ? -1 : textGradientIndex, { shared: true })
+    try {
+      Storage.set(TEXT_GRADIENT_STORAGE_KEY, textGradientIndex === null ? -1 : textGradientIndex, { shared: true })
+    } catch {}
   }, [textGradientIndex])
 
   // 与旧版一致：页面持有专用 Translation 实例，译文卡走独立会话，
   // 快速渐进出结果（局部刷新），避免共享单例排队冲突。
-  const [translationHost] = useState(() => new Translation())
+  // 分享扩展内存紧张时构造原生会话可能失败：失败降级为共享实例，
+  // 而不是在渲染阶段抛异常。
+  const [translationHost] = useState<Translation>(() => {
+    try { return new Translation() } catch { return Translation.shared }
+  })
 
   const mountedRef = useRef(true)
   const loadRequestRef = useRef(0)
@@ -1342,7 +1355,7 @@ function AppStoreContent(props: {
     // 同步失效旧版本的译文回调，再交给状态刷新页面。
     slotsRef.current = appStoreTextSlots(info, entry, swapDescriptions)
     setSelectedVersion({ owner: contentOwner, entry })
-    for (const delay of [140, 560]) setTimeout(() => {
+    for (const delay of [140, 560]) safeTimeout(() => {
       if (mountedRef.current && ownerRef.current === contentOwner) scrollToApp("appstore-content")
     }, delay)
   }
@@ -1483,15 +1496,14 @@ function AppStoreContent(props: {
                     setHistoryOpen((value) => !value)
                     // 面板挂载后滚到顶部，避免面板在长内容下方看不见
                     if (!historyOpen) {
-                      setTimeout(() => {
+                      safeTimeout(() => {
                         if (!mountedRef.current) return
                         const proxy = scrollProxyRef.current
                         if (!proxy) return
-                        try {
-                          withAnimation(() => proxy.scrollTo("translation-history-panel", "top"))
-                        } catch {
-                          proxy.scrollTo("translation-history-panel", "top")
+                        const scroll = () => {
+                          try { proxy.scrollTo("translation-history-panel", "top") } catch {}
                         }
+                        safeAnimate(scroll, scroll)
                       }, 120)
                     }
                   }}
@@ -1524,7 +1536,7 @@ function AppStoreContent(props: {
               {props.identity ? (
                 <Button buttonStyle="borderless" disabled={loading} action={() => {
                   setSwapDescriptions(value => !value)
-                  if (!searchOpen) for (const delay of [140, 560]) setTimeout(() => {
+                  if (!searchOpen) for (const delay of [140, 560]) safeTimeout(() => {
                     if (mountedRef.current && ownerRef.current === contentOwner) scrollToApp("appstore-content")
                   }, delay)
                 }}>
@@ -1552,10 +1564,12 @@ function AppStoreContent(props: {
                       minDuration: 450,
                       perform: () => {
                         shareTapGuardRef.current = true
-                        setTimeout(() => { shareTapGuardRef.current = false }, 700)
+                        safeTimeout(() => { shareTapGuardRef.current = false }, 700)
                         void (async () => {
-                          await Pasteboard.setString(shareLink)
-                          try { HapticFeedback.lightImpact() } catch {}
+                          try {
+                            await Pasteboard.setString(shareLink)
+                            try { HapticFeedback.lightImpact() } catch {}
+                          } catch {}
                         })()
                       },
                     }}
