@@ -17,10 +17,11 @@ import {
 } from "scripting"
 import { translateText } from "../core/translate"
 import { detectedAutoSourceLanguage } from "../core/source-language"
-import { subscribeSpeaking, toggleSpeak, restartSpeak, stopSpeaking, type TTSState } from "../core/tts"
+import type { TTSState } from "../core/tts"
+import { subscribeSpeaking, toggleSpeak, restartSpeak, stopSpeaking, speakingSnapshot } from "../core/tts"
+import { safeTimeout } from "../core/guarded"
 import { SystemTranslationWaitError } from "../core/system_engine"
 import { finishTranslation } from "../core/session"
-import { safeTimeout } from "../core/guarded"
 import { CopyButton, languageShortLabel } from "./common"
 import { FontText } from "./font-text"
 import { AnimText } from "./anim-text"
@@ -236,8 +237,28 @@ function CircleActionButton(props: {
 function SpeakButton(props: { ttsKey: string; text: string; languageCode: string }) {
   const [state, setState] = useState<TTSState>("idle")
   const [pulse, setPulse] = useState(false)
+  // 订阅状态并带一次对账：对账用的是 tts 模块的权威快照（已按 currentKey
+  // 归属折算全局引擎状态），暂停 A 段不会让 B 段按钮误显暂停。
   useEffect(() => {
-    return subscribeSpeaking((payload) => setState(payload.key === props.ttsKey ? payload.state : "idle"))
+    let disposed = false
+    let timer: any = null
+    const unsubscribe = subscribeSpeaking((payload) => {
+      if (disposed) return
+      if (timer) clearTimeout(timer)
+      setState(payload.key === props.ttsKey ? payload.state : "idle")
+      timer = safeTimeout(async () => {
+        timer = null
+        if (disposed) return
+        const snapshot = await speakingSnapshot()
+        if (disposed) return
+        setState(snapshot.key === props.ttsKey ? snapshot.state : "idle")
+      }, 500)
+    })
+    return () => {
+      disposed = true
+      if (timer) clearTimeout(timer)
+      unsubscribe()
+    }
   }, [props.ttsKey])
   const speaking = state === "speaking"
   const paused = state === "paused"

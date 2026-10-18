@@ -7,7 +7,12 @@
  *    resolve）。每次动作都通过 Speech.isSpeaking / isPaused 询问引擎真实状态。
  * 2. 所有动作经过串行队列（enqueue），双击/连点时前一个动作（暂停/续播）
  *    完整落定后重播才开始，避免交叉执行把新语音又暂停在开头。
+ * 3. 状态推送采用「乐观即时 + 延迟对账」：pause/resume 返回后立刻推送状态
+ *    （图标马上变），随后延迟复查引擎真实状态纠偏；另有一个后台对账循环
+ *    在播放期间每 600ms 校准一次，任何漏推/竞态都会被自动修正。
  */
+
+import { safeTimeout } from "./guarded"
 
 export type TTSState = "idle" | "speaking" | "paused"
 
@@ -97,10 +102,50 @@ async function engineState(): Promise<{ speaking: boolean; paused: boolean }> {
   return { speaking: speaking && !paused, paused }
 }
 
+let startedAtMs = 0
+let reconcilerTimer: any = null
+
+/**
+ * 权威快照：把全局引擎状态折算到唯一在播的 key 上。
+ * 引擎是单例，isPaused/isSpeaking 属于全局；哪个按钮该显示什么
+ * 必须经过 currentKey 归属判定，否则暂停 A 段时 B 段按钮也会误显暂停。
+ */
+export async function speakingSnapshot(): Promise<{ key: string | null; state: TTSState }> {
+  const engine = await engineState()
+  if (!engine.speaking && !engine.paused) return { key: null, state: "idle" }
+  if (currentKey === null) return { key: null, state: "idle" }
+  return { key: currentKey, state: engine.paused ? "paused" : "speaking" }
+}
+
+/** 播放期间每 600ms 把本地状态与引擎对账一次，自动修正漏推/竞态；空闲后停止轮询。 */
+function scheduleReconcile() {
+  if (reconcilerTimer !== null) return
+  reconcilerTimer = safeTimeout(async () => {
+    reconcilerTimer = null
+    if (currentKey === null) return
+    // 刚发起播放的宽限期内引擎可能还没真正发声，跳过以免误判成空闲。
+    if (Date.now() - startedAtMs < 700) {
+      scheduleReconcile()
+      return
+    }
+    const engine = await engineState()
+    if (currentKey === null) return
+    if (!engine.speaking && !engine.paused) {
+      // 真正播完/被打断：清空 key 并停止轮询。
+      setLocal(null, "idle")
+      return
+    }
+    const engineStateTTS: TTSState = engine.paused ? "paused" : "speaking"
+    if (engineStateTTS !== currentState) setLocal(currentKey, engineStateTTS)
+    scheduleReconcile()
+  }, 600)
+}
+
 async function startNewSpeak(key: string, value: string, languageCode: string) {
   // 清掉旧队列（含暂停中的），再开新的一段。
   try { await Speech.stop() } catch {}
   setLocal(key, "speaking")
+  startedAtMs = Date.now()
   const options: SpeechSynthesisOptions = {}
   try {
     const identifier = await resolveVoiceIdentifier(languageCode)
@@ -109,12 +154,9 @@ async function startNewSpeak(key: string, value: string, languageCode: string) {
   try {
     await Speech.speak(value, options)
   } catch {}
-  // promise 返回后核对引擎：仍在播/在暂停说明 promise 提前返回（App UI 运行时），
-  // 保持 speaking 状态；真正播完才清成空闲。
-  if (currentKey === key) {
-    const engine = await engineState()
-    if (currentKey === key && !engine.speaking && !engine.paused) setLocal(null, "idle")
-  }
+  // 播完的收尾由后台对账循环统一处理（宽限期过后引擎空闲即清状态），
+  // 这里不再重复查引擎，避免与对账逻辑竞态。
+  scheduleReconcile()
 }
 
 async function toggleSpeakImpl(key: string, text: string, languageCode: string) {
@@ -123,18 +165,23 @@ async function toggleSpeakImpl(key: string, text: string, languageCode: string) 
   if (currentKey === key) {
     const engine = await engineState()
     if (engine.paused) {
-      // 暂停中 → 从暂停处续播。
+      // 暂停中 → 从暂停处续播。乐观即时更新，引擎标志落后也无妨（对账会校准）。
       try { await Speech.resume() } catch {}
       if (currentKey === key) setLocal(key, "speaking")
+      scheduleReconcile()
       return
     }
     if (engine.speaking) {
-      // 播放中 → 立即暂停。
+      // 播放中 → 立即暂停：先乐观推送 paused（图标立刻变），
+      // 再延迟复查——若 pause 实际未生效则纠回 speaking。
       try { await Speech.pause() } catch {}
-      if (currentKey === key) {
+      if (currentKey === key) setLocal(key, "paused")
+      safeTimeout(async () => {
+        if (currentKey !== key) return
         const after = await engineState()
-        setLocal(key, after.paused ? "paused" : after.speaking ? "speaking" : "idle")
-      }
+        if (currentKey !== key) return
+        if (!after.paused) setLocal(key, after.speaking ? "speaking" : "idle")
+      }, 400)
       return
     }
     // 状态说是当前 key，但引擎已经空闲（播完/被系统打断）→ 重新播放。
