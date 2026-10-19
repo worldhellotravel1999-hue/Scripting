@@ -22,6 +22,17 @@ const GOOGLE_CONCURRENCY = 4
  * 否则健康但偏慢的网络会被过早放弃、退回慢得多的串行原生翻译。
  */
 const GOOGLE_FAST_PATH_TIMEOUT_MS = 5000
+/**
+ * 截图多行翻译里，系统原生批量的「起跑延迟」。
+ *
+ * 谷歌健康时实测 0.6~1.4 秒返回全部行，此时不必白起一次原生会话
+ * （原生 Translation 无法取消，会一直占全局并发槽）；但谷歌被限流/弱网时
+ * 旧实现是**串行**等完 5 秒整体超时再开始原生，实测 20 行要 7~10 秒。
+ * 给谷歌 1.5 秒先手（略大于健康网络的最慢实测 1.376s），之后无论它是否
+ * 结束都并行开原生，先到先得，既保住健康网络的纯网络快路径，
+ * 也把坏网络从「5s + 7s」压到 ~7s 内。
+ */
+const NATIVE_HEAD_START_MS = 1500
 
 type EngineKind = "google" | "system"
 type RaceResult = { value: string; engine: EngineKind }
@@ -733,8 +744,9 @@ async function translateLinesWithSystem(
  * 1) 未命中缓存的行打包成组，谷歌组内并发（≤4 组），一组一次请求、
  *    按换行拆回每行（实测两端点保留换行）；拆回数量对不上时该组退回
  *    逐行请求，保证与 OCR 行一一对应；
- * 2) 谷歌失败/冷却后剩余行走一次原生 translateEach 批量拿回对齐数组。
- * 返回数组与输入等长对齐；单行最终失败整体抛错（与 translateText 一致）。
+ * 2) 系统原生批量与谷歌**并行**（谷歌先手 1.2s），先到先得、按行落定；
+ *    旧实现是谷歌失败后才串行开始原生，坏网络下白白叠加 5 秒。
+ * 返回数组与输入等长对齐；两个引擎都没给出结果才抛错。
  * 不回报 onProgress/onSourceLanguageDetected 等界面回调（截图无逐行 UI）。
  */
 export async function translateLines(
@@ -786,15 +798,31 @@ export async function translateLines(
     return results.map((value, index) => value ?? sources[index])
   }
 
-  const remaining = [...pending]
-  const markDone = (index: number) => {
-    const position = remaining.indexOf(index)
-    if (position >= 0) remaining.splice(position, 1)
+  // 按行落定：谷歌与系统并行写同一份 results，先到的那份生效。
+  const filled = new Set<number>()
+  let settleAll: () => void = () => {}
+  const allFilled = new Promise<void>((resolve) => { settleAll = resolve })
+  const commit = (index: number, line: string, source: string, engine: EngineKind) => {
+    if (filled.has(index)) return
+    filled.add(index)
+    results[index] = line
+    storeCache(lineKey(sources[index], source), line, engine)
+    if (filled.size === pending.length) settleAll()
+  }
+
+  const groups = isGoogleEngineAvailable() ? packLineGroups(sources, pending) : []
+  const activeStages = groups.length ? 2 : 1
+  let closedStages = 0
+  let lastError: unknown
+  const closeStage = (error?: unknown) => {
+    if (error !== undefined) lastError = error
+    closedStages += 1
+    // 取消时不再等慢的那一方，避免关页后进程被原生调用拖住。
+    if (closedStages >= activeStages || options.isCancelled?.()) settleAll()
   }
 
   // 谷歌组阶段：组并发，组内失败只丢本组（进冷却），不拖垮其它组。
-  if (isGoogleEngineAvailable()) {
-    const groups = packLineGroups(sources, pending)
+  const googleStage = async () => {
     let cursor = 0
     const worker = async () => {
       while (true) {
@@ -808,8 +836,7 @@ export async function translateLines(
             const value = (await translateText(group.text, options))
               .replace(/\s*\n+\s*/g, " ").trim()
             const index = group.indices[0]
-            results[index] = value || sources[index]
-            markDone(index)
+            commit(index, value || sources[index], resolveSource(group.text), "google")
             continue
           }
           const source = resolveSource(group.text)
@@ -817,10 +844,7 @@ export async function translateLines(
           const pieces = value.split("\n")
           if (pieces.length === group.indices.length) {
             group.indices.forEach((index, position) => {
-              const line = pieces[position].trim() || sources[index]
-              results[index] = line
-              storeCache(lineKey(sources[index], source), line, "google")
-              markDone(index)
+              commit(index, pieces[position].trim() || sources[index], source, "google")
             })
           } else {
             // 换行数对不上：该组退回逐行请求，行与行一一对应优先于请求数。
@@ -831,16 +855,13 @@ export async function translateLines(
               )).replace(/\s*\n+\s*/g, " ").trim()
               return { index, lineSource, line: translated || sources[index] }
             }))
-            settled.forEach((item) => {
-              results[item.index] = item.line
-              storeCache(lineKey(sources[item.index], item.lineSource), item.line, "google")
-              markDone(item.index)
-            })
+            settled.forEach((item) => commit(item.index, item.line, item.lineSource, "google"))
           }
         } catch (error) {
           if (options.isCancelled?.()) throw error
-          // 组请求失败（超时/限流）：进冷却，剩余行走下面的系统批量。
+          // 组请求失败（超时/限流）：进冷却，剩余行走并行的系统批量。
           markGoogleEngineBlocked()
+          lastError = error
         }
       }
     }
@@ -848,21 +869,41 @@ export async function translateLines(
     await Promise.all(Array.from({ length: workerCount }, () => worker()))
   }
 
-  // 系统批量阶段：剩余行一次原生调用，与输入等长对齐。
-  if (remaining.length) {
-    const batchTexts = remaining.map((index) => sources[index])
+  // 系统批量阶段：与谷歌并行，只补「谷歌还没给出行」的部分。
+  const systemStage = async () => {
+    if (groups.length) {
+      // 谷歌先手窗口：健康网络在窗口内就把所有行填完，不必启动原生会话。
+      await new Promise<void>((resolve) => setTimeout(resolve, NATIVE_HEAD_START_MS))
+    }
+    if (filled.size === pending.length) return
+    const missing = pending.filter((index) => !filled.has(index))
+    if (!missing.length) return
+    const batchTexts = missing.map((index) => sources[index])
     const batchSource = resolveSource(batchTexts.join("\n"))
     const values = await translateLinesWithSystem(
       batchTexts, batchSource, targetLanguageCode, options,
     )
-    remaining.forEach((index, position) => {
-      const line = values[position].trim() || sources[index]
-      results[index] = line
-      storeCache(lineKey(sources[index], batchSource), line, "system")
+    missing.forEach((index, position) => {
+      const value = values[position] ?? ""
+      commit(index, value.trim() || sources[index], batchSource, "system")
     })
-    remaining.length = 0
   }
 
+  // 两个阶段都不等待对方：谁先填满谁结束，避免任何一方把总耗时拖长。
+  const stages: Array<Promise<void>> = []
+  if (groups.length) {
+    stages.push(googleStage().then(() => closeStage(), (error) => closeStage(error)))
+  }
+  stages.push(systemStage().then(() => closeStage(), (error) => closeStage(error)))
+  await allFilled
+  throwIfCancelled(options)
+  void Promise.allSettled(stages)
+
+  // 一行都没拿到、且有真实错误时保留旧语义（界面能显示原因）；
+  // 否则未落定的行回退原文，不能让截图结果整页失败。
+  if (!filled.size && lastError !== undefined) {
+    throw lastError instanceof Error ? lastError : new Error("截图翻译失败。")
+  }
   return results.map((value, index) => value ?? sources[index])
 }
 

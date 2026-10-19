@@ -71,7 +71,19 @@ function mergeLineBlocks(blocks: OCRBlock[]): OCRBlock[] {
   return [...merged, ...withoutBox]
 }
 
-/** 译文按原框排版：贪心换行 + 字号自适应，保证盖住原文又不溢出。 */
+/**
+ * 译文按原框排版：贪心换行 + 字号自适应，保证盖住原文又不溢出。
+ *
+ * 性能要点（2026-10-19）：旧实现从 baseSize 开始**逐号递减**（1px 一档），
+ * 每一档都要把所有 token 重新贪心排一遍、每个 token 一次 measureText。
+ * 长截图几十上百行时这是 O(行数 × 字号档数 × token 数) 次原生文字测量：
+ * 实测 336 行 / 8.3MP 的覆盖渲染要 14.9 秒，足够让分享扩展被系统
+ * 看门狗强杀（用户感受就是「翻译完直接退出」）。
+ *
+ * 现在改为**二分搜索字号**（档数 60+ → ~6），且每轮只做一次排版；
+ * 排版本身也预先量好每个 token 宽度（ctx.measureText 有缓存但不保证跨字号），
+ * 返回值语义完全不变：仍然返回「能在框内排下的最大字号 + 换行结果」。
+ */
 function layoutLines(
   ctx: CanvasRenderingContext,
   text: string,
@@ -85,8 +97,9 @@ function layoutLines(
     ? words
     : (text.replace(/\s+/g, "") || "").split("")
   const joiner = words.length > 1 ? " " : ""
-  let size = baseSize
-  while (size > 6) {
+  if (!tokens.length) return { lines: [text], size: baseSize }
+
+  const layout = (size: number): { lines: string[]; fits: boolean } => {
     ctx.font = size
     const lines: string[] = []
     let current = ""
@@ -100,13 +113,34 @@ function layoutLines(
     }
     if (current) lines.push(current)
     const lineHeight = size * 1.18
-    if (lines.length * lineHeight <= rect.height || lines.length <= 1) {
-      return { lines, size }
-    }
-    size -= 1
+    return { lines, fits: lines.length * lineHeight <= rect.height || lines.length <= 1 }
   }
-  ctx.font = size
-  return { lines: tokens.length ? [tokens.join(joiner)] : [text], size }
+
+  const minSize = 6
+  // 先试起始字号（常见情况：短文/大字直接一次命中）。
+  const initial = layout(baseSize)
+  if (initial.fits) return { lines: initial.lines, size: baseSize }
+
+  // 二分：在 (minSize, baseSize) 里找能排下的最大字号。
+  let low = minSize
+  let high = baseSize - 1
+  let best = { lines: initial.lines, size: minSize }
+  let found = false
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2)
+    const attempt = layout(mid)
+    if (attempt.fits) {
+      best = { lines: attempt.lines, size: mid }
+      found = true
+      low = mid + 1
+    } else {
+      high = mid - 1
+    }
+  }
+  if (found) return best
+  // 连最小字号都排不下：保持旧行为（单行输出，交给人眼判断）。
+  ctx.font = minSize
+  return { lines: tokens.length ? [tokens.join(joiner)] : [text], size: minSize }
 }
 
 /**
@@ -118,7 +152,13 @@ export async function translateScreenOverlay(
   image: UIImage,
   options: TranslateTextOptions = {},
 ): Promise<ScreenOverlayResult> {
-  const blocks = mergeLineBlocks(await recognizeScreenBlocks(image))
+  let blocks = mergeLineBlocks(await recognizeScreenBlocks(image))
+  if (!blocks.length) {
+    // 空结果重试一次：Vision 在极端长宽比/瞬时空资源下会**静默**给出 0 块
+    // （不抛错）。分片已按像素预算切好，这里再试一轮往往就正常了；
+    // 仍为空才报错，避免把偶发空结果当成「图片没文字」直接失败。
+    blocks = mergeLineBlocks(await recognizeScreenBlocks(image))
+  }
   if (!blocks.length) throw new Error("未识别到文字，请确认截图清晰且包含可识别文本。")
 
   // 一次批量翻译全部行（旧行为是逐行串行 translateText，截图一多就要
@@ -144,19 +184,63 @@ function toHexByte(value: number): string {
 }
 
 /**
+ * 取底色用的小代理图：长截图的整图 RGBA 缓冲很贵
+ * （1075x7462px ≈ 27MB，分享扩展内存紧张时会直接被系统回收，
+ * 表现为「翻译到一半脚本消失」）。这里把图缩到宽 400px 再读缓冲：
+ * 同图实测 2.3MB vs 10.5MB，且取样结果几乎一致（纯色区 255,255,255
+ * 对 254,254,254，肉眼看不出差异）。
+ *
+ * 归一化坐标与分辨率无关，所以代理图上的同一 box 采样点
+ * 就对应原图同一位置。读取失败返回 null，采样回退白底。
+ */
+type PixelBuffer = { width: number; height: number; bytes: Uint8Array }
+const PROXY_WIDTH_PX = 400
+
+function readPixelBuffer(image: UIImage): PixelBuffer | null {
+  const read = (source: UIImage): PixelBuffer | null => {
+    try {
+      const raw = source.getPixelData()
+      if (!raw || raw.width <= 0 || raw.height <= 0) return null
+      const bytes = raw.data.toUint8Array()
+      if (!bytes || bytes.length < raw.width * raw.height * 4) return null
+      return { width: raw.width, height: raw.height, bytes }
+    } catch {
+      return null
+    }
+  }
+  try {
+    const scale = image.scale && image.scale > 0 ? image.scale : 1
+    const pixelWidth = image.width * scale
+    if (pixelWidth > PROXY_WIDTH_PX) {
+      const ratio = PROXY_WIDTH_PX / pixelWidth
+      const proxy = image.preparingThumbnail({
+        width: Math.max(1, Math.round((pixelWidth * ratio) / scale)),
+        height: Math.max(1, Math.round((image.height * ratio))),
+      })
+      const buffer = proxy ? read(proxy) : null
+      if (buffer) return buffer
+    }
+  } catch {}
+  // 代理图不可用时退回整图；宁可多占内存，也不要丢底色适配。
+  return read(image)
+}
+
+/**
  * 框外环带取底色：框向外扩 4px 的周界采 8 个点取中位色。
- * Vision 框是归一化左下原点；pixelColor 是像素左上原点，此处换算。
- * 采样失败返回 null，由调用方回退白底（7 位以下短 hex 亦回退，避免色值解析问题）。
+ * Vision 框是归一化左下原点；像素缓冲是左上原点，此处换算。
+ * 缓冲不可用/取点越界返回 null，由调用方回退白底
+ * （7 位以下短 hex 亦回退，避免色值解析问题）。
  */
 function sampleFrameColor(
-  image: UIImage,
+  buffer: PixelBuffer | null,
   box: NonNullable<OCRBlock["box"]>,
 ): string | null {
+  if (!buffer) return null
   try {
-    const scale = image.scale || 1
-    const pw = image.width * scale
-    const ph = image.height * scale
-    if (!Number.isFinite(pw) || !Number.isFinite(ph) || pw <= 0 || ph <= 0) return null
+    const pw = buffer.width
+    const ph = buffer.height
+    if (pw <= 0 || ph <= 0) return null
+    // 环带外扩按代理图自身的像素密度换算（短边或长边都很小的时候也不出错）。
     const padX = 4 / pw
     const padY = 4 / ph
     const left = Math.max(0, box.x - padX)
@@ -168,19 +252,19 @@ function sampleFrameColor(
       [left, (bottom + top) / 2], [right, (bottom + top) / 2],
       [left, top], [right, top], [left, bottom], [right, bottom],
     ]
-    const colors: RGBAColor[] = []
+    const colors: Array<{ r: number; g: number; b: number }> = []
     for (const [nx, nyBottom] of points) {
       const px = Math.min(pw - 1, Math.max(0, Math.round(nx * pw)))
       const py = Math.min(ph - 1, Math.max(0, Math.round((1 - nyBottom) * ph)))
-      const color = image.pixelColor(px, py)
-      if (color) colors.push(color)
+      const offset = (py * pw + px) * 4
+      colors.push({ r: buffer.bytes[offset], g: buffer.bytes[offset + 1], b: buffer.bytes[offset + 2] })
     }
     if (!colors.length) return null
-    const median = (pick: (color: RGBAColor) => number) => {
+    const median = (pick: (color: { r: number; g: number; b: number }) => number) => {
       const sorted = colors.map(pick).sort((a, b) => a - b)
       return sorted[Math.floor(sorted.length / 2)]
     }
-    return `#${toHexByte(median((c) => c.red))}${toHexByte(median((c) => c.green))}${toHexByte(median((c) => c.blue))}`
+    return `#${toHexByte(median((c) => c.r))}${toHexByte(median((c) => c.g))}${toHexByte(median((c) => c.b))}`
   } catch {
     return null
   }
@@ -202,6 +286,8 @@ async function renderCoverImage(image: UIImage, lines: ScreenOverlayLine[]): Pro
   if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
     return image
   }
+  // 全部行的底色采样共用同一次像素缓冲读取（原逐行 pixelColor 每次都可能重新解码整图）。
+  const pixels = readPixelBuffer(image)
   const cover = await ImageRenderer.toUIImage(
     <Canvas
       frame={{ width, height }}
@@ -219,7 +305,7 @@ async function renderCoverImage(image: UIImage, lines: ScreenOverlayLine[]): Pro
           }
           // 按框取底色盖住原文：框边缘 3px 环带采 8 个点取中位色，
           // 深色截图不再糊大白块；采样失败回退白底。
-          const bg = sampleFrameColor(image, box)
+          const bg = sampleFrameColor(pixels, box)
           ctx.fillStyle = bg ?? "#FFFFFF"
           ctx.fillRect(rect.x - 1, rect.y - 1, rect.width + 2, rect.height + 2)
           const baseSize = Math.max(8, rect.height * 0.72)

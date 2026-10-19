@@ -1,8 +1,7 @@
 import { Intent, Navigation, Script } from "scripting"
 import { parseAppStoreURL } from "./core/appstore"
 import { inlineImageBitmap } from "./core/screen-ocr"
-import { activeScreenTranslation, startScreenTranslation } from "./core/screen-job"
-import { AppStoreView } from "./views/app-store"
+import { beginScreenTranslation } from "./core/screen-job"
 import { ScreenTranslationResult } from "./views/screen-result"
 
 function cleanPath(value: unknown): string {
@@ -81,22 +80,30 @@ async function showScreenText(text: string) {
   }
 }
 
-// 页面立即呈现（只传原图这个可序列化 prop），OCR/翻译/覆盖渲染由结果页
-// 挂载后从 core/screen-job 启动的同一份后台工作完成；页面关闭后 intent
-// 取同一 Promise 收尾返回纯文本。旧链路「先跑完整条重管线再 present」
-// 在分享扩展宿主里表现为整个扩展无响应（用不了）；App Store 流程
-// （present 后在页内异步加载）一直正常，截图流程对齐它的节奏。
+// 页面立即呈现，**同时**在呈现之前就把「OCR → 翻译 → 覆盖渲染」跑起来。
+//
+// 2026-10-19 速度修复（分享入口 4~5 秒 → 对齐主界面 1 秒）：
+// 旧实现要等 `await Navigation.present(...)` 返回、结果页挂载、useEffect
+// 触发后才开始工作，等于「分享扩展冷启动 + present + 首帧挂载 + 整条管线」
+// 串行相加；主界面相册入口（views/home.tsx）本来就是先 begin 再 present，
+// 管线与页面呈现重叠，所以只有它快。
+//
+// 关键区别：这里只是**不 await** 地启动异步管线（首帧不会被长任务阻塞，
+// 旧版「先 await 完整管线再 present」才会让扩展无响应），present 照常立即
+// 发起。页面挂载后 startScreenTranslation 复用的就是这一份工作。
 async function runScreenTranslation(images: UIImage[]) {
   const image = images[0]
-  let presented = false
+  // 先把工作登记进 screen-job（同步就能 set active，页面挂载时一定复用得到），
+  // 紧接着发 present 但**不 await**：管线与页面首帧完全并行。
+  // 用 begin（无条件新建）而不是 start：intent 进程里 active 可能残留上一次
+  // 分享的已完成任务，复用会立刻显示上一张的结果。
+  const job = beginScreenTranslation(image)
+  const presenting = Navigation.present({ element: <ScreenTranslationResult image={image} /> })
   try {
-    await Navigation.present({ element: <ScreenTranslationResult image={image} /> })
-    presented = true
+    await presenting
   } catch {}
 
-  // 工作已由结果页启动；若页面被秒关/未挂载，则此处兑底启动。
-  const activeJob = activeScreenTranslation()
-  const job = presented && activeJob ? activeJob : startScreenTranslation(image)
+  // 页面被秒关/未挂载也不影响：这里取的就是上面那份工作。
   try {
     const result = await job
     Script.exit(Intent.text(result.text))
@@ -126,6 +133,9 @@ async function run() {
   }
 
   try {
+    // 按需加载：views/app-store 会连带引入 region-prices → pricing → linkedom(201KB)
+    // 与 appraven(41KB)，对截图翻译毫无用处；动态 import 让截图路径完全不碰这条链。
+    const { AppStoreView } = await import("./views/app-store")
     await Navigation.present({ element: <AppStoreView url={url} /> })
     Script.exit()
   } catch (reason) {
