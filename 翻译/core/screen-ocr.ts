@@ -44,26 +44,43 @@ function inReadingOrder(blocks: Block[]): Block[] {
 }
 
 /**
+ * 列表符号：截图里「·」「•」「-」「*」常被 Vision 作为行首字符带回来。
+ * 它们只是标记，不构成「噪声证据」；判定内容时先剥掉。
+ */
+function stripListMarker(text: string): string {
+  return text.replace(/^[\s•·∙⋅▪◦‣⁃*\-–—]+/, "").trim()
+}
+
+/**
  * 过滤 OCR 噪声并按阅读顺序整理。
  * 与屏幕翻译原版的差异：原版面向「把译文画回图片」，会丢掉中文占主导的
  * 块（中英混排标题保持原样）；这里输出整页纯文本，中文块必须保留，
  * 以免丢内容（translateText 对已是目标语言的文本会原样返回）。
  * URL、星号乱码、图标误读等纯噪声仍照原样剔除。
+ *
+ * 2026-10-19 修复（用户更新日志截图只翻一半）：
+ * - 旧规则「不含中文且出现 [_•·] 且英文单词 < 8 → 丢弃」会把
+ *   `• Fixed inaccurate protocol, policy, and failed` 这类**带项目符号的
+ *   短行整行删掉**；列表里的短句本来是正文，删掉就是漏译。
+ * - 现在先剥掉行首列表符号再判定内容，短句只要有一个 2+ 字母单词就保留。
+ *   星号乱码、纯数字、纯符号等真正的噪声仍会剔除。
  */
 export function buildOCRBlocks(candidates: OCRCandidate[]): OCRBlock[] {
   const blocks = candidates.map(makeBlock).filter(block => {
     if (!block.box || /(?:https?:\/\/|www\.)\S+/i.test(block.text)) return false
     const cleanText = block.text.trim()
     if (!cleanText) return false
-    const words = cleanText.match(/[A-Za-z]{2,}/g) ?? []
-    const hanCount = (cleanText.match(/\p{Script=Han}/gu) ?? []).length
+    // 行首列表符号不参与噪声判定（正文里的 · 分隔符仍保留原样）。
+    const content = stripListMarker(cleanText)
+    if (!content) return false
+    const words = content.match(/[A-Za-z]{2,}/g) ?? []
+    const hanCount = (content.match(/\p{Script=Han}/gu) ?? []).length
     // 纯符号/数字块没有可翻译内容。
     if (!words.length && !hanCount) return false
     // OCR 把图标误读为星号夹杂的英文时不保留。
-    if (/[A-Za-z]\*|\*[A-Za-z]/.test(cleanText)) return false
-    if (!hanCount && /[_•·]/.test(cleanText) && words.length < 8) return false
-    if (!hanCount && words.length === 1 && /^[A-Z][a-z]+[A-Z]/.test(cleanText)) return false
-    if (!hanCount && words.length === 1 && /[_\d]/.test(cleanText)) return false
+    if (/[A-Za-z]\*|\*[A-Za-z]/.test(content)) return false
+    if (!hanCount && words.length === 1 && /^[A-Z][a-z]+[A-Z]/.test(content)) return false
+    if (!hanCount && words.length === 1 && /[_\d]/.test(content)) return false
     return true
   })
   return inReadingOrder(blocks).map(block => ({ text: block.text, box: block.box }))

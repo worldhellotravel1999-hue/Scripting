@@ -32,10 +32,25 @@ function mergeLineBlocks(blocks: OCRBlock[]): OCRBlock[] {
     const box = block.box!
     const top = 1 - box.y - box.height
     const height = box.height
+    // 2026-10-19 修复：Vision 有时把一行拆成上下两块（例如前半句框稍高、
+    // 逗号开头的后半句框稍低）。旧规则只按 40% 行高重叠判断，拆开的块
+    // 会各自成行；若前半块被过滤就只剩后半句。
+    // 但「同一行」必须收得很紧：相邻两行的垂直缝隙通常也有 0.5~0.8 个行高，
+    // 只按缝隙阈值会把上下两条更新日志误并成一条（实测 10 块→9 行）。
+    // 因此只在「后半块以标点开头」或「两块左右紧邻」时才合并。
     const row = rows.find((candidate) => {
       const overlap = Math.min(candidate.top + candidate.height, top + height)
         - Math.max(candidate.top, top)
-      return overlap > 0.4 * Math.min(candidate.height, height)
+      if (overlap > 0.4 * Math.min(candidate.height, height)) return true
+      const gap = Math.max(candidate.top, top) - Math.min(candidate.top + candidate.height, top + height)
+      // 缝隙既要小于 0.22 倍行高，也要小于 1.2% 页高：长截图一屏几十行时
+      // 行高只有 1~2%，只看相对比例会把相邻两条误并（实测 10 块 → 9 行）。
+      const gapLimit = Math.min(Math.min(candidate.height, height) * 0.22, 0.012)
+      if (gap > gapLimit) return false
+      const rightEdge = Math.max(...candidate.items.map((item) => item.box!.x + item.box!.width))
+      const continuation = /^[，。；：、！？,.;:!?）)\]】》」』]/.test(block.text.trim())
+      const adjacent = box.x >= rightEdge - 0.12 && box.x <= rightEdge + 0.03
+      return continuation || adjacent
     })
     if (row) {
       row.items.push(block)
@@ -58,8 +73,16 @@ function mergeLineBlocks(blocks: OCRBlock[]): OCRBlock[] {
       if (box.y + box.height > maxY) maxY = box.y + box.height
     }
     // 同行块之间用空格连接；中英文混排时逐块翻译容易断句，整行一次翻译更连贯。
+    // 标点开头的后半块紧贴前文（Vision 拆行/断行常见），不再多插空格；
+    // 英文单词之间仍保留空格，避免 "barekeys" 这类粘连。
+    const text = items.reduce((joined, item) => {
+      const value = item.text.trim()
+      if (!joined) return value
+      if (/^[，。；：、！？,.;:!?）)\]】》」』]/.test(value)) return joined + value
+      return `${joined} ${value}`
+    }, "").replace(/\s+/g, " ").trim()
     merged.push({
-      text: items.map((item) => item.text).join(" ").replace(/\s+/g, " ").trim(),
+      text,
       box: {
         x: minX,
         y: minY,
@@ -70,6 +93,9 @@ function mergeLineBlocks(blocks: OCRBlock[]): OCRBlock[] {
   }
   return [...merged, ...withoutBox]
 }
+
+/** 仅供回归：暴露行合并以便离屏验证（生产代码只走 translateScreenOverlay）。 */
+export const mergeLineBlocksForTest = mergeLineBlocks
 
 /**
  * 译文按原框排版：贪心换行 + 字号自适应，保证盖住原文又不溢出。

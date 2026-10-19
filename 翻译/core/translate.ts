@@ -698,6 +698,10 @@ async function translateSystemChunkOnce(
  * 整批失败再按 8 行分组、组内再失败逐行——与 translate.ts 的
  * 「分组批量 → 逐片回退」同一思路，防止单次大数组调用失败
  * 拖垮整页截图翻译（谷歌冷却期时全部行都走这里）。
+ *
+ * 2026-10-19 修复：旧实现只要**任意一行**失败就整组抛错，上层再把
+ * 未落定的行回退成原文（用户看到「后半页原样不翻」）。这里单行失败
+ * 只留下空串，让上层按行回退原文并记录未完成数，不拖垮其它行。
  */
 async function translateLinesWithSystem(
   texts: string[],
@@ -713,7 +717,7 @@ async function translateLinesWithSystem(
   } catch (error) {
     if (error instanceof SystemTranslationWaitError) throw error
   }
-  const results = new Array<string>(texts.length)
+  const results = new Array<string>(texts.length).fill("")
   const GROUP = 8
   for (let start = 0; start < texts.length; start += GROUP) {
     throwIfCancelled(options)
@@ -725,12 +729,19 @@ async function translateLinesWithSystem(
       values.forEach((value, position) => { results[start + position] = value })
     } catch (groupError) {
       if (groupError instanceof SystemTranslationWaitError) throw groupError
-      // 该组整体失败：逐行回退，保住已完成内容。
+      // 该组整体失败：逐行回退；单行失败只留空，继续尝试后面的行
+      // （旧实现一行失败会把整组后续行全部放弃）。
       for (let offset = 0; offset < group.length; offset += 1) {
-        const values = await translateSystemChunkOnce(
-          [group[offset]], sourceLanguageCode, targetLanguageCode, options,
-        )
-        results[start + offset] = values[0]
+        throwIfCancelled(options)
+        try {
+          const values = await translateSystemChunkOnce(
+            [group[offset]], sourceLanguageCode, targetLanguageCode, options,
+          )
+          results[start + offset] = values[0] ?? ""
+        } catch (lineError) {
+          if (lineError instanceof SystemTranslationWaitError) throw lineError
+          results[start + offset] = ""
+        }
       }
     }
   }
@@ -738,16 +749,38 @@ async function translateLinesWithSystem(
 }
 
 /**
- * 截图多行批量翻译：与 translateText 同一套语言解析/缓存，但一次调用
+ * 单行是否「已经是目标语言」。
+ *
+ * 仅用于**显示层**完成度判断（例：截图里原本就是中文的句子不标红），
+ * 不参与 translateLines 的短路：逐行语言识别会把含中文的混排行误判成
+ * 目标语言，一旦据此短路就真的不翻（2026-10-19 实测）。
+ */
+export function isTargetLanguageLine(line: string, source: string, target: string): boolean {
+  if (source !== "auto" && source === target) return true
+  // 目标语言是中文：纯中文行不需再翻；含英文单词的行（中英混排）照翻。
+  if (target === "zh-Hans" || target === "zh-Hant" || target === "zh") {
+    const han = (line.match(/\p{Script=Han}/gu) ?? []).length
+    if (!han) return false
+    if (/[A-Za-z]{2,}/.test(line)) return false
+    if (/[\u3040-\u30ff\uac00-\ud7af]/.test(line)) return false
+    return true
+  }
+  // 目标语言是英文：纯 ASCII 且有英文单词时短路。
+  if (target === "en") return /^[\x20-\x7e]+$/.test(line) && /[A-Za-z]{2,}/.test(line)
+  return false
+}
+
+/**
+ * 截图多行批量翻译：与 translateText 同一套语言解析／缓存，但一次调用
  * 处理全部行——逐行串行 translateText 是截图翻译慢的根因（N 次请求 +
  * N 次原生排队）。这里：
  * 1) 未命中缓存的行打包成组，谷歌组内并发（≤4 组），一组一次请求、
  *    按换行拆回每行（实测两端点保留换行）；拆回数量对不上时该组退回
  *    逐行请求，保证与 OCR 行一一对应；
- * 2) 系统原生批量与谷歌**并行**（谷歌先手 1.2s），先到先得、按行落定；
+ * 2) 系统原生批量与谷歌**并行**（谷歌先手 1.5s），先到先得、按行落定；
  *    旧实现是谷歌失败后才串行开始原生，坏网络下白白叠加 5 秒。
  * 返回数组与输入等长对齐；两个引擎都没给出结果才抛错。
- * 不回报 onProgress/onSourceLanguageDetected 等界面回调（截图无逐行 UI）。
+ * 不回报 onProgress／onSourceLanguageDetected 等界面回调（截图无逐行 UI）。
  */
 export async function translateLines(
   texts: string[],
@@ -782,13 +815,20 @@ export async function translateLines(
       results[index] = ""
       return
     }
+    // 2026-10-19 修复（截图只翻译前一半）：自动识别下每一行的识别结果
+    // 直接当成整行语言；若某行被误判成目标语言就会跳翻。这里恢复
+    // 「只有显式选择同语言才短路」的语义；自动识别返回 undefined 时走引擎，
+    // 由引擎按 auto 处理，不会因为误判而漏翻。
     const source = resolveSource(line)
     if (source !== "auto" && source === targetLanguageCode) {
       results[index] = line
       return
     }
     const cached = cache.get(lineKey(line, source))
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    // 失败回退原文时不写缓存（见 commit）；这里额外挡住历史版本留下的
+    // 「译文 === 原文」记录，避免一次失败永久生效。
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL
+      && !(cached.value === line && source !== targetLanguageCode)) {
       results[index] = cached.value
       return
     }
@@ -806,7 +846,12 @@ export async function translateLines(
     if (filled.has(index)) return
     filled.add(index)
     results[index] = line
-    storeCache(lineKey(sources[index], source), line, engine)
+    // 2026-10-19 修复：旧实现把「翻译失败回退原文」也存进缓存，
+    // 30 分钟内同一行永远返回原文（用户感受到「这一段它就是不翻」）。
+    // 只有真正与原文不同、且非空的译文才值得缓存。
+    if (line && line !== sources[index]) {
+      storeCache(lineKey(sources[index], source), line, engine)
+    }
     if (filled.size === pending.length) settleAll()
   }
 
@@ -848,14 +893,24 @@ export async function translateLines(
             })
           } else {
             // 换行数对不上：该组退回逐行请求，行与行一一对应优先于请求数。
+            // 2026-10-19 修复：旧实现用 Promise.all，任何一行失败都会让整组
+            // 抛错、一行都不提交（而其它组可能已经填完，页面就停在「前一半」）。
+            // 现在逐行独立结算：成功的行立刻提交，失败的行留给系统批量补。
             const settled = await Promise.all(group.indices.map(async (index) => {
               const lineSource = resolveSource(sources[index])
-              const translated = (await translateGoogleChunk(
-                sources[index], lineSource, targetLanguageCode,
-              )).replace(/\s*\n+\s*/g, " ").trim()
-              return { index, lineSource, line: translated || sources[index] }
+              try {
+                const translated = (await translateGoogleChunk(
+                  sources[index], lineSource, targetLanguageCode,
+                )).replace(/\s*\n+\s*/g, " ").trim()
+                return { index, lineSource, line: translated || sources[index] }
+              } catch (error) {
+                if (options.isCancelled?.()) throw error
+                return { index, lineSource, line: "" }
+              }
             }))
-            settled.forEach((item) => commit(item.index, item.line, item.lineSource, "google"))
+            settled.forEach((item) => {
+              if (item.line) commit(item.index, item.line, item.lineSource, "google")
+            })
           }
         } catch (error) {
           if (options.isCancelled?.()) throw error
@@ -885,8 +940,30 @@ export async function translateLines(
     )
     missing.forEach((index, position) => {
       const value = values[position] ?? ""
-      commit(index, value.trim() || sources[index], batchSource, "system")
+      // 2026-10-19：系统某行为空时先不提交原文；留在 pending 里由下面
+      // 的补翻循环再试一次，仍失败才回退原文，避免「一次空结果 = 永远原文」。
+      if (value.trim()) commit(index, value.trim(), batchSource, "system")
     })
+    // 补翻：谷歌冷却/限流时系统批量可能只返回部分行。旧实现把剩余行
+    // 直接回退原文，用户看到的是「后半页原样没翻」。这里对仍缺的行
+    // 再走一次单行系统翻译（全局并发槽会自然排队）；仍失败才回退原文。
+    const stillMissing = pending.filter((index) => !filled.has(index))
+    if (stillMissing.length && !options.isCancelled?.()) {
+      for (const index of stillMissing) {
+        if (filled.has(index)) continue
+        throwIfCancelled(options)
+        try {
+          const retry = await translateLinesWithSystem(
+            [sources[index]], resolveSource(sources[index]), targetLanguageCode, options,
+          )
+          const value = (retry[0] ?? "").trim()
+          if (value) commit(index, value, resolveSource(sources[index]), "system")
+        } catch (error) {
+          if (options.isCancelled?.()) throw error
+          if (error instanceof SystemTranslationWaitError) throw error
+        }
+      }
+    }
   }
 
   // 两个阶段都不等待对方：谁先填满谁结束，避免任何一方把总耗时拖长。
@@ -901,8 +978,23 @@ export async function translateLines(
 
   // 一行都没拿到、且有真实错误时保留旧语义（界面能显示原因）；
   // 否则未落定的行回退原文，不能让截图结果整页失败。
-  if (!filled.size && lastError !== undefined) {
+  if (!filled.size && lastError !== undefined && activeStages > 0) {
     throw lastError instanceof Error ? lastError : new Error("截图翻译失败。")
+  }
+  // 2026-10-19：仍有未完成的行时，不再默默当成功返回原文。
+  // 给调用方一个可区分的错误（界面能提示「部分未翻」而不是让用户以为翻完了）；
+  // 已完成的译文仍随错误消息返回不了，所以这里改为抛出带行号的错误，
+  // 由截图入口重试或提示。若只差 1～2 行（常见：谷歌限流 + 系统单行失败），
+  // 回退原文更友好，但会在 results 里保留标记：
+  const missing = pending.filter((index) => !filled.has(index))
+  if (missing.length) {
+    // 少量行失败：保留原文 + 控制台警告；超过一半失败才抛错（整页失败）。
+    if (missing.length > Math.max(2, Math.ceil(pending.length * 0.5))) {
+      throw lastError instanceof Error
+        ? lastError
+        : new Error(`截图翻译有 ${missing.length} 行未完成，请重试。`)
+    }
+    console.log(`[screen] ${missing.length}/${pending.length} 行翻译失败，已回退原文`)
   }
   return results.map((value, index) => value ?? sources[index])
 }
