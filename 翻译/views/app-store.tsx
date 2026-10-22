@@ -599,6 +599,8 @@ type PickedApp = {
   appravenExpanded?: boolean
   /** 每次详情成功刷新 +1；译文卡据此强制重译。 */
   detailToken?: number
+  /** 只有用户主动刷新才递增（首次详情加载不算），避免刚展开就重译已缓存内容。 */
+  refreshToken?: number
   /** 详情页数据（用于图标下载 / 链接复制等功能）。 */
   detail?: AppStoreInfo
 }
@@ -743,7 +745,14 @@ function AppSearchSection(props: {
     detailRequestsRef.current.set(app.selectionId, detailId)
     const isCurrent = () => isSelected(app) && detailRequestsRef.current.get(app.selectionId) === detailId
     updatePicked(pickedRef.current.map((item) => item.selectionId === app.selectionId
-      ? { ...item, detailLoading: true, detailError: "", detailToken: (item.detailToken || 0) + 1 }
+      ? {
+        ...item,
+        detailLoading: true,
+        detailError: "",
+        detailToken: (item.detailToken || 0) + 1,
+        // 首次填充详情（preserveAvailable）不是用户刷新，不得让译文卡重译。
+        refreshToken: preserveAvailable ? item.refreshToken : (item.refreshToken || 0) + 1,
+      }
       : item))
     try {
       const info = await getAppInfo({ appid: app.appid, region: app.region, url: "" })
@@ -1119,6 +1128,7 @@ function AppSearchSection(props: {
               <VStack key={`search-release-body-${app.selectionId}`} alignment="leading" spacing={0} frame={{ maxWidth: "infinity", alignment: "leading" as any }} transition={Transition.identity()}>
                 <TranslatedBlock
                   id={`search-release-notes-${app.selectionId}-${app.appid}`}
+                  snapshotScope={`search-release-notes:${app.appid}:${app.region}:${slots[0].identity}`}
                   contentIdentity={`${app.selectionId}:${app.appid}:${app.region}:${slots[0].identity}`}
                   content={slots[0].content || ""}
                   emptyText={slots[0].emptyText}
@@ -1129,7 +1139,7 @@ function AppSearchSection(props: {
                   translationOnly
                   translationEnabled={app.detailLoading !== true}
                   priority={2}
-                  translationToken={app.detailToken}
+                  translationToken={app.refreshToken}
                 />
               </VStack>
             ) : null}
@@ -1142,6 +1152,7 @@ function AppSearchSection(props: {
               <VStack key={`search-description-body-${app.selectionId}`} alignment="leading" spacing={0} frame={{ maxWidth: "infinity", alignment: "leading" as any }} transition={Transition.identity()}>
                 <TranslatedBlock
                   id={`search-description-${app.selectionId}-${app.appid}`}
+                  snapshotScope={`search-description:${app.appid}:${app.region}:${slots[1].identity}`}
                   contentIdentity={`${app.selectionId}:${app.appid}:${app.region}:${slots[1].identity}`}
                   content={slots[1].content || ""}
                   emptyText={slots[1].emptyText}
@@ -1152,7 +1163,7 @@ function AppSearchSection(props: {
                   translationOnly
                   translationEnabled={app.detailLoading !== true}
                   priority={2}
-                  translationToken={app.detailToken}
+                  translationToken={app.refreshToken}
                 />
               </VStack>
             ) : null}
@@ -1681,13 +1692,13 @@ function AppStoreContent(props: {
             <CardDivider />
             <AnimatedSection index={2}>
               <VStack alignment="leading" spacing={10} padding={{ horizontal: 16, vertical: 16 }} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
-                <TranslatedBlock id="release-notes" contentIdentity={`${contentOwner}:${slots[0].identity}`} translationFirst content={slots[0].content || ""} emptyText={slots[0].emptyText} foregroundStyle={textForeground} gradientColors={textGradientIndex === null ? undefined : TEXT_GRADIENT_COLORS[textGradientIndex]} priority={3} translationDelayMs={0} translationEnabled={!loading} translationToken={contentToken + translationGeneration} translationHost={translationHost} isCancelled={() => contentSlotCancelled(0)} />
+                <TranslatedBlock id="release-notes" snapshotScope={`share-release-notes:${contentOwner}:${slots[0].identity}`} contentIdentity={`${contentOwner}:${slots[0].identity}`} translationFirst content={slots[0].content || ""} emptyText={slots[0].emptyText} foregroundStyle={textForeground} gradientColors={textGradientIndex === null ? undefined : TEXT_GRADIENT_COLORS[textGradientIndex]} priority={3} translationDelayMs={0} translationEnabled={!loading} translationToken={contentToken + translationGeneration} translationHost={translationHost} isCancelled={() => contentSlotCancelled(0)} />
                </VStack>
             </AnimatedSection>
             <CardDivider />
             <AnimatedSection index={3}>
               <VStack alignment="leading" spacing={10} padding={{ horizontal: 16, vertical: 16 }} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
-                <TranslatedBlock id="app-description" contentIdentity={`${contentOwner}:${slots[1].identity}`} translationFirst content={slots[1].content || ""} emptyText={slots[1].emptyText} foregroundStyle={textForeground} gradientColors={textGradientIndex === null ? undefined : TEXT_GRADIENT_COLORS[textGradientIndex]} priority={1} translationDelayMs={180} translationEnabled={!loading} translationToken={contentToken + translationGeneration} translationHost={translationHost} isCancelled={() => contentSlotCancelled(1)} />
+                <TranslatedBlock id="app-description" snapshotScope={`share-description:${contentOwner}:${slots[1].identity}`} contentIdentity={`${contentOwner}:${slots[1].identity}`} translationFirst content={slots[1].content || ""} emptyText={slots[1].emptyText} foregroundStyle={textForeground} gradientColors={textGradientIndex === null ? undefined : TEXT_GRADIENT_COLORS[textGradientIndex]} priority={1} translationDelayMs={180} translationEnabled={!loading} translationToken={contentToken + translationGeneration} translationHost={translationHost} isCancelled={() => contentSlotCancelled(1)} />
                </VStack>
             </AnimatedSection>
           </VStack>

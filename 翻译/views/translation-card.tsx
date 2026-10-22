@@ -114,6 +114,8 @@ type TranslationCardProps = {
   /** 页面刷新/详情请求期间暂停启动翻译；请求完成后自动恢复。 */
   translationEnabled?: boolean
   translationDelayMs?: number
+  /** 一次完整翻译成功后回报译文，供上层写入跨进程快照缓存。 */
+  onSnapshot?: (results: TranslationCardResult[]) => void
   isCancelled?: () => boolean
   foregroundStyle?: any
   gradientColors?: [string, string]
@@ -365,6 +367,26 @@ export function TranslationCard(props: TranslationCardProps) {
   const submitTimer = useRef<any>(null)
   const watchdogTimer = useRef<any>(null)
   const completedRef = useRef(false)
+  /**
+   * 跨进程译文快照：新进程首次挂载就带着完整译文时直接显示，不再重新翻译。
+   * 仅在原文与 translationToken 都没变时生效，用户刷新/重试仍会真正翻译。
+   */
+  const snapshotRef = useRef({ text: String(props.initialText || ""), token: props.translationToken })
+  /** 本次挂载内已完成的译文：同一内容重复触发 effect 时直接复用。 */
+  const lastCompleteRef = useRef<{ text: string; token: number | undefined; results: TranslationCardResult[] } | null>(null)
+  function completeSnapshotCoversTargets() {
+    const currentText = String(props.initialText || "")
+    const currentToken = props.translationToken
+    const last = lastCompleteRef.current
+    const saved = last && last.text === currentText && last.token === currentToken
+      ? last.results
+      : (snapshotRef.current.text === currentText && snapshotRef.current.token === currentToken ? props.initialResults : undefined)
+    if (!saved?.length) return false
+    return normalizedTargets.every((code) => {
+      const item = saved.find((result) => result.languageCode === code)
+      return !!item && !!item.text.trim() && !item.error
+    })
+  }
 
   function clearWatchdog() {
     if (watchdogTimer.current) clearTimeout(watchdogTimer.current)
@@ -521,6 +543,18 @@ export function TranslationCard(props: TranslationCardProps) {
     if (isCancelled()) return
     clearWatchdog()
     setIsTranslating(false)
+    if (outcomes.length > 0 && outcomes.every((item) => item.ok)) {
+      const completeResults = outcomes.map((item) => ({
+        languageCode: item.languageCode,
+        text: item.text,
+        error: "",
+        loading: false,
+      }))
+      lastCompleteRef.current = { text: source, token: props.translationToken, results: completeResults }
+      try {
+        props.onSnapshot?.(completeResults)
+      } catch {}
+    }
     if (!readOnly && !compact && outcomes.length > 0 && outcomes.every((item) => item.ok)) {
       if (!completedRef.current) {
         completedRef.current = true
@@ -605,6 +639,11 @@ export function TranslationCard(props: TranslationCardProps) {
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
     clearWatchdog()
     if (!autoTranslate || !translationEnabled || !sourceTextRef.current.trim()) return
+    // 已有完整快照且用户没刷新：保留现成译文，不发起任何翻译请求。
+    if (completeSnapshotCoversTargets()) {
+      setIsTranslating(false)
+      return
+    }
     const delay = props.translationDelayMs ?? (readOnly ? 0 : 700)
     debounceTimer.current = safeTimeout(() => { void runTranslation() }, Math.max(0, delay))
     return () => {

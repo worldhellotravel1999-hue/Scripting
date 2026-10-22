@@ -1,6 +1,6 @@
 import { Button, HStack, Image, LazyVStack, ProgressView, RoundedRectangle, ScrollView, Text, VStack, useEffect, useMemo, useRef, useState } from "scripting"
 import { AnimTextGlassBadge } from "./glass-badge"
-import { fetchAppVersions, fetchVersionHistoryNotes, mergeVersionNotes, type AppVersionEntry, type AppVersionNotes } from "../core/versions"
+import { fetchAppVersions, fetchVersionHistoryNotes, mergeVersionNotes, peekCachedAppVersions, peekCachedVersionNotes, type AppVersionEntry, type AppVersionNotes } from "../core/versions"
 import { safeTimeout } from "../core/guarded"
 
 /** 版本 ID 和历史说明独立加载；任一来源成功即可查看，失败允许重试。 */
@@ -11,16 +11,21 @@ function useAppVersions(appid: string, region: string, version: string, currentN
   const [token, setToken] = useState(0)
   useEffect(() => {
     let cancelled = false
-    setVersions(null)
-    setHistory(null)
+    // 首次点击时先用共享 Storage 里的上次结果立刻出列表（分享扩展每次都是
+    // 新进程，内存缓存留不住）；随后网络请求到达再原地替换。
+    // 因此重复打开版本号按钮/「查看新说明」不会再闪一次加载。
+    const seededVersions = enabled ? peekCachedAppVersions(appid) : null
+    const seededNotes = enabled ? peekCachedVersionNotes(appid, region) : null
+    setVersions(current => current && current.key === key ? current : (seededVersions ? { key, entries: seededVersions, error: false } : null))
+    setHistory(current => current && current.key === key ? current : (seededNotes ? { key, entries: seededNotes, error: "" } : null))
     if (!enabled) return
     void fetchAppVersions(appid).then(
       entries => { if (!cancelled) setVersions({ key, entries, error: false }) },
-      () => { if (!cancelled) setVersions({ key, entries: [], error: true }) },
+      () => { if (!cancelled) setVersions(current => current && current.key === key ? current : { key, entries: [], error: true }) },
     ).catch(() => {})
     void fetchVersionHistoryNotes(appid, region).then(
       entries => { if (!cancelled) setHistory({ key, entries, error: "" }) },
-      () => { if (!cancelled) setHistory({ key, entries: [], error: "更新说明查询失败" }) },
+      () => { if (!cancelled) setHistory(current => current && current.key === key ? current : { key, entries: [], error: "更新说明查询失败" }) },
     ).catch(() => {})
     return () => { cancelled = true }
   }, [appid, region, token, enabled])

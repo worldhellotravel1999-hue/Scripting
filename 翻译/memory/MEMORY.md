@@ -25,6 +25,7 @@
 - 2.4.26：单请求 3s→2s；词典端点超时/断连直接失败（只有 HTTP 非 ok/空译文这种“网络通但被限”才试 gtx）；整个谷歌快路径 5s 整体限时，超时直接回退系统。UI/缓存/重试逻辑未动
 - 2026-10-18：长文本整体上限保持 5s。实测 5948 字符健康网络 1.7–3.1s 返回（首进度 0.9–1.3s），曾试 2.8s 会误杀正常翻译并退回串行原生。整体超时或单分片失败时，只要已有分片成功就不再标记 2 分钟冷却（避免一次慢分片让后续长文全走慢速原生）
 - App Store 长文本上限（2026-10-18）：`appStoreTextSlots` 把发布说明与应用说明统一限制在 8000 字符（超出追加截断提示）。发布说明此前无上限，分享扩展里会拆出几十个原生分片并渲染超长文本。回归：`tests/selected-version-notes.ts`、`tests/appstore-long-race.ts`
+- 跨进程缓存（2.4.62 起）：分享扩展每次分享都是新进程，内存缓存全丢，导致「点版本号 / 查看新说明」每次都重新请求+重译。现版本号与历史说明写共享 Storage（`lingo_app_version_cache_v1`，10 分钟新鲜期/7 天过期/单条 64KB/总 384KB，`peekCached*` 首帧读），译文快照写 `lingo_translation_snapshots_v1`（完整成功才写、7 天过期、命中且 token 未变则不翻译）。`TranslatedBlock` 用不含 `selectionId` 的 `snapshotScope` 作键。回归：`tests/version-cache.ts`、`tests/translation-snapshot.ts`、`tmp/version-cache-hook-check.cjs`、`tmp/translation-snapshot-skip.cjs`
 
 ## 系统翻译界面（Translation UI，2.4.30 起）
 - 系统面板 UI（2.4.38 起）：与主 Translate 卡片列表完全同一套容器渲染——`List listStyle="plain" scrollContentBackground="hidden" background=#F2F2F7/#000 + Section`（语言栏一个 Section、卡片一个 Section），视觉上是连续整体、没有散块分割感；translationHost 挂在 List 上。（2.4.34~2.4.37 曾临时用 ScrollView+spacing 18，因「分割不是一个整体」已回退。）

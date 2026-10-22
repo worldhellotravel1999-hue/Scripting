@@ -1,12 +1,16 @@
-import { Text } from "scripting"
+import { Text, useMemo } from "scripting"
 import { loadPreferences } from "../core/preferences"
-import { TranslationCard } from "./translation-card"
+import { readTranslationSnapshot, translationSnapshotKey, writeTranslationSnapshot } from "../core/translation-snapshot"
+import { TranslationCard, type TranslationCardResult } from "./translation-card"
 
 export function TranslatedBlock(props: {
   content: string
   /** 版本归属变化时重建内部译文，避免保留上一版本的结果。 */
   contentIdentity?: string
   id?: string
+  /** 跨进程译文快照的稳定归属；默认用 id。搜索页 id 含会话内递增序号，
+   *  必须传不含序号的作用域，否则新进程永远命不中缓存。 */
+  snapshotScope?: string
   emptyText?: string
   translationHost?: Translation
   /** 用户主动展开的说明优先进入系统翻译队列。 */
@@ -29,18 +33,33 @@ export function TranslatedBlock(props: {
   translationToken?: number
 }) {
   const content = String(props.content || "").trim()
+  const preferences = loadPreferences()
+  const targetLanguages = preferences.defaultTargetLanguageCodes
+  const id = props.id || "appstore-content"
+  const scope = props.snapshotScope || `${id}:${props.contentIdentity || ""}`
+  /**
+   * 分享扩展每次打开都是新进程，内存译文缓存留不住。这里按
+   * 「卡片身份 + 原文 + 语言」读取上次完成的译文，命中就直接渲染，
+   * 不再重新请求翻译——「查看新说明」重复打开同一版本因此是秒开。
+   * 只在身份/正文变化时读一次共享存储，避免译文进度刷新时重复读盘。
+   */
+  const snapshotKey = translationSnapshotKey(scope, content, preferences.defaultSourceLanguageCode, targetLanguages)
+  const cached = useMemo(
+    () => content ? readTranslationSnapshot(snapshotKey, content) : null,
+    [snapshotKey, content],
+  )
   if (!content) {
     return <Text foregroundStyle={props.foregroundStyle || "secondaryLabel"}>{props.emptyText || "App Store 未提供此项内容。"}</Text>
   }
 
-  const preferences = loadPreferences()
   return (
     <TranslationCard
       key={props.contentIdentity}
-      id={props.id || "appstore-content"}
+      id={id}
       initialText={content}
+      initialResults={cached || undefined}
       sourceLanguage={preferences.defaultSourceLanguageCode}
-      targetLanguages={preferences.defaultTargetLanguageCodes}
+      targetLanguages={targetLanguages}
       readOnly
       flat
       autoTranslate
@@ -52,11 +71,12 @@ export function TranslatedBlock(props: {
       translationHost={props.translationHost}
       priority={props.priority}
       preferSequential={props.preferSequential ?? content.length > 900}
-            translationEnabled={props.translationEnabled}
+      translationEnabled={props.translationEnabled}
       translationDelayMs={props.translationDelayMs}
       isCancelled={props.isCancelled}
       foregroundStyle={props.foregroundStyle}
       gradientColors={props.gradientColors}
+      onSnapshot={(results: TranslationCardResult[]) => writeTranslationSnapshot(snapshotKey, content, results)}
     />
   )
 }
