@@ -70,11 +70,12 @@ function ImportedFontText(props: FontTextProps & { selectedFont: ImportedFont })
         if (!active) return
         const htmlPath = `${resource.directory}/view-${UUID.string()}.html`
         const normalize = (path: string) => path.replace(/^\/private\/var\//, "/var/")
+        const urlPath = (url: string) => normalize(decodeURIComponent(url.replace(/^file:\/\/(localhost)?/, "").split(/[?#]/)[0]))
         controller.shouldAllowRequest = async request => {
           if (request.url === "about:blank") return true
           if (!request.url.startsWith("file://")) return false
           try {
-            const path = normalize(decodeURIComponent(request.url.replace(/^file:\/\/(localhost)?/, "").split(/[?#]/)[0]))
+            const path = urlPath(request.url)
             return path === normalize(htmlPath) || path === normalize(`${resource.directory}/${resource.filename}`)
           } catch { return false }
         }
@@ -160,7 +161,8 @@ function ImportedFontText(props: FontTextProps & { selectedFont: ImportedFont })
 export function FontText(props: FontTextProps) {
   const settings = useFontSettings()
   const font = settings[props.role]
+  const gradientKey = props.gradientColors?.join(":") ?? ""
   return font
-    ? <ImportedFontText key={`${font.id}:${!!props.editable}:${!!props.small}:${!!props.flat}:${props.lineSpacing ?? 0}`} {...props} selectedFont={font} />
+    ? <ImportedFontText key={`${props.role}:${font.id}:${!!props.editable}:${!!props.small}:${!!props.flat}:${props.lineSpacing ?? 0}:${gradientKey}`} {...props} selectedFont={font} />
     : <SystemText {...props} />
 }

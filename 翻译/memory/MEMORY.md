@@ -31,6 +31,11 @@
 - 系统面板 UI（2.4.38 起）：与主 Translate 卡片列表完全同一套容器渲染——`List listStyle="plain" scrollContentBackground="hidden" background=#F2F2F7/#000 + Section`（语言栏一个 Section、卡片一个 Section），视觉上是连续整体、没有散块分割感；translationHost 挂在 List 上。（2.4.34~2.4.37 曾临时用 ScrollView+spacing 18，因「分割不是一个整体」已回退。）
 - 长按菜单（2.4.31 起为面板自绘；2.4.34 覆盖层方案；2.4.35 文案改「原文/译文」；2.4.36 行尺寸恢复原样；2.4.37 行加隐形命中层=判定扩大但外观不变）：面板给 readOnly 卡传入 `onMenuRequest` 后，原文/译文长按弹自绘小菜单。**2.4.34 关键改法**：文本本身（WebView 自定义字体 / AnimText / 普通 Text）一律不再挂手势，改在文本正上方盖一层 `Rectangle fill="rgba(0,0,0,0.003)"` 透明覆盖层（ZStack 叠放、contentShape=rect、撑满）接管 onLongPressGesture——WebView 会吞触摸，手势必须放在 WebView 之上；每处覆盖层必须独立元素实例（`menuOverlay(fire)` 工厂）。菜单文案：原文=「原文」+重试，译文=「译文」+重试+(允许时)替换。行视觉尺寸保持原样（padding 18×10 / minWidth 96）；**2.4.37**：每行 Button 用 overlay 叠一块 116×56 的透明命中层（onTapGesture+onLongPressGesture=先关再执行；保持有界以免吞掉遮罩的点空白关闭）——点判定四周各扩约 8–10pt，外观零变化。遮罩全屏（覆盖整个系统 Translation UI）。非面板 readOnly 卡（搜索/分享页）仍系统 contextMenu 且文本保持可选；面板容器为 ScrollView（对齐 fanyi 结构）。
 
+## 自定义字体与 App Store 宿主（2.4.67）
+- 字体选择保持旧共享键 `lingo_translation_font_settings_v1`，新增 App Group `Documents/lingo_translation_font_settings_v1.json` 快照：文件优先读取以保证主脚本/分享意图/App Store 宿主读到同一份原文/译文绑定；原 Storage 继续镜像兼容。
+- 可见字体组件订阅设置指纹，前后台独立进程间每 1.2 秒刷新一次，有活动订阅时才轮询，最后一个组件卸载时停止。FontText 原生 key 加 `role`，避免 source/target 复用同一个 WebView 实例。
+- 此版需设备实测 App Group 文件是否跨 Scripting 执行宿主共享，并实测实际 TTF 在 App Store 分享意图 WebView 能否加载；本地静态检查不能替代宿主验证。
+
 ## 环境限制（重要）
 - 设备上 `node` 是 Scripting shim：`scripting-ts eval` 无 fs 读写权限、stdin 不可用（readFileSync(0) ENOENT）；`require()` 只加载 CJS
 - 测 HTML 解析的可行方案：awk 把 HTML 转成内联转义字符串数组生成 .cjs 测试脚本再 `node` 运行

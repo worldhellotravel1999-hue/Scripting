@@ -33,9 +33,12 @@ type StoredSettings = {
 // Shared across this project's hosts; also accessible to other scripts using this key.
 const STORAGE_KEY = "lingo_translation_font_settings_v1"
 const STORAGE_OPTIONS = { shared: true }
+const SETTINGS_FILENAME = "lingo_translation_font_settings_v1.json"
 const MAX_BYTES = 30 * 1024 * 1024
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const listeners = new Set<() => void>()
+const listeners = new Set<(settings: FontSettings) => void>()
+let refreshTimer: ReturnType<typeof setInterval> | undefined
+let lastSettingsFingerprint: string | undefined
 let importing = false
 
 function fontDirectory(): string {
@@ -51,13 +54,7 @@ function isImportedFont(value: unknown): value is ImportedFont {
   return font.filename === `${font.id}.${font.format === "opentype" ? "otf" : "ttf"}`
 }
 
-function load(): FontSettings {
-  let value: unknown
-  try {
-    value = Storage.get<unknown>(STORAGE_KEY, STORAGE_OPTIONS)
-  } catch {
-    throw new FontError("无法读取字体设置，请稍后重试。")
-  }
+function decodeSettings(value: unknown): FontSettings {
   if (value == null) return { source: null, target: null, fonts: [] }
   if (typeof value !== "object") throw new FontError("字体设置数据已损坏。")
   const stored = value as Partial<StoredSettings>
@@ -69,13 +66,29 @@ function load(): FontSettings {
     if (!isImportedFont(value) || fonts.some(font => font.id === value.id)) {
       throw new FontError("字体列表数据已损坏。")
     }
-    // Return detached metadata, never external paths or the Storage object's references.
     fonts.push({ id: value.id, name: value.name, filename: value.filename, format: value.format })
   }
   return {
     source: fonts.find(font => font.id === stored.source) ?? null,
     target: fonts.find(font => font.id === stored.target) ?? null,
     fonts,
+  }
+}
+
+function load(): FontSettings {
+  const path = `${FileManager.appGroupDocumentsDirectory}/${SETTINGS_FILENAME}`
+  try {
+    if (FileManager.isFileSync(path)) {
+      try { return decodeSettings(JSON.parse(FileManager.readAsStringSync(path))) } catch {}
+    }
+    const legacy = Storage.get<unknown>(STORAGE_KEY, STORAGE_OPTIONS)
+    const settings = decodeSettings(legacy)
+    if (legacy != null) {
+      try { FileManager.writeAsStringSync(path, JSON.stringify(legacy)) } catch {}
+    }
+    return settings
+  } catch {
+    throw new FontError("无法读取字体设置，请稍后重试。")
   }
 }
 
@@ -87,17 +100,48 @@ function commit(settings: FontSettings): void {
     fonts: settings.fonts,
   }
   try {
-    if (!Storage.set(STORAGE_KEY, stored, STORAGE_OPTIONS)) {
-      throw new FontError("无法保存字体设置，原设置未更改。")
-    }
+    const path = `${FileManager.appGroupDocumentsDirectory}/${SETTINGS_FILENAME}`
+    FileManager.writeAsStringSync(path, JSON.stringify(stored))
   } catch {
-    throw new FontError("无法保存字体设置，原设置未更改。")
+    throw new FontError("无法保存字体设置到 App Group，原设置未更改。")
   }
-  // Storage's success flag acknowledges the write; disk persistence is asynchronous.
-  // A listener failure must not turn an already committed import into a rollback.
+  try { Storage.set(STORAGE_KEY, stored, STORAGE_OPTIONS) } catch {}
+  const committed = decodeSettings(stored)
+  lastSettingsFingerprint = settingsFingerprint(committed)
   for (const listener of Array.from(listeners)) {
-    try { listener() } catch {}
+    try { listener(committed) } catch {}
   }
+}
+
+function settingsFingerprint(settings: FontSettings): string {
+  return JSON.stringify({ source: settings.source?.id ?? null, target: settings.target?.id ?? null, fonts: settings.fonts, error: settings.error ?? null })
+}
+
+function refreshSettings(): void {
+  let settings: FontSettings
+  try { settings = load() }
+  catch { return }
+  const fingerprint = settingsFingerprint(settings)
+  if (fingerprint === lastSettingsFingerprint) return
+  lastSettingsFingerprint = fingerprint
+  for (const listener of Array.from(listeners)) {
+    try { listener(settings) } catch {}
+  }
+}
+
+function startSettingsRefresh(): void {
+  if (refreshTimer !== undefined) return
+  lastSettingsFingerprint = undefined
+  refreshSettings()
+  refreshTimer = setInterval(refreshSettings, 1200)
+}
+
+function stopSettingsRefreshIfIdle(): void {
+  if (listeners.size !== 0 || refreshTimer === undefined) return
+  const timer = refreshTimer
+  refreshTimer = undefined
+  lastSettingsFingerprint = undefined
+  if (timer !== undefined) clearInterval(timer)
 }
 
 function loadForDisplay(): FontSettings {
@@ -110,11 +154,14 @@ function loadForDisplay(): FontSettings {
 export function useFontSettings(): FontSettings {
   const [settings, setSettings] = useState<FontSettings>(() => loadForDisplay())
   useEffect(() => {
-    const refresh = () => setSettings(loadForDisplay())
+    const refresh = (next?: FontSettings) => setSettings(next ?? loadForDisplay())
     listeners.add(refresh)
-    // Subscribe first, then reload: covers changes between initial render and mounting.
+    startSettingsRefresh()
     refresh()
-    return () => { listeners.delete(refresh) }
+    return () => {
+      listeners.delete(refresh)
+      stopSettingsRefreshIfIdle()
+    }
   }, [])
   return settings
 }
