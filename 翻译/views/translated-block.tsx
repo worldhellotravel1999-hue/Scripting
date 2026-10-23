@@ -25,6 +25,8 @@ export function TranslatedBlock(props: {
   isCancelled?: () => boolean
   foregroundStyle?: any
   gradientColors?: [string, string]
+  /** 深色模式宿主背景；App Store 搜索卡用 #1C1C1E，分享页省略（#000）。 */
+  darkBackground?: string
   /** 只显示译文，隐藏原文 */
   translationOnly?: boolean
   /** 译文显示在原文上方（App Store 分享页用） */
@@ -76,6 +78,7 @@ export function TranslatedBlock(props: {
       isCancelled={props.isCancelled}
       foregroundStyle={props.foregroundStyle}
       gradientColors={props.gradientColors}
+      darkBackground={props.darkBackground}
       onSnapshot={(results: TranslationCardResult[]) => writeTranslationSnapshot(snapshotKey, content, results)}
     />
   )

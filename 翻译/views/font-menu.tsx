@@ -12,6 +12,8 @@ import { safeTimeout } from "../core/guarded"
     3. 点「OT」/「TT」→ 该角色的图标行：返回、文件导入、系统字体
 
   二级/三级只在点开后占用顶栏位置，不点开就不显示。
+  字体动作成功后只从三级退回二级，顶栏不会自动收回「Translate」胶囊；
+  只有点二级的「RET」才收起。
 
   视觉约定：整排一律是同一块中性玻璃 + label 色图标/文字，不用强调色着色；
   按下去的瞬时高亮也关掉（plain），避免出现一块蓝色跟旁边不搭。
@@ -23,13 +25,14 @@ let pendingKey: string | null = null
 let actionPending = false
 const pendingSubscribers = new Set<() => void>()
 
-// 动作成功后把顶栏收回到「Translate」，失败/取消则停在原处便于重试。
-let autoCollapse = false
-const collapseSubscribers = new Set<() => void>()
+// 动作成功后在三级操作行退回二级字体列表；失败/取消则停在原处便于重试。
+// 注意：这里不再把整条顶栏收回「Translate」——选完字体仍要能继续选另一边。
+let autoBackToRoles = false
+const successSubscribers = new Set<() => void>()
 
 /*
   选中系统字体这类「一瞬就完成」的动作，沙漏会在几十毫秒内消失，看起来像没反应。
-  所以每个动作的加载图标至少保留这么久，再收起顶栏。
+  所以每个动作的加载图标至少保留这么久，再结束忙碌状态。
 */
 const MIN_BUSY_MS = 450
 
@@ -44,16 +47,16 @@ function setPendingKey(key: string | null) {
   notifyPending()
 }
 
-function notifyCollapse() {
-  for (const subscriber of Array.from(collapseSubscribers)) {
+function notifySuccess() {
+  for (const subscriber of Array.from(successSubscribers)) {
     try { subscriber() } catch {}
   }
 }
 
-/** 订阅「字体动作成功后自动收回」；返回退订函数。 */
+/** 订阅「字体动作成功」；返回退订函数。 */
 export function onFontActionSucceeded(listener: () => void): () => void {
-  collapseSubscribers.add(listener)
-  return () => { collapseSubscribers.delete(listener) }
+  successSubscribers.add(listener)
+  return () => { successSubscribers.delete(listener) }
 }
 
 function scheduleAction(key: string, action: () => void | Promise<unknown>, minBusyMs = MIN_BUSY_MS): void {
@@ -78,12 +81,12 @@ function scheduleAction(key: string, action: () => void | Promise<unknown>, minB
           console.error("字体设置失败，当前宿主无法显示提示。")
         }
       }
-      // 让沙漏图标有机会被看到，再收起顶栏（图标不变的动作传 0）。
+      // 让沙漏图标有机会被看到，再结束忙碌状态（图标不变的动作传 0）。
       const remaining = minBusyMs - (Date.now() - startedAt)
       if (remaining > 0) await new Promise<void>(resolve => setTimeout(resolve, remaining))
       if (succeeded) {
-        autoCollapse = true
-        notifyCollapse()
+        autoBackToRoles = true
+        notifySuccess()
       }
       actionPending = false
       setPendingKey(null)
@@ -184,7 +187,7 @@ function TextCapsule(
 // 顶栏里所有按钮都用 plain：不额外着色，也不在按下时闪一块蓝。
 const PLAIN = { buttonStyle: "plain" as const }
 
-/** 把一份已导入字体应用到指定角色，完成后自动收回顶栏。 */
+/** 把一份已导入字体应用到指定角色；成功后只退回二级，顶栏保持展开。 */
 function applyFont(role: FontRole, font: ImportedFont): void {
   scheduleAction(`font:${role}:${font.id}`, () => selectFont(role, font), 0)
 }
@@ -243,20 +246,21 @@ export function RoleActions({ role, onBack }: { role: FontRole; onBack: () => vo
  *
  * 未展开时是一颗「Translate」玻璃胶囊；点按后胶囊消失，摊出「OT」「TT」
  * 两颗文字胶囊和一颗「RET」收回胶囊；再点「OT」/「TT」进入第三级图标行。
- * 任一字体动作成功后自动收回成胶囊；取消导入或失败则保持展开。
+ * 字体动作成功后只从第三级退回二级（OT/TT/FNT 行），方便继续选另一边；
+ * 只有点「RET」才收回成胶囊。取消导入或失败则停在原处。
  */
 export function TypefaceMenu() {
   const [open, setOpen] = useState(false)
   const [role, setRole] = useState<FontRole | null>(null)
   const settings = useFontSettings()
   useEffect(() => {
-    const collapse = () => {
-      if (!autoCollapse) return
-      autoCollapse = false
+    const backToRoles = () => {
+      if (!autoBackToRoles) return
+      autoBackToRoles = false
+      // 只退一级：绝不再把整条顶栏收回「Translate」胶囊。
       setRole(null)
-      setOpen(false)
     }
-    return onFontActionSucceeded(collapse)
+    return onFontActionSucceeded(backToRoles)
   }, [])
 
   if (!open) {

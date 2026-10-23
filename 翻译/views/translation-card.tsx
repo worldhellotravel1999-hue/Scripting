@@ -119,6 +119,8 @@ type TranslationCardProps = {
   isCancelled?: () => boolean
   foregroundStyle?: any
   gradientColors?: [string, string]
+  /** 深色模式宿主背景；缺省按 flat 使用页面色或卡片色。 */
+  darkBackground?: string
   onCompleted?: (id: string, snapshot: TranslationCardSnapshot) => void
   onDelete?: (id: string) => void
 }
@@ -750,7 +752,7 @@ export function TranslationCard(props: TranslationCardProps) {
           <Spacer />
         </HStack>
         <VStack alignment="leading" contextMenu={{ menuItems: <CopyButton title="复制原文" text={sourceText} /> }}>
-          <FontText role="source" flat={props.flat} foregroundStyle={props.foregroundStyle} gradientColors={props.gradientColors} lineSpacing={4} text={sourceText || "—"} />
+          <FontText role="source" flat={props.flat} darkBackground={props.darkBackground} foregroundStyle={props.foregroundStyle} gradientColors={props.gradientColors} lineSpacing={4} text={sourceText || "—"} />
         </VStack>
       </VStack>
     )
@@ -767,7 +769,7 @@ export function TranslationCard(props: TranslationCardProps) {
           ) : null}
         </HStack>
         <VStack alignment="leading" contextMenu={{ menuItems: <CopyButton title="复制" text={item.text} /> }}>
-          <FontText role="target" flat={props.flat} foregroundStyle={props.foregroundStyle} gradientColors={props.gradientColors} lineSpacing={4} text={item.text || item.error || "—"} />
+          <FontText role="target" flat={props.flat} darkBackground={props.darkBackground} foregroundStyle={props.foregroundStyle} gradientColors={props.gradientColors} lineSpacing={4} text={item.text || item.error || "—"} />
         </VStack>
       </VStack>
     ))
@@ -802,7 +804,7 @@ export function TranslationCard(props: TranslationCardProps) {
           <ZStack alignment="leading" padding={{ top: 12, bottom: 4 }} frame={{ maxWidth: "infinity" as any, alignment: "leading" as any }}
             {...(readOnly && !props.onMenuRequest ? { contextMenu: { menuItems: <CopyButton title="复制原文" text={sourceText} /> } } : {})}>
             <FontText role="source" lineSpacing={4} text={readOnly ? sourceText || "—" : sourceText} selectable={!menuActions && sourceText.length <= 1200} 
-              flat={props.flat} foregroundStyle={props.foregroundStyle} gradientColors={props.gradientColors} editable={!readOnly} onChanged={updateInputText} onTextSubmit={submitTranslation} />
+              flat={props.flat} darkBackground={props.darkBackground} foregroundStyle={props.foregroundStyle} gradientColors={props.gradientColors} editable={!readOnly} onChanged={updateInputText} onTextSubmit={submitTranslation} />
             {menuActions ? menuOverlay(menuActions.source) : null}
           </ZStack>
         </>
@@ -837,12 +839,12 @@ export function TranslationCard(props: TranslationCardProps) {
           {item.text ? (
             menuActions ? (
               <ZStack alignment="leading" frame={{ maxWidth: "infinity" as any, alignment: "leading" as any }}>
-                <FontText role="target" animated={!translationOnly && !longText} selectable={false} flat={props.flat} foregroundStyle={props.foregroundStyle} gradientColors={props.gradientColors} lineSpacing={4} text={item.text} />
+                <FontText role="target" animated={!translationOnly && !longText} selectable={false} flat={props.flat} darkBackground={props.darkBackground} foregroundStyle={props.foregroundStyle} gradientColors={props.gradientColors} lineSpacing={4} text={item.text} />
                 {menuOverlay(() => menuActions.target(item.text))}
               </ZStack>
             ) : (
               <VStack alignment="leading" contextMenu={{ menuItems: <CopyButton title="复制" text={item.text} /> }}>
-                <FontText role="target" animated={!translationOnly && !longText} selectable={!longText} flat={props.flat} foregroundStyle={props.foregroundStyle} gradientColors={props.gradientColors} lineSpacing={4} text={item.text} />
+                <FontText role="target" animated={!translationOnly && !longText} selectable={!longText} flat={props.flat} darkBackground={props.darkBackground} foregroundStyle={props.foregroundStyle} gradientColors={props.gradientColors} lineSpacing={4} text={item.text} />
               </VStack>
             )
           ) : null}

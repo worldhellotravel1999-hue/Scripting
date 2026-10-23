@@ -1136,6 +1136,7 @@ function AppSearchSection(props: {
                   translationHost={props.translationHost}
                   foregroundStyle={props.foregroundStyle}
                   gradientColors={props.gradientColors}
+                  darkBackground="#1C1C1E"
                   translationOnly
                   translationEnabled={app.detailLoading !== true}
                   priority={2}
@@ -1160,6 +1161,7 @@ function AppSearchSection(props: {
                   translationHost={props.translationHost}
                   foregroundStyle={props.foregroundStyle}
                   gradientColors={props.gradientColors}
+                  darkBackground="#1C1C1E"
                   translationOnly
                   translationEnabled={app.detailLoading !== true}
                   priority={2}

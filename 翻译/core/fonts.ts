@@ -101,7 +101,23 @@ function commit(settings: FontSettings): void {
   }
   try {
     const path = `${FileManager.appGroupDocumentsDirectory}/${SETTINGS_FILENAME}`
-    FileManager.writeAsStringSync(path, JSON.stringify(stored))
+    const temporary = `${path}.tmp`
+    const json = JSON.stringify(stored)
+    // 主界面和分享/App Store 扩展会同时轮询这份快照；直接覆盖时，
+    // 另一个进程可能正好读到半截 JSON 而短暂退回系统字体。
+    // 先写同目录临时文件，再用 rename 原子替换。
+    try {
+      FileManager.writeAsStringSync(temporary, json)
+      try {
+        FileManager.renameSync(temporary, path)
+      } catch {
+        FileManager.writeAsStringSync(path, json)
+        try { FileManager.removeSync(temporary) } catch {}
+      }
+    } catch (error) {
+      try { FileManager.removeSync(temporary) } catch {}
+      throw error
+    }
   } catch {
     throw new FontError("无法保存字体设置到 App Group，原设置未更改。")
   }
