@@ -1,9 +1,9 @@
 import {
-  Button, HStack, Image, List, NavigationStack, ProgressView, Rectangle,
+  AppEvents, Button, HStack, Image, List, NavigationStack, ProgressView, Rectangle,
   Script, ScrollView, Spacer, Text, TextField, VStack, ZStack, useEffect, useMemo, useRef, useState,
 } from "scripting"
 import { identifyBrand } from "./brands"
-import { flattenModels, loadProviders, onBuiltinFlags, probeBuiltinFlags } from "./providers"
+import { flattenModels, loadProviders } from "./providers"
 import { scoreOf } from "./scoring"
 import { useDetection } from "./useDetection"
 import type { InitialRecords } from "./useDetection"
@@ -157,7 +157,7 @@ function IconButton({ name, label, action, disabled = false }: { name: string; l
 }
 
 export default function RankingPage(props: PageProps = {}) {
-  const [models, setModels] = useState(() => props.models ?? flattenModels(loadProviders()))
+  const [models, setModels] = useState<Model[]>(() => props.models ?? [])
   const detection = useDetection(models, props.records)
   const [group, setGroup] = useState(props.initialGroup ?? "")
   const [query, setQuery] = useState(props.initialQuery ?? "")
@@ -175,9 +175,14 @@ export default function RankingPage(props: PageProps = {}) {
   const groups = [...new Set(models.map(m => m.group))]
   const logoDirectory = props.logoDirectory ?? Script.directory + "/assets/logos"
 
-  function refresh() {
+  async function refresh() {
     if (props.models) return
-    const next = flattenModels(loadProviders())
+    let next: Model[]
+    try {
+      next = flattenModels(await loadProviders())
+    } catch (_) {
+      return
+    }
     setModels(prev => JSON.stringify(prev) === JSON.stringify(next) ? prev : next)
     setGroup(prev => next.some(m => m.group === prev) ? prev : "")
     setSelected(prev => prev.filter(name => next.some(m => m.group === name)))
@@ -208,22 +213,16 @@ export default function RankingPage(props: PageProps = {}) {
     setSideBySide(prev => !prev)
   }
 
-  // 内置渠道是否已添加要在首屏之后才探明；探明后立刻补上分组与模型。
+  // 清单实时来自 Assistant.getProviders()：进页、回前台、每 3 秒各同步一次。
   useEffect(() => {
-    const off = onBuiltinFlags(() => refresh())
-    void probeBuiltinFlags().then(refresh)
-    return off
-  }, [])
-
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>
-    const tick = () => {
-      setNow(Date.now())
-      refresh()
-      timer = setTimeout(tick, 5000)
+    void refresh()
+    const timer = setInterval(() => { setNow(Date.now()); void refresh() }, 3000)
+    const onPhase = (phase: string) => { if (phase === "active") void refresh() }
+    AppEvents.scenePhase.addListener(onPhase as any)
+    return () => {
+      clearInterval(timer)
+      AppEvents.scenePhase.removeListener(onPhase as any)
     }
-    timer = setTimeout(tick, 5000)
-    return () => clearTimeout(timer)
   }, [])
 
   const matching = models.filter(m => {
