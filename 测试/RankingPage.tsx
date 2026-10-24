@@ -1,11 +1,11 @@
 import {
-  Button, HStack, Image, List, NavigationStack, ProgressView, Rectangle,
+  AppEvents, Button, HStack, Image, List, NavigationStack, ProgressView, Rectangle,
   Script, ScrollView, Spacer, Text, TextField, VStack, ZStack, useEffect, useMemo, useRef, useState,
 } from "scripting"
 import { identifyBrand } from "./brands"
-import { flattenModels, loadProviders, onBuiltinFlags, probeBuiltinFlags } from "./providers"
+import { flattenModels, loadProviders } from "./providers"
 import { scoreOf } from "./scoring"
-import { readSideBySide, saveSideBySide } from "./storage"
+import { pruneRecords, readSideBySide, saveSideBySide } from "./storage"
 import { useDetection } from "./useDetection"
 import type { InitialRecords } from "./useDetection"
 import type { Model, Phase } from "./types"
@@ -194,7 +194,9 @@ function IconButton({ name, label, action, disabled = false }: { name: string; l
 }
 
 export default function RankingPage(props: PageProps = {}) {
-  const [models, setModels] = useState(() => props.models ?? flattenModels(loadProviders()))
+  const [models, setModels] = useState<Model[]>(() => props.models ?? [])
+  // 首屏清单是异步读的（Assistant.getProviders）；读回来之前不显示“暂无模型”。
+  const [loaded, setLoaded] = useState(Boolean(props.models))
   const detection = useDetection(models, props.records)
   const [group, setGroup] = useState(props.initialGroup ?? "")
   const [query, setQuery] = useState(props.initialQuery ?? "")
@@ -213,10 +215,31 @@ export default function RankingPage(props: PageProps = {}) {
   const groups = [...new Set(models.map(m => m.group))]
   const logoDirectory = props.logoDirectory ?? Script.directory + "/assets/logos"
 
-  function refresh() {
+  // 每次刷新都重新问一次宿主：删除的模型、改名的分组、新加的渠道都会立刻反映出来。
+  // 只有内容真的变化时才更新状态，避免定时刷新打断正在进行的动画。
+  const refreshSeq = useRef(0)
+  const pruned = useRef(false)
+  const modelsRef = useRef(models)
+  modelsRef.current = models
+  async function refresh() {
     if (props.models) return
-    const next = flattenModels(loadProviders())
+    const seq = ++refreshSeq.current
+    let next: Model[]
+    try {
+      next = flattenModels(await loadProviders())
+    } catch (_) {
+      return
+    }
+    if (seq !== refreshSeq.current) return
+    // 宿主刚启动时可能瞬时返回空清单，不要把已经显示的列表误清空。
+    if (!next.length && modelsRef.current.length) return
     setModels(prev => JSON.stringify(prev) === JSON.stringify(next) ? prev : next)
+    setLoaded(true)
+    // 首次拿到清单时顺手清掉已删除模型的旧分数，删掉的模型不留任何痕迹。
+    if (!pruned.current && next.length) {
+      pruned.current = true
+      try { pruneRecords(next) } catch (_) {}
+    }
     setGroup(prev => next.some(m => m.group === prev) ? prev : "")
     setSelected(prev => prev.filter(name => next.some(m => m.group === name)))
   }
@@ -248,22 +271,31 @@ export default function RankingPage(props: PageProps = {}) {
     saveSideBySide(next)
   }
 
-  // 内置渠道是否已添加要在首屏之后才探明；探明后立刻补上分组与模型。
+  // 首屏先读一次；之后每 3 秒轻量同步一次（模型清单很小，读的是宿主内存里的配置），
+  // 从 Scripting 设置页改完分组/模型切回来时，scenePhase=active 会立即再刷一次。
+  // 退到后台时暂停轮询，回前台立即补一次，避免无意义的重复调用。
+  const visible = useRef(true)
   useEffect(() => {
-    const off = onBuiltinFlags(() => refresh())
-    void probeBuiltinFlags().then(refresh)
-    return off
-  }, [])
-
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>
-    const tick = () => {
-      setNow(Date.now())
-      refresh()
-      timer = setTimeout(tick, 5000)
+    void refresh()
+    const timer = setInterval(() => {
+      // 定时器回调里的同步异常会终止整个脚本，这里全部包起来。
+      try {
+        if (!visible.current) return
+        setNow(Date.now())
+        void refresh()
+      } catch (_) {
+        // 单次同步失败不影响下一轮。
+      }
+    }, 3000)
+    const onPhase = (phase: string) => {
+      visible.current = phase === "active"
+      if (visible.current) void refresh()
     }
-    timer = setTimeout(tick, 5000)
-    return () => clearTimeout(timer)
+    AppEvents.scenePhase.addListener(onPhase as any)
+    return () => {
+      clearInterval(timer)
+      AppEvents.scenePhase.removeListener(onPhase as any)
+    }
   }, [])
 
   // 搜索词只归一化一次，不再在每个模型上重复 trim/toLowerCase。
@@ -384,7 +416,7 @@ export default function RankingPage(props: PageProps = {}) {
             <Rectangle fill={RULE} frame={{ height: 1 }} />
           </VStack>
         })}
-        {!sorted.length ? <Text font={15} foregroundStyle="#999999" padding={{ vertical: 28 }} frame={{ maxWidth: "infinity" }} listRowSeparator="hidden">{models.length ? "没有匹配的模型" : "暂无已添加的模型，请先在 Scripting 中添加"}</Text> : null}
+        {!sorted.length ? <Text font={15} foregroundStyle="#999999" padding={{ vertical: 28 }} frame={{ maxWidth: "infinity" }} listRowSeparator="hidden">{models.length ? "没有匹配的模型" : loaded ? "暂无已添加的模型，请先在 Scripting 中添加" : "正在读取渠道…"}</Text> : null}
       </List>
     </VStack>
   </NavigationStack>
