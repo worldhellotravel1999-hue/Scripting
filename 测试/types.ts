@@ -1,6 +1,6 @@
 export const TIMEOUT_MS = 30000
 
-export type Provider = "openai" | "gemini" | "anthropic" | "deepseek" | "openrouter" | { custom: string }
+export type Provider = "openai" | "gemini" | "anthropic" | "deepseek" | "openrouter" | "grok" | { custom: string }
 
 export type Model = {
   key: string

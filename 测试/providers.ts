@@ -1,16 +1,28 @@
 import { modelKey } from "./types"
 import type { Model, Provider } from "./types"
 
-const BUILTIN_LABELS: Record<string, string> = {
-  "openai.custom.models": "OpenAI",
-  "gemini.custom.models": "Gemini",
-  "anthropic.custom.models": "Anthropic",
-  "deepseek.custom.models": "DeepSeek",
-  "openrouter.custom.models": "OpenRouter",
-}
+/**
+ * 渠道清单的唯一来源：`Assistant.getProviders()`。
+ *
+ * 为什么不再读 `.scripting/agent-custom-*.json`：
+ * 1. 那两个文件是历史镜像，不是应用的实时配置。`agent-custom-models.json` 已经
+ *    多日没有更新（仍保留着早就删掉的内置模型与 seededBuiltInIDs），
+ *    `agent-custom-providers.json` 里也可能残留被删除 / 被替换的旧渠道。
+ *    用户删掉模型、换掉分组后，页面依旧会把这些残留读出来，正是原来的 bug。
+ * 2. `getProviders()` 每次调用都返回当前真正可用的账号（providerID / name /
+ *    provider / modelId / models），含内置渠道已选的模型，删除即消失。
+ * 3. 因此也不再需要用“无效 modelId 探测是否配置了 API key”的旁路判定——
+ *    没有添加的渠道根本不会出现在这个列表里。
+ */
 
-// provider 名（如 "deepseek"）与上面清单键的对应关系。
-const BUILTIN_PROVIDER_NAMES = Object.keys(BUILTIN_LABELS).map(key => key.split(".")[0])
+const BUILTIN_LABELS: Record<string, string> = {
+  openai: "OpenAI",
+  gemini: "Gemini",
+  anthropic: "Anthropic",
+  deepseek: "DeepSeek",
+  openrouter: "OpenRouter",
+  grok: "Grok",
+}
 
 type JSONRecord = Record<string, unknown>
 function isRecord(value: unknown): value is JSONRecord {
@@ -19,123 +31,88 @@ function isRecord(value: unknown): value is JSONRecord {
 
 function modelIDs(value: unknown): string[] {
   if (!isRecord(value)) return []
-  return Object.keys(value).filter(id => id.trim().length > 0 && isRecord(value[id]))
+  // 排序保证同一条配置每次读出的清单顺序一致，刷新时才能可靠地判断“没变”。
+  return Object.keys(value).filter(id => id.trim().length > 0).sort()
 }
 
-type CustomProvider = { name: string; models: string[] }
+export type CustomProvider = { id: string; name: string; models: string[] }
+export type BuiltinProvider = { id: string; name: string; provider: Provider; models: string[] }
 
 export type ProviderSnapshot = {
   custom: CustomProvider[]
-  builtin: Array<{ name: string; provider: Provider; models: string[] }>
+  builtin: BuiltinProvider[]
 }
 
-// 读失败/不存在一律当 null，交给 parseProviders 按 unknown 处理，不向下泄漏 any。
-function readJSON(path: string): unknown | null {
-  try {
-    if (!FileManager.existsSync(path)) return null
-    return JSON.parse(FileManager.readAsStringSync(path))
-  } catch (_) {
-    return null
-  }
-}
-
-// 只认用户登记的条目。currentModelId 可能残留已删除模型，不能补进清单。
-// 内置渠道必须由用户真正添加（配置了 API key）才出现；只按模型清单猜会把
-// 未添加的预置渠道也列进来，用户明确要求“没有添加就不显示”。
-export function parseProviders(providerItems: unknown, builtinJSON: unknown, flags: BuiltinFlags = {}): ProviderSnapshot {
+/** 解析 `Assistant.getProviders()` 的返回值：只认真正配置了模型的账号。 */
+export function parseProviderInfos(infos: unknown): ProviderSnapshot {
   const custom: CustomProvider[] = []
-  const builtin: ProviderSnapshot["builtin"] = []
-  if (Array.isArray(providerItems)) {
-    for (const item of providerItems) {
-      if (!isRecord(item) || typeof item.name !== "string" || !item.name.trim()) continue
-      const models = modelIDs(item.modelInfos)
-      if (models.length) custom.push({ name: item.name, models })
+  const builtin: BuiltinProvider[] = []
+  if (!Array.isArray(infos)) return { custom, builtin }
+  for (const item of infos) {
+    if (!isRecord(item)) continue
+    const id = typeof item.providerID === "string" ? item.providerID : ""
+    const rawName = typeof item.name === "string" ? item.name.trim() : ""
+    const models = modelIDs(item.models)
+    // 没有模型就没什么可测的，空分组只会造成“明明删了还在”的错觉。
+    if (!models.length) continue
+    const provider = item.provider
+    if (typeof provider === "string") {
+      const label = BUILTIN_LABELS[provider] ?? rawName
+      if (!label) continue
+      builtin.push({ id, name: label, provider: provider as Provider, models })
+      continue
     }
-  }
-  if (isRecord(builtinJSON) && isRecord(builtinJSON.models)) {
-    const seeds = isRecord(builtinJSON.seededBuiltInIDs) ? builtinJSON.seededBuiltInIDs : {}
-    for (const [key, name] of Object.entries(BUILTIN_LABELS)) {
-      const provider = key.split(".")[0]
-      const seeded = Array.isArray(seeds[key]) ? (seeds[key] as unknown[]).filter((id): id is string => typeof id === "string") : []
-      const listed = modelIDs(builtinJSON.models[key])
-      // 用户直接登记过的模型一律保留；否则必须已配置 API key 才算“已添加”。
-      const userAdded = listed.some(id => !seeded.includes(id))
-      if (flags[provider] !== true && !userAdded) continue
-      // 应用侧清单被清空时（例如 DeepSeek 选过模型后被重置）退回内置目录，
-      // 否则已添加的渠道会一个模型都没有、无法参与排名。
-      const models = listed.length ? listed : seeded
-      if (models.length) builtin.push({ name, provider: provider as Provider, models })
-    }
+    if (!isRecord(provider)) continue
+    const name = typeof provider.custom === "string" ? provider.custom.trim() : ""
+    if (!name) continue
+    custom.push({ id, name, models })
   }
   return { custom, builtin }
 }
 
-// ── 内置渠道“是否已配置 API key”探测 ───────────────────────────────
-// 用一个必定不存在的 modelId 发起调用：未配置的渠道会在本地直接抛
-// “the selected api provider has no configured API key”（实测约 20ms，不联网）；
-// 已配置的渠道会走到模型校验，抛“未找到 X 模型”或真正建立请求。
-// 两类错误可区分，且未配置渠道零网络开销。
-export type BuiltinFlags = Record<string, boolean>
+// 上一次成功读取的清单：单次读取失败（例如页面刚起来、宿主还在初始化）时
+// 继续显示已有内容，而不是瞬间清空列表。
+let lastSnapshot: ProviderSnapshot | null = null
 
-const PROBE_MODEL_ID = "__scripting_builtin_probe__.invalid"
-let builtinFlags: BuiltinFlags | null = null
-let probing: Promise<BuiltinFlags> | null = null
-const flagListeners = new Set<(flags: BuiltinFlags) => void>()
-
-export function builtinFlagsNow(): BuiltinFlags {
-  return builtinFlags ?? {}
-}
-
-export function onBuiltinFlags(listener: (flags: BuiltinFlags) => void): () => void {
-  flagListeners.add(listener)
-  if (builtinFlags) listener(builtinFlags)
-  return () => flagListeners.delete(listener)
-}
-
-async function probeOne(name: string): Promise<boolean> {
+// 只有宿主完全没有 getProviders（旧版本）时才退回读历史镜像，
+// 且只用于自定义渠道——内置模型的历史镜像已经过时，宁可少列也不列错。
+function readLegacyCustom(): CustomProvider[] {
   try {
-    const stream = await Assistant.requestStreaming({
-      provider: name as Provider,
-      modelId: PROBE_MODEL_ID,
-      messages: [{ role: "user", content: "probe" }],
-    })
-    // 极少数情况下模型校验放行了：立即取消，不读取任何内容。
-    void stream.getReader().cancel().catch(() => {})
-    return true
-  } catch (error) {
-    const message = String((error as Error)?.message ?? "")
-    if (!message) return false
-    return !/no configured API key/i.test(message)
+    if (!FileManager.isiCloudEnabled) return []
+    const path = FileManager.iCloudDocumentsDirectory + "/.scripting/agent-custom-providers.json"
+    if (!FileManager.existsSync(path)) return []
+    const items = JSON.parse(FileManager.readAsStringSync(path))
+    if (!Array.isArray(items)) return []
+    const result: CustomProvider[] = []
+    for (const item of items) {
+      if (!isRecord(item) || typeof item.name !== "string" || !item.name.trim()) continue
+      const models = modelIDs(item.modelInfos)
+      if (models.length) result.push({ id: typeof item.providerID === "string" ? item.providerID : "", name: item.name, models })
+    }
+    return result
+  } catch (_) {
+    return []
   }
 }
 
-export function probeBuiltinFlags(): Promise<BuiltinFlags> {
-  if (builtinFlags) return Promise.resolve(builtinFlags)
-  if (probing) return probing
-  if (typeof Assistant === "undefined" || typeof Assistant.requestStreaming !== "function") {
-    return Promise.resolve(builtinFlags ?? {})
+/**
+ * 读取当前已添加的渠道与模型。每次进页面、回到前台、定时刷新、以及每次发起
+ * 检测前都会调用，因此删除模型 / 替换分组之后列表会立即跟着变。
+ */
+export async function loadProviders(): Promise<ProviderSnapshot> {
+  if (typeof Assistant !== "undefined" && typeof Assistant.getProviders === "function") {
+    try {
+      const snapshot = parseProviderInfos(await Assistant.getProviders())
+      lastSnapshot = snapshot
+      return snapshot
+    } catch (_) {
+      // 读取失败保留上一次结果；真的没有可用清单时才回退到历史镜像。
+      if (lastSnapshot) return lastSnapshot
+    }
   }
-  probing = Promise.all(BUILTIN_PROVIDER_NAMES.map(async name => [name, await probeOne(name)] as const))
-    .then(entries => {
-      const next: BuiltinFlags = {}
-      for (const [name, configured] of entries) next[name] = configured
-      builtinFlags = next
-      for (const listener of flagListeners) listener(next)
-      return next
-    })
-    .catch(() => builtinFlags ?? {})
-    .finally(() => { probing = null })
-  return probing
-}
-
-export function loadProviders(): ProviderSnapshot {
-  if (!FileManager.isiCloudEnabled) return { custom: [], builtin: [] }
-  const root = FileManager.iCloudDocumentsDirectory + "/.scripting"
-  return parseProviders(
-    readJSON(root + "/agent-custom-providers.json"),
-    readJSON(root + "/agent-custom-models.json"),
-    builtinFlagsNow(),
-  )
+  const fallback: ProviderSnapshot = { custom: readLegacyCustom(), builtin: [] }
+  if (fallback.custom.length) lastSnapshot = fallback
+  return fallback
 }
 
 export function flattenModels(snapshot: ProviderSnapshot): Model[] {
