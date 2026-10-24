@@ -1,4 +1,4 @@
-# Overall 1.0.1
+# Overall 1.0.2
 
 所有运行代码都是可直接编辑的 TypeScript / TSX。没有加密载荷、Base64 代码、动态执行字符串或远程代码更新。
 
@@ -7,7 +7,7 @@
 - `index.tsx`：页面入口，关闭后退出脚本。
 - `RankingPage.tsx`：顶部渠道标签、排名列表、搜索与红绿状态动画。
 - `brands.ts`：23 家常见厂商及模型系列识别。
-- `providers.ts`：仅列出 Scripting 中用户添加的渠道与模型，排除预置目录与已删除模型的残留选择；内置渠道按“是否已配置 API key”判定是否已添加；每次请求前校验当前清单。
+- `providers.ts`：清单唯一来源是 `Assistant.getProviders()`——只列出当前真正可用的渠道与模型，删除模型、替换/改名分组后立即反映；不再读 `.scripting/agent-custom-*.json` 历史镜像，也不再用无效模型 ID 反推 API key；没有模型的账号直接跳过。
 - `probe.ts`：公开的真实请求探针、30 秒超时、取消与流式回复判断。
 - `scoring.ts`：0—100 分的响应速度、历史可用性和前三名奖励算法。
 - `storage.ts`：沿用历史记录键；清理旧翻译引擎设置和译文缓存。
@@ -23,7 +23,7 @@
 
 绿色代表成功，红色代表失败，灰色代表未检测或历史已过期。检测开始后行背景在淡绿 #F2FAF6 / 淡红 #FDF5F5 之间以 0.65 秒一换交替，但整段红绿交替效果只持续约 2 秒（只缩短整体交替时长，不改变每次换色的节奏），到点即归于白底静默等待结果（环境不支持 8 位透明色，故用白底调出的约 6% 淡度实色，柔和但仍可辨），叠加上卡片摆动与 0.28 秒循环的 46×6 往返扫描条；打分期间右侧分数位以 0.09 秒一跳滚动 1—100 的数字（灰色，替代原圆形加载指示），出结果那一刻定格为对应颜色（好分绿闪光拉长为 1.2 秒的“弹窗”那一下，分数同步放大停住再缩放回去；失败/低分红闪光 0.45 秒，色值 #DCF5E7 / #FDE8EA）；同时整张卡片（含底色）放大 1.06 弹出停住，闪光结束再弹簧缩回原大小，分数从约低 30 分用 0.4 秒快速数到真实分数，再配合 0.3 秒弹簧弹出。检测中与等待中的卡片按“右→下→左→上”以约 0.16 秒一步快速上下左右循环摆动，结果揭晓立刻归位。顶部显示真实完成数和总进度，结果以至少 0.15 秒的间隔逐条揭晓，每行至少展示 0.4 秒检测状态。结果在请求完成时立即保存，动画不阻塞后续请求、不增加计分耗时；停止也保留已完成结果。检测中每有一条结果落地就立即按新分数重排，行会像行情列表一样随分数上下移动（0.3 秒弹簧动画）。
 
-“All On”仅包含用户登记的模型：自定义渠道以 `modelInfos` 为准，不补入 `currentModelId`；内置渠道以“是否已配置 API key”为准，未添加的内置渠道（OpenAI / Gemini / Anthropic / OpenRouter / DeepSeek）不显示。判定方式是用一个无效模型 ID 发起调用：未配置的渠道会在本地直接返回 `the selected api provider has no configured API key`（约 20ms，不联网），已配置的渠道会进入模型校验，两类错误可区分，结果在模块级缓存并复用。已添加但应用侧模型清单为空的内置渠道退回 `seededBuiltInIDs` 目录，避免出现零模型的分组。页面每 5 秒同步配置，探测结果返回时也会同步刷新分组，每次请求前再核验一次。
+“All On”只包含 Scripting 当前配置里的模型：清单每次都由 `Assistant.getProviders()` 现读现用——进入页面读一次、每 3 秒轻量同步一次、从设置页切回前台（scenePhase 变为 active）立即再读一次，退到后台时暂停轮询。因此删掉的模型、替换或改名过的分组、新加的渠道都会在几秒内（切回前台是立刻）从列表和顶部标签上消失或出现，不会有“删了还显示”的残留。没有模型的账号不显示，避免出现空分组。首次读回来之前显示“正在读取渠道…”，不会先闪一下“暂无已添加的模型”。
 
 ## 探活和评分
 
@@ -31,7 +31,7 @@
 
 `Assistant.requestStreaming` 是宿主暴露的实例方法，不能作为未绑定引用传参（调用时会抛 `self type check failed for Objective-C instance method`，导致每个探针瞬间失败、所有模型都是 0 分）；`probe.ts` 用箭头函数包一层后再传给 `pingModel`。如果自定义 OpenAI 兼容渠道返回“无法解析响应数据／API 类型”错误，流式接口已经建立请求但宿主解析器无法消费其响应时，探针会对同一模型回退到 `Assistant.requestStructuredData`。回退时会移除流式探针尾部的“Reply with exactly: OK”指令，避免与 JSON 输出要求冲突；`global:hy4-preview` 已知始终触发该兼容问题，因此直接使用结构化双探针，避免先等待流式解析失败再触发 30 秒总超时。结构化请求返回 `ok:true` 才计为成功，网络、鉴权、额度和超时错误不会触发回退。回复判定允许大小写、首尾装饰符与句点，并接受 `OK` / `OKAY`；流式阶段只有仍是 `OK` 前缀时才继续等待，收到完整回复后才定案。
 
-每个模型保留最近十次样本，使用三十分钟有效窗口。按耗时、有效成功率和检测次数计分；当前失败或超过 30 秒直接为 0。此分数表示当前渠道的响应速度和可用性，不是通用智能能力排行榜。原有 `scoreHistMap` 和 `lastSpeedResult` 可继续使用；历史缺失时用最近结果补齐分数，缺失时间戳的旧结果标为过期，未检测才显示“—”。红绿状态与分数采用同一份最新结果。
+每个模型保留最近十次样本，使用三十分钟有效窗口。按耗时、有效成功率和检测次数计分；当前失败或超过 30 秒直接为 0。此分数表示当前渠道的响应速度和可用性，不是通用智能能力排行榜。原有 `scoreHistMap` 和 `lastSpeedResult` 可继续使用；历史缺失时用最近结果补齐分数，缺失时间戳的旧结果标为过期，未检测才显示“—”。红绿状态与分数采用同一份最新结果。保存时会把 `lastSpeedResult` 裁剪到当前模型清单，已删除模型的旧分数不会越积越多。
 
 图标按当前模型品牌匹配，支持 `global:` 等路由前缀和常见命名空间；按图片路径缓存，排序、分组及行复用后随当前模型更新。自定义渠道名称不作为厂商证据，未知模型使用通用图标。图标保持原版的 24×25 品牌图，不加圆底与角标；它与整行是两个并列的透明按钮：轻点图标即可只重测该模型，点行内其它位置同样重测。
 
@@ -39,10 +39,10 @@
 
 ## 验证
 
-离线回归可用 `scripting-ts run _Verify.ts` 随时复验（46 项，不联网不发请求）：回复判定各变体、耗时打分与单调性、失败/超时 0 分、过期窗口仍计分、缺时间戳标过期、结果补齐、样本上限 10、前三名奖励、厂商识别（含路由前缀与 Nemotron/Sonar 派生）、返回拷贝不可污染、渠道清单解析与 flatten/configuredTargets 过滤。页面可用 `scripting-ts preview_ui RankingPage.tsx` 做挂载冒烟。
+离线回归可用 `scripting-ts run _Verify.ts` 随时复验（49 项，不联网不发请求）：回复判定各变体、耗时打分与单调性、失败/超时 0 分、过期窗口仍计分、缺时间戳标过期、结果补齐、样本上限 10、前三名奖励、厂商识别（含路由前缀与 Nemotron/Sonar 派生）、返回拷贝不可污染、`getProviders()` 返回值的归一化（零模型账号跳过、坏条目忽略、内置 provider 映射显示名）、flatten/configuredTargets 过滤。运行时一致性可用 `scripting-ts run _ProbeLive.ts` 核对页面清单与宿主账号是否逐条相同。页面可用 `scripting-ts preview_ui RankingPage.tsx` 做挂载冒烟。
 
 通过 TypeScript 诊断（0 错误）、回复判定回归、评分与排序离线检查、逐渠道真实请求连通性验证，以及原生页面截图。验证内容包括：未绑定引用修复后 `pingModel` 恢复成功、流式解析错误会由结构化请求回退恢复、回退会移除冲突的流式 OK 尾句、`global:hy4-preview` 直接结构化双探针、鉴权错误不会误触发回退、`OK.`/`OKAY`/引号包裹等回复变体、同分按耗时升序、失败与超时记 0 分、过期窗口仍计分、前三名奖励。实测 `global:glm-5.3-flash` 和 `global:hy4-preview` 在 Workbuddy 渠道的流式接口会报“无法解析响应数据”；修复后完整双探针分别返回 `ok:true`，实际评分示例为 glm 82 分、hy4 63 分。真实请求会消耗对应渠道用量。
 
-内置渠道判定实测：`probeBuiltinFlags()` 返回 `{openai:false, gemini:false, anthropic:false, deepseek:true, openrouter:false}`，分组只剩 `Workbuddy / lfree / kcne / KKAI / DeepSeek`，共 12 个模型——与用户在 Scripting 中实际添加的范围一致。
+渠道清单实测（`scripting-ts run _ProbeLive.ts`）：宿主返回 4 个账号——内置 `deepseek/deepseek-flash`、`KCNE`（4 个模型）、`KKAI`（3 个）、自定义 `DeepSeek`（2 个），共 10 个模型；页面清单与宿主逐条相同，多出 0 条、漏掉 0 条。旧实现会把 `.scripting/agent-custom-models.json`（10-13 的快照）里早已删除的 Anthropic / Gemini / Grok / OpenAI / OpenRouter 模型重新列出来，并让内置 DeepSeek 显示成 `deepseek-chat` / `deepseek-reasoner`，这就是“删了还显示”的来源。
 
-已知外部限制：本机 `agent-custom-models.json` 中 `deepseek.custom.models` 为空（应用侧 DeepSeek 模型注册表被重置），因此 DeepSeek 两个模型现在必然失败，需在 Scripting 设置的模型选择里重新勾选 `deepseek-chat` / `deepseek-reasoner` 后才能真正测速。该文件不受 Agent 权限直接写入（已备份到 Documents 根目录 `agent-custom-models.backup-*.json`）。
+已知外部限制：`.scripting/agent-custom-providers.json` / `agent-custom-models.json` 现在是应用侧的历史镜像（会保留过期条目），脚本只在宿主完全缺少 `Assistant.getProviders()` 时才把前者当作自定义渠道的兜底，内置渠道一律不读镜像，避免再次出现删除后复现的模型。

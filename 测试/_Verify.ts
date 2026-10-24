@@ -3,7 +3,7 @@
 import { Script } from "scripting"
 import { replyVerdict } from "./probe"
 import { identifyBrand } from "./brands"
-import { configuredTargets, flattenModels, parseProviders } from "./providers"
+import { configuredTargets, flattenModels, parseProviderInfos } from "./providers"
 import { addSample, latencyBase, rewardTopThree, scoreOf } from "./scoring"
 import { TIMEOUT_MS } from "./types"
 import type { History } from "./types"
@@ -94,43 +94,36 @@ const mutated = identifyBrand("gpt-4o")
 mutated.name = "HACKED"
 check("返回拷贝，调用方改不到缓存", identifyBrand("gpt-4o").name, "OpenAI")
 
-// ── 渠道清单解析：只认用户登记项，内置按“已配置 key”判定 ──
-const snapshot = parseProviders(
-  [
-    { name: "ch1", modelInfos: { m1: {}, "": {} } },
-    { name: "noModels", modelInfos: {} },
-    { name: 42, modelInfos: { m2: {} } },
-    "junk",
-  ],
-  {
-    models: {
-      "openai.custom.models": { "gpt-4o": {} },
-      "gemini.custom.models": { "gemini-2.5-pro": {} },
-      "deepseek.custom.models": {},
-    },
-    seededBuiltInIDs: {
-      "openai.custom.models": ["gpt-4o"],
-      "deepseek.custom.models": ["deepseek-chat"],
-    },
-  },
-  { openai: false, gemini: false, deepseek: true },
-)
-check("自定义：只收有模型的字符串名渠道", snapshot.custom.map(c => c.name), ["ch1"])
-check("自定义模型清单", snapshot.custom[0]?.models, ["m1"])
-check("内置：未配 key 且仅种子模型 → 不显示", snapshot.builtin.some(b => b.name === "OpenAI"), false)
-check("内置：未配 key 但用户登记过 → 显示", snapshot.builtin.some(b => b.name === "Gemini"), true)
-check("内置：配了 key 清单为空 → 退回种子", snapshot.builtin.find(b => b.name === "DeepSeek")?.models, ["deepseek-chat"])
+// ── 渠道清单：只取 Assistant.getProviders() 的真实账号，删掉即消失 ──
+const snapshot = parseProviderInfos([
+  { providerID: "p1", name: "KCNE", provider: { custom: "KCNE" }, modelId: "m1", models: { m1: {}, m2: {} } },
+  { providerID: "p2", name: "空渠道", provider: { custom: "empty" }, modelId: "", models: {} },
+  { providerID: "p3", name: "DeepSeek", provider: "deepseek", modelId: "deepseek-flash", models: { "deepseek-flash": {} } },
+  { providerID: "p4", name: "Grok", provider: "grok", modelId: "grok-4.7", models: { "grok-4.7": {} } },
+  { providerID: "p5", provider: { custom: "" }, models: { m3: {} } },
+  "junk",
+  { providerID: "p6", name: "坏渠道", provider: { custom: 7 }, models: { m4: {} } },
+])
+check("自定义：只收有模型的字符串名渠道", snapshot.custom.map(c => c.name), ["KCNE"])
+check("自定义模型清单", snapshot.custom[0]?.models, ["m1", "m2"])
+check("内置：按 provider 映射显示名", snapshot.builtin.map(b => b.name), ["DeepSeek", "Grok"])
+check("内置：保留 providerID 以便去重", snapshot.builtin[0]?.id, "p3")
+check("零模型渠道不显示", snapshot.custom.some(c => c.name === "空渠道"), false)
+check("非字符串名/非法 provider 不进清单", snapshot.custom.length + snapshot.builtin.length, 3)
+check("空输入安全", parseProviderInfos(null), { custom: [], builtin: [] })
 
 const flattened = flattenModels(snapshot)
 check("flatten：自定义在前、key 唯一", flattened.map(m => m.key), [
-  "c/ch1/m1",
-  "b/Gemini/gemini-2.5-pro",
-  "b/DeepSeek/deepseek-chat",
+  "c/KCNE/m1",
+  "c/KCNE/m2",
+  "b/DeepSeek/deepseek-flash",
+  "b/Grok/grok-4.7",
 ])
+check("内置渠道带类型化 provider", flattened.find(m => m.group === "Grok")?.provider, "grok")
 check(
   "configuredTargets 只保留当前已配置的",
-  configuredTargets(flattened.filter(m => m.group === "ch1"), flattened).map(m => m.key),
-  ["c/ch1/m1"],
+  configuredTargets(flattened.filter(m => m.group === "KCNE"), flattened).map(m => m.key),
+  ["c/KCNE/m1", "c/KCNE/m2"],
 )
 check(
   "configuredTargets 拦截已删除模型",
