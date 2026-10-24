@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "scripting"
 import { RunToken, pingModel } from "./probe"
-import { configuredTargets, flattenModels, loadProviders, probeBuiltinFlags } from "./providers"
+import { configuredTargets, flattenModels, loadProviders } from "./providers"
 import { addSample, rewardTopThree } from "./scoring"
 import { readHistory, readResults, saveRecords } from "./storage"
 import { delay } from "./types"
@@ -35,12 +35,20 @@ export function useDetection(models: Model[], preview?: InitialRecords) {
 
   async function start(targets: Model[]) {
     if (active.current || !targets.length || preview) return
-    // 内置渠道“是否已添加”靠一次本地探测判定，先等它出结果，
-    // 否则刚打开页面就点检测会把内置模型全部过滤掉。
-    await probeBuiltinFlags()
+    // 每次开测前都重新问一次宿主：已删除的模型/分组不会再发出请求。
+    let configured: Model[]
+    try {
+      configured = flattenModels(await loadProviders())
+    } catch (_) {
+      setError("读取 Scripting 渠道清单失败，请重试")
+      return
+    }
     if (active.current || !targets.length || preview) return
-    targets = configuredTargets(targets, flattenModels(loadProviders()))
+    targets = configuredTargets(targets, configured)
     if (!targets.length) { setError("这些模型已不在 Scripting 的已添加列表中"); return }
+    // 本轮检测沿用开测那一刻的清单：排队中的模型被删掉时，请求会自然以失败告终，
+    // 下一次刷新（每 3 秒一次）会把这一行移出列表。
+    const configuredKeys = new Set(configured.map(model => model.key))
     setError("")
     setErrors({})
     const run = new RunToken()
@@ -66,7 +74,7 @@ export function useDetection(models: Model[], preview?: InitialRecords) {
 
     async function check(model: Model) {
       if (!alive()) return
-      if (!configuredTargets([model], flattenModels(loadProviders())).length) {
+      if (!configuredKeys.has(model.key)) {
         setPhases(prev => ({ ...prev, [model.key]: "idle" }))
         setProgress({ done: ++completed, total: targets.length })
         return
