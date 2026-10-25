@@ -1,5 +1,6 @@
 import { Intent, Navigation, Script } from "scripting"
 import { parseAppStoreURL } from "./core/appstore"
+import { parseGitHubReleaseURL, parseGitHubReleaseURLFromValue } from "./core/github-url"
 import { inlineImageBitmap } from "./core/screen-ocr"
 import { beginScreenTranslation } from "./core/screen-job"
 import { ScreenTranslationResult } from "./views/screen-result"
@@ -72,6 +73,18 @@ function firstAppStoreURL() {
   return ""
 }
 
+function firstGitHubURL() {
+  for (const value of inputCandidates()) {
+    const identity = parseGitHubReleaseURL(value)
+    if (identity) return identity.url
+  }
+  const shortcut = Intent.shortcutParameter
+  if (shortcut?.type === "json") {
+    return parseGitHubReleaseURLFromValue(shortcut.value)?.url || ""
+  }
+  return ""
+}
+
 async function showScreenText(text: string) {
   try {
     await QuickLook.previewText(text)
@@ -118,6 +131,23 @@ async function run() {
   // 避免读取惰性 imagesParameter 或解码预览图后误入截图/OCR 管线。
   const url = firstAppStoreURL()
   if (!url) {
+    const githubURL = firstGitHubURL()
+    if (githubURL) {
+      try {
+        // 按需加载：GitHub 页面会连带引入 linkedom 与网页构建逻辑，
+        // 截图/App Store 路径完全不需要它们。
+        const { GitHubReleaseView } = await import("./views/github-release")
+        await Navigation.present({ element: <GitHubReleaseView url={githubURL} /> })
+        Script.exit()
+      } catch (reason) {
+        const message = reason instanceof Error ? reason.message : String(reason)
+        const fallback = `GitHub 正文打开失败：${message}`
+        await showScreenText(fallback)
+        Script.exit(Intent.text(fallback))
+      }
+      return
+    }
+
     const images = await inputImages()
     if (images.length) {
       await runScreenTranslation(images)
@@ -126,7 +156,7 @@ async function run() {
 
     const message = inputImagePaths().length
       ? "未收到可读取的截图（文件可能已被系统回收或受数据保护限制），请重新分享一次，并确认传入的是图片而非文件链接。"
-      : "未收到图片或 App Store 链接。请从照片分享截图，或让快捷指令传入截图。"
+      : "未收到图片、App Store 或 GitHub 链接。请分享 GitHub 仓库主页、README 文件、Release 链接或截图。"
     await showScreenText(message)
     Script.exit(Intent.text(message))
     return

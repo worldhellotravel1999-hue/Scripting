@@ -1,50 +1,50 @@
 {
+  "name" : "翻译",
+  "permissions" : null,
   "entry" : "index.tsx",
+  "remoteDefinitionId" : null,
   "intentInputTypes" : [
     "URLs",
     "Texts",
     "Images"
   ],
-  "description" : "App Store 应用翻译工具：翻译说明、下载图标、复制链接。",
-  "localizedDescriptions" : {
-    "zh" : "搜索 App Store 应用并翻译说明，支持保存图标和复制链接。",
-    "es" : "Un espacio de traducción que utiliza solo System Translate integrado.",
-    "fr" : "Un espace de traduction simple utilisant uniquement System Translate.",
-    "ko" : "내장 System Translate만 사용하는 간결한 번역 작업 공간입니다.",
-    "it" : "Uno spazio di traduzione che usa solo System Translate integrato.",
-    "de" : "Ein fokussierter Übersetzungsbereich, der nur System Translate verwendet.",
-    "ru" : "Простое рабочее пространство перевода только со встроенным System Translate.",
-    "pt" : "Um espaço de tradução que usa apenas o System Translate integrado.",
-    "ja" : "内蔵の System Translate のみを使う、シンプルな翻訳ワークスペース。",
-    "en" : "Search and translate App Store apps, with icon save and link copy."
-  },
-  "version" : "2.4.67",
-  "author" : null,
-  "remoteResource" : {
-    "url" : "https:\/\/github.com\/worldhellotravel1999-hue\/Scripting\/tree\/main\/翻译",
-    "hash" : "7660de84371f81a94825c175c36c3512",
-    "autoUpdateInterval" : 3600
-  },
-  "permissions" : null,
-  "localizedNames" : {
-    "it" : "Adult",
-    "ko" : "Adult",
-    "zh" : "Adult",
-    "ja" : "Adult",
-    "pt" : "Adult",
-    "es" : "Adult",
-    "en" : "Adult",
-    "fr" : "Adult",
-    "de" : "Adult",
-    "ru" : "Adult"
-  },
-  "remoteDefinitionId" : null,
-  "color" : "rgba(28, 140, 255, 1)",
-  "iconImage" : "",
-  "icon" : "network",
-  "runInApp" : false,
-  "name" : "翻译",
   "contributors" : [
 
-  ]
+  ],
+  "description" : "App Store 与 GitHub README/Release 翻译工具，支持仓库主页和 README 文件链接。",
+  "remoteResource" : {
+    "autoUpdateInterval" : 3600,
+    "hash" : "7660de84371f81a94825c175c36c3512",
+    "url" : "https:\/\/github.com\/worldhellotravel1999-hue\/Scripting\/tree\/main\/翻译"
+  },
+  "runInApp" : false,
+  "localizedNames" : {
+    "pt" : "Adult",
+    "fr" : "Adult",
+    "zh" : "Adult",
+    "it" : "Adult",
+    "en" : "Adult",
+    "es" : "Adult",
+    "ru" : "Adult",
+    "ja" : "Adult",
+    "de" : "Adult",
+    "ko" : "Adult"
+  },
+  "icon" : "network",
+  "localizedDescriptions" : {
+    "en" : "Translate App Store descriptions and GitHub READMEs/releases from repository or README links.",
+    "fr" : "Un espace de traduction simple utilisant uniquement System Translate.",
+    "zh" : "翻译 App Store 说明，以及 GitHub 仓库 README 和 Release。",
+    "ja" : "内蔵の System Translate のみを使う、シンプルな翻訳ワークスペース。",
+    "de" : "Ein fokussierter Übersetzungsbereich, der nur System Translate verwendet.",
+    "it" : "Uno spazio di traduzione che usa solo System Translate integrato.",
+    "ru" : "Простое рабочее пространство перевода только со встроенным System Translate.",
+    "ko" : "내장 System Translate만 사용하는 간결한 번역 작업 공간입니다.",
+    "es" : "Un espacio de traducción que utiliza solo System Translate integrado.",
+    "pt" : "Um espaço de tradução que usa apenas o System Translate integrado."
+  },
+  "author" : null,
+  "iconImage" : "",
+  "color" : "rgba(28, 140, 255, 1)",
+  "version" : "2.4.69"
 }
