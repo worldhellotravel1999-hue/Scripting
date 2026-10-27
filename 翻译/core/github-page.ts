@@ -196,7 +196,10 @@ function groupSegments(segments: GitHubTextSegment[]) {
     if (!current.length) return
     let source = current[0].text
     for (let index = 1; index < current.length; index += 1) {
-      source += `\n⟦${current[index].index}⟧\n${current[index].text}`
+      // 组内保持单行：translateLines 以「每个输入一行」打包多个组，
+      // 这里若塞入真正的换行，返回行数会被标记行撑大，批量永远对不上，
+      // 谷歌路径只能逐组重发（大 README 几百次请求后触发限流）。
+      source += ` ⟦${current[index].index}⟧ ${current[index].text}`
     }
     groups.push({ indices: current.map((item) => item.index), source })
     current = []
@@ -219,7 +222,8 @@ function groupSegments(segments: GitHubTextSegment[]) {
 }
 
 function titleSegment(title: string) {
-  const text = title.trim()
+  // 群组按单行打包；标题里的换行/连续空白必须先压平。
+  const text = title.trim().replace(/\s+/g, " ")
   if (!text || !/[\p{L}\p{N}]/u.test(text)) return null
   return { index: -1, text, leading: "", trailing: "", block: -2 }
 }

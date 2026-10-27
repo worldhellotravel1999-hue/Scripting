@@ -62,6 +62,11 @@ function FloatingCloseButton(props: { onClose: () => void }) {
   )
 }
 
+/*
+  右下角状态胶囊：进入页面的自动翻译不显示（全屏 LoadingView 已有提示，
+  见 GitHubReleaseContent 里 manualRunRef 的门控）；只有用户点右下角
+  菜单里的「重新翻译」手动触发时才出现，红色错误胶囊可点按重试。
+*/
 function TranslationStatus(props: {
   state: TranslationState
   progress: string
@@ -379,6 +384,8 @@ export function GitHubReleaseContent(props: { url: string; onClose: () => void }
   const [mode, setMode] = useState<ViewMode>("translated")
   const translationRequestRef = useRef(0)
   const forceTranslationRef = useRef(false)
+  /** 点了「重新翻译」手动触发后为 true；进入页面的自动翻译不弹右下角胶囊。 */
+  const manualRunRef = useRef(false)
   const mountedRef = useRef(true)
   const shareTapGuardRef = useRef(false)
 
@@ -549,26 +556,34 @@ export function GitHubReleaseContent(props: { url: string; onClose: () => void }
         map[segment.index] = `${segment.leading}${value}${segment.trailing}`
       }
     }
-    const script = `window.__lingoSet(${JSON.stringify(map)}); window.__lingoMode(${JSON.stringify(mode)}); return true`
+    // 页面脚本在 </body> 前才定义 __lingoSet。loadFile 返回与脚本执行之间
+    // 偶尔有极短的空窗；只注入一次会在空窗里抛异常，译文就再也进不去。
+    // 未 attach / 未 ready 都做有限重试，成功后才把页面显示出来。
+    const script = `if (typeof window.__lingoSet !== "function") return false; window.__lingoSet(${JSON.stringify(map)}); window.__lingoMode(${JSON.stringify(mode)}); return true`
     let active = true
     let attempts = 0
     const apply = async () => {
       if (!active) return
-      if (!controller.isAttached) {
-        if (attempts < 8) {
-          attempts += 1
-          safeTimeout(() => { void apply() }, 120)
-          return
-        }
-        if (active) setPageError("Unable to attach the release page.")
+      if (!controller.isAttached && attempts < 12) {
+        attempts += 1
+        safeTimeout(() => { void apply() }, 150)
         return
       }
       try {
-        await controller.evaluateJavaScript(script)
-        if (active) setPageContentReady(true)
-      } catch {
-        if (active) setPageError("Unable to render the release page.")
+        const applied = await controller.evaluateJavaScript(script)
+        if (!active) return
+        if (applied !== false) {
+          setPageContentReady(true)
+          return
+        }
+      } catch {}
+      if (!active) return
+      if (attempts < 16) {
+        attempts += 1
+        safeTimeout(() => { void apply() }, 150)
+        return
       }
+      setPageError(controller.isAttached ? "Unable to render the release page." : "Unable to attach the release page.")
     }
     void apply()
     return () => { active = false }
@@ -584,11 +599,13 @@ export function GitHubReleaseContent(props: { url: string; onClose: () => void }
     setTranslationError("")
     setTranslationProgress("")
     setPageContentReady(false)
+    manualRunRef.current = false
     setReloadToken((value) => value + 1)
   }
 
   function retryTranslation() {
     forceTranslationRef.current = true
+    manualRunRef.current = true
     setTranslationError("")
     setTranslationProgress(`Translating 0/${prepared?.segments.length || 0} sections...`)
     setTranslationState("loading")
@@ -651,10 +668,10 @@ export function GitHubReleaseContent(props: { url: string; onClose: () => void }
         padding={{ trailing: 14, bottom: 14 }}
       >
         <TranslationStatus
-          state={hasFatalError ? "error" : !showPage ? "loading" : translationState}
-          progress={showPage ? translationProgress : loadingMessage}
-          error={hasFatalError ? fatalError : translationError}
-          onRetryTranslation={hasFatalError ? retryPage : retryTranslation}
+          state={manualRunRef.current ? translationState : "idle"}
+          progress={translationProgress}
+          error={translationError}
+          onRetryTranslation={retryTranslation}
         />
         {showPage ? (
           <BottomActions

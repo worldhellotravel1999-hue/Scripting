@@ -8,7 +8,7 @@ import {
 import { prepareGitHubReleasePage } from "../core/github-page"
 import { translateGitHubPage } from "../core/github-translation"
 
-const RELEASE_URL = "https://github.com/OpenMinis/iCTRL/releases/tag/v1.98.12"
+const RELEASE_URL = "https://github.com/electron/electron/releases/tag/v30.0.0"
 
 function assert(value: unknown, message: string): asserts value {
   if (!value) throw new Error(message)
@@ -24,33 +24,33 @@ function checkURLs() {
     `${RELEASE_URL}\u200b`,
     `${RELEASE_URL}。`,
     RELEASE_URL.replace("https://", "http://").replace("github.com", "www.github.com"),
-    "github.com/OpenMinis/iCTRL/releases/tag/v1.98.12",
-    "https://github.com/OpenMinis/iCTRL/releases/latest",
-    "https://github.com/OpenMinis/iCTRL/releases",
-    "https://github.com/OpenMinis/iCTRL/releases/tag/release%2F1.0",
-    "https://github.com/OpenMinis/iCTRL",
-    "https://github.com/OpenMinis/iCTRL/",
-    "github.com/OpenMinis/iCTRL?tab=readme#readme",
+    "github.com/electron/electron/releases/tag/v30.0.0",
+    "https://github.com/electron/electron/releases/latest",
+    "https://github.com/electron/electron/releases",
+    "https://github.com/electron/electron/releases/tag/release%2F1.0",
+    "https://github.com/electron/electron",
+    "https://github.com/electron/electron/",
+    "github.com/electron/electron?tab=readme#readme",
   ]
   for (const input of variants) {
     const identity = parseGitHubReleaseURL(input)
-    assert(identity?.owner === "OpenMinis" && identity.repo === "iCTRL", `分享链接解析失败：${input}`)
+    assert(identity?.owner === "electron" && identity.repo === "electron", `分享链接解析失败：${input}`)
     assert(identity.url.startsWith("https://github.com/"), "链接未规范化")
   }
-  const repo = parseGitHubReleaseURL("https://github.com/OpenMinis/iCTRL")!
-  assert(repo.owner === "OpenMinis" && repo.repo === "iCTRL" && repo.mode === "repository" && !repo.tag, "仓库主页解析错误")
-  assert(repo.url === "https://github.com/OpenMinis/iCTRL", "仓库主页链接未保留")
+  const repo = parseGitHubReleaseURL("https://github.com/electron/electron")!
+  assert(repo.owner === "electron" && repo.repo === "electron" && repo.mode === "repository" && !repo.tag, "仓库主页解析错误")
+  assert(repo.url === "https://github.com/electron/electron", "仓库主页链接未保留")
   const tag = parseGitHubReleaseURL(RELEASE_URL)!
-  assert(tag.tag === "v1.98.12" && tag.mode === "tag", "tag 解析错误")
-  const latest = parseGitHubReleaseURL("https://github.com/OpenMinis/iCTRL/releases/latest")!
+  assert(tag.tag === "v30.0.0" && tag.mode === "tag", "tag 解析错误")
+  const latest = parseGitHubReleaseURL("https://github.com/electron/electron/releases/latest")!
   assert(latest.mode === "latest" && !latest.tag, "latest 解析错误")
-  const slash = parseGitHubReleaseURL("https://github.com/OpenMinis/iCTRL/releases/tag/release%2F1.0")!
+  const slash = parseGitHubReleaseURL("https://github.com/electron/electron/releases/tag/release%2F1.0")!
   assert(slash.tag === "release/1.0", "带斜杠 tag 解析错误")
   const shortcutJSON = parseGitHubReleaseURLFromValue({
     shortcutInput: { sharedURL: `Release notes: ${RELEASE_URL}` },
   })
-  assert(shortcutJSON?.tag === "v1.98.12", "快捷指令嵌套 JSON 中的 Release 链接未识别")
-  assert(parseGitHubReleaseURLFromValue(["not a link", RELEASE_URL])?.tag === "v1.98.12", "快捷指令 JSON 数组中的 Release 链接未识别")
+  assert(shortcutJSON?.tag === "v30.0.0", "快捷指令嵌套 JSON 中的 Release 链接未识别")
+  assert(parseGitHubReleaseURLFromValue(["not a link", RELEASE_URL])?.tag === "v30.0.0", "快捷指令 JSON 数组中的 Release 链接未识别")
   assert(parseGitHubReleaseURLFromValue({ note: "no release link" }) === null, "JSON 中无链接时不应命中")
   const tooDeep: Record<string, unknown> = {}
   let nested = tooDeep
@@ -62,10 +62,10 @@ function checkURLs() {
   nested.value = RELEASE_URL
   assert(parseGitHubReleaseURLFromValue(tooDeep) === null, "超出扫描深度的链接不应被读取")
   for (const invalid of [
-    "https://github.com/OpenMinis/iCTRL/issues/3",
-    "https://github.com/OpenMinis/iCTRL/pull/3",
-    "https://example.com/OpenMinis/iCTRL/releases/tag/v1",
-    "https://github.com/OpenMinis/iCTRL/releases/download/v1/a.ipa",
+    "https://github.com/electron/electron/issues/3",
+    "https://github.com/electron/electron/pull/3",
+    "https://example.com/electron/electron/releases/tag/v1",
+    "https://github.com/electron/electron/releases/download/v1/a.ipa",
   ]) {
     assert(parseGitHubReleaseURL(invalid) === null, `非 Release 链接被接受：${invalid}`)
   }
@@ -103,9 +103,9 @@ async function run() {
   const identity = parseGitHubReleaseURL(RELEASE_URL)
   assert(identity, "示例 Release URL 解析失败")
   const release = await getGitHubRelease(identity)
-  assert(release.title.includes("1.98.12"), `读取了错误的 Release：${release.title}`)
-  assert(release.bodyHtml.includes("Downloads"), "Release 正文没有读取到")
-  assert(release.tag === "v1.98.12", "Release tag 不匹配")
+  assert(release.title.includes("30.0.0"), `读取了错误的 Release：${release.title}`)
+  assert(release.bodyHtml.length > 1000, "Release 正文没有读取到")
+  assert(release.tag === "v30.0.0", "Release tag 不匹配")
   const fetchMs = Date.now() - started
 
   const prepared = prepareGitHubReleasePage(release)
@@ -127,19 +127,19 @@ async function run() {
     sample: translated.slice(0, 5),
   }))
 
-  const repoIdentity = parseGitHubReleaseURL("https://github.com/OpenMinis/iCTRL")
-  assert(repoIdentity?.mode === "repository" && repoIdentity.url === "https://github.com/OpenMinis/iCTRL", "仓库主页路由错误")
+  const repoIdentity = parseGitHubReleaseURL("https://github.com/electron/electron")
+  assert(repoIdentity?.mode === "repository" && repoIdentity.url === "https://github.com/electron/electron", "仓库主页路由错误")
 
-  const latestIdentity = parseGitHubReleaseURL("https://github.com/OpenMinis/iCTRL/releases/latest")
+  const latestIdentity = parseGitHubReleaseURL("https://github.com/electron/electron/releases/latest")
   assert(latestIdentity, "latest URL 解析失败")
   const latest = await getGitHubRelease(latestIdentity)
   assert(latest.tag.length > 0 && latest.isLatest, `latest 未解析到具体 tag：${latest.tag}`)
 
-  // Atom 只有最近 10 条，v30.0.0 必须走 Release 页面回退。
-  const oldIdentity = parseGitHubReleaseURL("https://github.com/electron/electron/releases/tag/v30.0.0")
+  // Atom 只有最近 10 条，v29.0.0 必须走 Release 页面回退。
+  const oldIdentity = parseGitHubReleaseURL("https://github.com/electron/electron/releases/tag/v29.0.0")
   assert(oldIdentity, "旧版本 URL 解析失败")
   const oldRelease = await getGitHubRelease(oldIdentity)
-  assert(oldRelease.tag === "v30.0.0", `旧版本 tag 错误：${oldRelease.tag}`)
+  assert(oldRelease.tag === "v29.0.0", `旧版本 tag 错误：${oldRelease.tag}`)
   assert(oldRelease.title.trim().length > 0, "旧版本标题为空")
   assert(oldRelease.bodyHtml.trim().length > 0, "旧版本正文为空（页面回退失败）")
   const oldPrepared = prepareGitHubReleasePage(oldRelease)
