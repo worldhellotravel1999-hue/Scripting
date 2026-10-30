@@ -139,6 +139,20 @@ function sanitizeTree(node: any, pageUrl: string) {
   }
 }
 
+function addImageAltCaptions(document: any, root: any, brandName: string) {
+  const brand = brandName.trim().toLocaleLowerCase()
+  for (const image of Array.from(root.querySelectorAll("img")) as any[]) {
+    const alt = String(image.getAttribute("alt") || "").replace(/\\s+/g, " ").trim()
+    if (!alt || alt.length > 80 || alt.split(/\\s+/).length > 8 || alt.toLocaleLowerCase() === brand) continue
+
+    const caption = document.createElement("span")
+    caption.setAttribute("class", "image-alt-caption")
+    caption.textContent = alt
+    image.parentNode.insertBefore(caption, image.nextSibling)
+    image.setAttribute("alt", "")
+  }
+}
+
 function wrapTextNodes(document: any, root: any) {
   const segments: GitHubTextSegment[] = []
   let blockSeq = 0
@@ -542,6 +556,14 @@ a:active { opacity: 0.62; }
 .markdown-body th { font-weight: 600; }
 .markdown-body tr:nth-child(2n) { background: var(--stripe); }
 .markdown-body img { max-width: 100%; height: auto; border-radius: 6px; }
+.markdown-body .image-alt-caption {
+  display: inline-block;
+  margin: 4px 8px 4px 0;
+  color: var(--muted);
+  font-size: 0.875em;
+  line-height: 1.35;
+  vertical-align: middle;
+}
 .markdown-body details {
   margin: 0 0 16px;
   padding: 8px 12px;
@@ -649,6 +671,7 @@ export function prepareGitHubReleasePage(release: GitHubReleaseInfo): PreparedGi
   if (!root) throw new Error("GitHub 正文页面解析失败。")
   root.innerHTML = release.bodyHtml || ""
   sanitizeTree(root, pageUrl)
+  if (isReadme || isProfile) addImageAltCaptions(document, root, release.repo || release.owner)
   if (isReadme || isProfile) {
     const article = document.createElement("article")
     article.setAttribute("class", "markdown-body")

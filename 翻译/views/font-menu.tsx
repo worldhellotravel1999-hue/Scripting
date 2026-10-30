@@ -151,16 +151,9 @@ function GlassIcon({ systemName }: { systemName: string }) {
 /**
  * 顶栏里的一颗文字胶囊，高度与玻璃圆对齐。
  *
- * caption 是可选的第二行小字（只在二级菜单用：OT / TT / FNT / RET 下面跟中文）。
+ * 只显示一行标签，不放任何副标题/提示小字。
  */
-function TextCapsule(
-  { label, caption, emphasized = false, pointSize = 17 }: {
-    label: string
-    caption?: string
-    emphasized?: boolean
-    pointSize?: number
-  },
-) {
+function TextCapsule({ label }: { label: string }) {
   return (
     <VStack
       spacing={0}
@@ -168,18 +161,9 @@ function TextCapsule(
       padding={{ horizontal: 12 }}
       glassEffect
     >
-      <Text
-        font={caption ? pointSize - 2 : pointSize}
-        fontWeight={emphasized ? "semibold" : "regular"}
-        foregroundStyle="label"
-      >
+      <Text font={17} foregroundStyle="label">
         {label}
       </Text>
-      {caption ? (
-        <Text font={9} foregroundStyle="secondaryLabel">
-          {caption}
-        </Text>
-      ) : null}
     </VStack>
   )
 }
@@ -276,17 +260,17 @@ export function TypefaceMenu() {
   return (
     <HStack spacing={8}>
       <Button action={() => setRole("source")} {...PLAIN}>
-        <TextCapsule label="OT" caption="原文" />
+        <TextCapsule label="OT" />
       </Button>
       <Button action={() => setRole("target")} {...PLAIN}>
-        <TextCapsule label="TT" caption="译文" />
+        <TextCapsule label="TT" />
       </Button>
       {settings.fonts.map(font => {
         // 勾号放在弹出的菜单项里：哪一边正在用这款字体，那一项就打勾。
         const usedBySource = settings.source?.id === font.id
         const usedByTarget = settings.target?.id === font.id
         return (
-          <Menu key={font.id} label={<TextCapsule label="FNT" caption="字体" />}>
+          <Menu key={font.id} label={<TextCapsule label="FNT" />}>
             <Button
               title={`${font.name} → OT`}
               systemImage={usedBySource ? "checkmark" : "character"}
@@ -302,7 +286,7 @@ export function TypefaceMenu() {
         )
       })}
       <Button action={() => { setRole(null); setOpen(false) }} {...PLAIN}>
-        <TextCapsule label="RET" caption="返回" />
+        <TextCapsule label="RET" />
       </Button>
     </HStack>
   )
