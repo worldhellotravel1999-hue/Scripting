@@ -32,11 +32,9 @@ function inputImagePaths(): string[] {
 }
 
 async function inputImages(): Promise<UIImage[]> {
-  // 拿到图的瞬间就强制解码落地（物化为内存位图）：分享扩展的临时截图
-  // 文件可能在 present/OCR 之前被系统回收或受数据保护约束，UIImage 构造
-  // 成功但后续解码失效会触发原生 OCR 空指针崩溃（2026-10-11 .ips 实锤）。
-  // 文件路径优先（与旧逻辑一致）；当前流程只处理第一张图，避免多张大图
-  // 同时解码并长期持有位图副本。所有路径不可用时才退回参数图。
+  // 分享扩展中的临时截图可能在 present/OCR 前被系统回收；这里仍在
+  // 读取瞬间物化为内存位图。主界面相册路径不经过此函数，首帧提速由
+  // home.tsx 的延后物化负责。
   for (const path of inputImagePaths()) {
     try {
       const image = UIImage.fromFile(path)
@@ -59,8 +57,10 @@ function inputCandidates() {
   for (const value of Intent.urlsParameter || []) values.push(String(value || "").trim())
   for (const value of Intent.textsParameter || []) values.push(String(value || "").trim())
   const shortcut = Intent.shortcutParameter
-  if (shortcut?.type === "text" || shortcut?.type === "fileURL") {
-    values.push(String(shortcut.value || "").trim())
+  // Shortcuts 可能把同一链接作为 URL、文本或文件 URL 传入；只要 value
+  // 是字符串就交给 App Store/GitHub 解析，避免载体差异误走截图分支。
+  if (shortcut && typeof shortcut.value === "string") {
+    values.push(String(shortcut.value).trim())
   }
   return values.filter(Boolean)
 }

@@ -739,10 +739,7 @@ export async function removeAppFromAppRavenCollection(collectionId: string, appI
     { itemId, collectionId: requestedCollectionId },
     captured,
   )
-  if (!isRecord(data.removeItemFromCollection)) {
-    // AppRaven 删除接口有时返回空对象；条目定位成功后继续视为已处理，由 UI 刷新确认。
-    return true
-  }
+  // AppRaven 删除接口有时返回空对象；条目定位成功后继续视为已处理，由 UI 刷新确认。
   return true
 }
 

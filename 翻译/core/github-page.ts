@@ -142,8 +142,8 @@ function sanitizeTree(node: any, pageUrl: string) {
 function addImageAltCaptions(document: any, root: any, brandName: string) {
   const brand = brandName.trim().toLocaleLowerCase()
   for (const image of Array.from(root.querySelectorAll("img")) as any[]) {
-    const alt = String(image.getAttribute("alt") || "").replace(/\\s+/g, " ").trim()
-    if (!alt || alt.length > 80 || alt.split(/\\s+/).length > 8 || alt.toLocaleLowerCase() === brand) continue
+    const alt = String(image.getAttribute("alt") || "").replace(/\s+/g, " ").trim()
+    if (!alt || alt.length > 80 || alt.split(/\s+/).length > 8 || alt.toLocaleLowerCase() === brand) continue
 
     const caption = document.createElement("span")
     caption.setAttribute("class", "image-alt-caption")

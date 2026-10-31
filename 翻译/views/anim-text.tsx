@@ -1,5 +1,5 @@
 import type { ContentTransition, TextProps } from "scripting"
-import { Text, useEffect, useMemo, useState } from "scripting"
+import { Text, useEffect, useState } from "scripting"
 
 /**
  * AnimText — 带内容过渡动画的文本（取自 IPA-Tool-3.0）。
@@ -21,16 +21,15 @@ export function AnimText({
     setShow(true)
   }, [])
 
-  return useMemo(
-    () => (
-      <Text
-        {...textProps}
-        contentTransition={anim}
-        animation={{ animation: Animation.smooth({ duration: dur }), value: show ? context : "" }}
-      >
-        {show ? context : ""}
-      </Text>
-    ),
-    [show, context, dur, (textProps as { foregroundStyle?: unknown }).foregroundStyle],
+  // 不用 useMemo：依赖数组无法安全覆盖 rest props 的所有字段，
+  // 漏项会导致样式 prop 变化时仍渲染旧元素（曾只追踪 foregroundStyle）。
+  return (
+    <Text
+      {...textProps}
+      contentTransition={anim}
+      animation={{ animation: Animation.smooth({ duration: dur }), value: show ? context : "" }}
+    >
+      {show ? context : ""}
+    </Text>
   )
 }

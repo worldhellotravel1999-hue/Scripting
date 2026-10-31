@@ -748,7 +748,7 @@ export function TranslationCard(props: TranslationCardProps) {
           <HStack spacing={2} frame={{ height: 28, alignment: "leading" as any }}>
             <Text font="title3" fontWeight="semibold">{languageShortLabel(shownSourceLanguage)}</Text>
           </HStack>
-          {sourceText.trim() ? <SpeakButton ttsKey="source-compact" text={sourceText} languageCode={shownSourceLanguage} /> : null}
+          {sourceText.trim() ? <SpeakButton ttsKey={`source-compact-${props.id}`} text={sourceText} languageCode={shownSourceLanguage} /> : null}
           <Spacer />
         </HStack>
         <VStack alignment="leading" contextMenu={{ menuItems: <CopyButton title="复制原文" text={sourceText} /> }}>
@@ -762,7 +762,7 @@ export function TranslationCard(props: TranslationCardProps) {
           <HStack spacing={2} frame={{ height: 28, alignment: "leading" as any }}>
             <Text font="title3" fontWeight="semibold">{languageShortLabel(item.languageCode)}</Text>
           </HStack>
-          {item.text ? <SpeakButton ttsKey={`target-compact-${item.languageCode}`} text={item.text} languageCode={item.languageCode} /> : null}
+          {item.text ? <SpeakButton ttsKey={`target-compact-${props.id}-${item.languageCode}`} text={item.text} languageCode={item.languageCode} /> : null}
           <Spacer />
           {item.text ? (
             <Image systemName="checkmark.circle.fill" foregroundStyle="systemGreen" />

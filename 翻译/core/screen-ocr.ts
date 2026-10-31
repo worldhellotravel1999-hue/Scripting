@@ -268,6 +268,9 @@ function remapBlocksToFullImage(
  * 且串行能让内存峰值只保留一片的候选，对分享扩展更安全。
  */
 export async function recognizeScreenBlocks(image: UIImage): Promise<OCRBlock[]> {
+  // 让调用方先完成结果页首帧/加载态呈现，再做同步 JPEG 物化。
+  // 物化仍发生在进入 Vision 之前，原生 OCR 不会收到未解码的临时图。
+  await new Promise<void>((resolve) => setTimeout(resolve, 0))
   const source = inlineImageBitmap(image)
   if (!source) {
     throw new Error("截图数据无效或无法解码（可能被系统回收或文件受保护），请重新分享一次。")
@@ -304,8 +307,8 @@ export async function recognizeScreenBlocks(image: UIImage): Promise<OCRBlock[]>
     }
   }
   // 所有切片都失败（不是「没识别到文字」，而是原生调用出错）才抛出，
-  // 保留原始错误信息供界面展示。
-  if (slices.length > 1 && succeeded === 0 && firstError !== undefined) throw firstError
+  // 保留原始错误信息供界面展示；单切片失败同样抛出，否则错误会被静默吞掉。
+  if (succeeded === 0 && firstError !== undefined) throw firstError
   return blocks
 }
 

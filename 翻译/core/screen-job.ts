@@ -35,7 +35,3 @@ export function beginScreenTranslation(image: UIImage): Promise<ScreenOverlayRes
 export function startScreenTranslation(image: UIImage): Promise<ScreenOverlayResult> {
   return active ?? launchScreenTranslation(image)
 }
-
-export function activeScreenTranslation(): Promise<ScreenOverlayResult> | null {
-  return active
-}

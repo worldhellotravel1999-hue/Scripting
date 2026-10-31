@@ -8,7 +8,6 @@ import {
   NavigationStack,
   ProgressView,
   Rectangle,
-  RoundedRectangle,
   ScrollView,
   Text,
   VStack,

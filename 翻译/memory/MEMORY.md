@@ -3,7 +3,7 @@
 ## 项目结构
 - Scripting App 项目：`script.json` + `index.tsx`（主入口）+ `intent.tsx`（快捷指令）+ `translation_ui_provider.tsx`（翻译界面）
 - 业务逻辑在 `core/`（pricing.ts 价格、appstore.ts、translate.ts 等），UI 在 `views/`
-- `core/linkedom.js`：自制 ESM 版 linkedom（HTML 解析），供 pricing.ts 做 App Store 页面解析；`core/linkedom.cjs` 是调试用的 CommonJS 版（node shim 测试用，可删）
+- `core/linkedom.js`：自制 ESM 版 linkedom（HTML 解析），供 pricing.ts 等 5 个 core 模块做 HTML 解析；调试用的 CommonJS 版 linkedom.cjs 已于 2026-10-31 维护性清理中删除
 
 ## App Store 价格模块（core/pricing.ts）
 - 本体价：iTunes Lookup API（`itunes.apple.com/{cc}/lookup?id=...`），返回 `trackViewUrl`（官方地区链接）+ 价格
@@ -42,3 +42,8 @@
 - `scripting-ts run <file> --timeout N` 在本环境实测可用（2026-10-18 跑通翻译回归）；不带超时仍可能挂起。`scripting-ts eval` 无 fs 读写权限、stdin 不可用（readFileSync(0) ENOENT）；`require()` 只加载 CJS
 - shell 无 `printf`；复杂引号命令会损坏 → awk 脚本一律写文件用 `-f`；stdout 常为空 → 重定向到文件再读
 - TypeScript 诊断现有 5 个历史遗留错误（`Dialog` 不存在于 scripting 模块 ×3、intent.tsx 比较类型、translation-card.tsx ShapeStyle），与 pricing/region-prices 无关
+
+## 维护性审查（2026-10-31）
+- 已删死代码：`core/screen-job.ts` activeScreenTranslation、`core/translation-snapshot.ts` snapshotCoversTargets、`core/github.ts` 对 parseGitHubReleaseURLFromValue 的无效转发、LinkBadgeButton 无效 grayBackground prop（含 app-store 调用点）、screen-result 未用 RoundedRectangle 导入、font-menu 多余 export、根目录全部 `__*` 临时扫描/预览文件与 core/linkedom.cjs
+- 已修 bug：github-page.ts 图片 alt 正则 `\\\\s`→`\\s`（空白归一与超长过滤此前完全失效）；screen-ocr.ts 单切片 Vision 原生错误此前被静默吞掉（去掉 `slices.length > 1` 门槛）；translate.ts 超长行缓存引擎标签硬编码 google（现透传 onEngineResolved 真实引擎）；translation-card.tsx 紧凑卡 TTS key 全局撞车（加 props.id）；anim-text.tsx useMemo 依赖漏 font 等样式 prop（改为不用 memo）
+- 未动（有意保留）：truncated 残留字段（牵连 tests 断言）、仅 tests 引用的 fetchPriceHistory/parseAppRavenCookieHeader、GlassBadge 未消费的 background/hideBorder 与 success/rose/purple token、fnv1a 两份重复与头像提取两份实现（合并收益低）

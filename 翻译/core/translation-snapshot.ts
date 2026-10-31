@@ -56,18 +56,6 @@ export function translationSnapshotKey(
   ].join(":")
 }
 
-/** 快照是否完整覆盖全部目标语言（缺一不可，空译文/报错都不算）。 */
-export function snapshotCoversTargets(
-  results: TranslationSnapshotResult[] | undefined,
-  targetLanguages: string[],
-) {
-  if (!results?.length || !targetLanguages.length) return false
-  return targetLanguages.every(code => {
-    const item = results.find(result => result.languageCode === code)
-    return !!item && !!item.text.trim() && !item.error
-  })
-}
-
 function readStore(): Record<string, SnapshotEntry> {
   try {
     const value = Storage.get<Record<string, SnapshotEntry>>(STORAGE_KEY, { shared: true })

@@ -298,12 +298,11 @@ export function IconDownloadPanel(props: {
   )
 }
 
-/** 链接胶囊徽章：点击复制链接。搜索页用（grayBackground）：圆角长方形淡黑灰底、
+/** 链接胶囊徽章：点击复制链接。圆角长方形淡黑灰底、
  *  文字淡灰 secondaryLabel（复制成功仍变绿）。 */
 export function LinkBadgeButton(props: {
   url: string | null | undefined
   fallbackUrl?: string
-  grayBackground?: boolean
   foregroundStyle?: any
 }) {
   const [copied, setCopied] = useState(false)

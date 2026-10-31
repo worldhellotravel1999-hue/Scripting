@@ -1064,7 +1064,6 @@ function AppSearchSection(props: {
                 <LinkBadgeButton
                   url={app.detail?.trackViewUrl}
                   fallbackUrl={`https://apps.apple.com/us/app/id${app.appid}`}
-                  grayBackground
                   foregroundStyle={props.foregroundStyle}
                 />
               </HStack>

@@ -54,7 +54,7 @@ function notifySuccess() {
 }
 
 /** 订阅「字体动作成功」；返回退订函数。 */
-export function onFontActionSucceeded(listener: () => void): () => void {
+function onFontActionSucceeded(listener: () => void): () => void {
   successSubscribers.add(listener)
   return () => { successSubscribers.delete(listener) }
 }

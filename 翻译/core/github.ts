@@ -13,7 +13,7 @@ import { encodeGitHubTagPath, githubAvatarURL, type GitHubReleaseIdentity } from
  * 更早的版本再回退抓取 Release 页面里的 body-content 节点。
  */
 export type { GitHubReleaseIdentity } from "./github-url"
-export { parseGitHubReleaseURL, parseGitHubReleaseURLFromValue } from "./github-url"
+export { parseGitHubReleaseURL } from "./github-url"
 
 export type GitHubReleaseAsset = {
   name: string

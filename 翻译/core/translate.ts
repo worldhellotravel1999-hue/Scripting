@@ -837,6 +837,10 @@ export async function translateLines(
   if (!pending.length) {
     return results.map((value, index) => value ?? sources[index])
   }
+  // 缓存/同语言短路已经解决的行数。判断整页失败时必须把她们算进去：
+  // 旧逻辑只看本次新翻译成功的行，若一页里只剩一行需要翻译且它失败，
+  // 整页会抛错、用户看不到其它已缓存的正常译文。
+  const resolvedFromCache = results.filter((value) => value !== undefined).length
 
   // 按行落定：谷歌与系统并行写同一份 results，先到的那份生效。
   const filled = new Set<number>()
@@ -866,9 +870,13 @@ export async function translateLines(
     if (closedStages >= activeStages || options.isCancelled?.()) settleAll()
   }
 
-  // 谷歌组阶段：组并发，组内失败只丢本组（进冷却），不拖垮其它组。
+  // 谷歌组阶段：组并发，单组失败只交给系统补翻，不拖垮其它组。
+  // 只有这一轮所有 Google 请求都失败，才进入全局冷却；一批失败而
+  // 其它批次成功时不能把后续截图/App Store 翻译误导到慢速系统路径。
   const googleStage = async () => {
     let cursor = 0
+    let googleRequestSucceeded = false
+    let googleRequestFailed = false
     const worker = async () => {
       while (true) {
         const group = groups[cursor]
@@ -878,14 +886,24 @@ export async function translateLines(
         try {
           if (group.oversize) {
             // 单行超长：translateText 自带分片与双引擎竞速，不重复造轮子。
-            const value = (await translateText(group.text, options))
-              .replace(/\s*\n+\s*/g, " ").trim()
+            // 需要知道它最终用的引擎：否则本行由 Google 成功翻译时不会
+            // 计入「整轮有成功」，仍可能被其它组的失败误判为全网不可用。
+            let resolvedEngine: "google" | "system" = "google"
+            const value = (await translateText(group.text, {
+              ...options,
+              onEngineResolved: (info) => {
+                resolvedEngine = info.engine
+                if (info.engine === "google") googleRequestSucceeded = true
+                try { options.onEngineResolved?.(info) } catch {}
+              },
+            })).replace(/\s*\n+\s*/g, " ").trim()
             const index = group.indices[0]
-            commit(index, value || sources[index], resolveSource(group.text), "google")
+            commit(index, value || sources[index], resolveSource(group.text), resolvedEngine)
             continue
           }
           const source = resolveSource(group.text)
           const value = (await translateGoogleChunk(group.text, source, targetLanguageCode)).trim()
+          googleRequestSucceeded = true
           const pieces = value.split("\n")
           if (pieces.length === group.indices.length) {
             group.indices.forEach((index, position) => {
@@ -902,6 +920,7 @@ export async function translateLines(
                 const translated = (await translateGoogleChunk(
                   sources[index], lineSource, targetLanguageCode,
                 )).replace(/\s*\n+\s*/g, " ").trim()
+                if (translated) googleRequestSucceeded = true
                 return { index, lineSource, line: translated || sources[index] }
               } catch (error) {
                 if (options.isCancelled?.()) throw error
@@ -914,14 +933,15 @@ export async function translateLines(
           }
         } catch (error) {
           if (options.isCancelled?.()) throw error
-          // 组请求失败（超时/限流）：进冷却，剩余行走并行的系统批量。
-          markGoogleEngineBlocked()
+          // 组请求失败（超时/限流）：只记录本组，剩余行交给并行的系统批量。
+          googleRequestFailed = true
           lastError = error
         }
       }
     }
     const workerCount = Math.min(GOOGLE_CONCURRENCY, groups.length)
     await Promise.all(Array.from({ length: workerCount }, () => worker()))
+    if (googleRequestFailed && !googleRequestSucceeded) markGoogleEngineBlocked()
   }
 
   // 系统批量阶段：与谷歌并行，只补「谷歌还没给出行」的部分。
@@ -976,9 +996,9 @@ export async function translateLines(
   throwIfCancelled(options)
   void Promise.allSettled(stages)
 
-  // 一行都没拿到、且有真实错误时保留旧语义（界面能显示原因）；
+  // 一行都没拿到（连缓存也没有）、且有真实错误时保留旧语义（界面能显示原因）；
   // 否则未落定的行回退原文，不能让截图结果整页失败。
-  if (!filled.size && lastError !== undefined && activeStages > 0) {
+  if (!filled.size && resolvedFromCache === 0 && lastError !== undefined && activeStages > 0) {
     throw lastError instanceof Error ? lastError : new Error("截图翻译失败。")
   }
   // 2026-10-19：仍有未完成的行时，不再默默当成功返回原文。

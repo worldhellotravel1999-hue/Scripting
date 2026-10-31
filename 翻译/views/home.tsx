@@ -13,7 +13,6 @@ import {
   useState,
 } from "scripting"
 import { beginScreenTranslation } from "../core/screen-job"
-import { inlineImageBitmap } from "../core/screen-ocr"
 import { loadPreferences, normalizeTargetSelection, savePreferences } from "../core/preferences"
 import { LanguageBar, toggleTargetSelection } from "./common"
 import { TypefaceMenu } from "./font-menu"
@@ -85,14 +84,15 @@ function TranslationWorkspace() {
       if (!first) return
       const path = await first.imagePath()
       if (!path) return
-      // 物化位图：原生 Vision 对无可用 CGImage 的 UIImage 会空指针崩溃。
-      const bitmap = inlineImageBitmap(UIImage.fromFile(path))
-      if (!bitmap) return
+      // 先交给结果页和 OCR 管线；OCR 会在进入 Vision 前物化位图。
+      // 这样大图的同步 JPEG 编码不会阻塞结果页首帧。
+      const image = UIImage.fromFile(path)
+      if (!image || image.width <= 0 || image.height <= 0) return
       // 相册入口与 intent 不同：主 App 进程常驻，screen-job 的 active
       // 会残留上一次任务，必须先 begin 覆盖旧任务再呈现（结果页挂载后
       // startScreenTranslation 拿到的就是这份新工作）。
-      beginScreenTranslation(bitmap)
-      Navigation.present({ element: <ScreenTranslationResult image={bitmap} /> }).catch(() => {})
+      beginScreenTranslation(image)
+      Navigation.present({ element: <ScreenTranslationResult image={image} /> }).catch(() => {})
     } catch {
       // 用户取消相册或呈现失败：静默。
     } finally {
