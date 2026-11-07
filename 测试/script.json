@@ -1,0 +1,45 @@
+{
+  "entry" : "index.tsx",
+  "description" : "View overall rankings across AI models on front-end web development tasks, including agentic coding workflows",
+  "localizedNames" : {
+    "ru" : "",
+    "es" : "",
+    "en" : "Overall",
+    "fr" : "",
+    "ja" : "",
+    "it" : "",
+    "de" : "",
+    "zh" : "",
+    "pt" : ""
+  },
+  "icon" : "brain.head.profile",
+  "contributors" : [
+
+  ],
+  "author" : null,
+  "name" : "Overall",
+  "remoteResource" : {
+    "hash" : "fa7f01220dc6ee977db41ecd9e5c5d5e",
+    "autoUpdateInterval" : 3600,
+    "url" : "https:\/\/github.com\/worldhellotravel1999-hue\/Scripting\/tree\/main\/测试"
+  },
+  "intentInputTypes" : [
+
+  ],
+  "permissions" : null,
+  "iconImage" : "",
+  "localizedDescriptions" : {
+    "en" : "A small tool for your own use to help you figure out \"which AI channels\/which models can still be used now\". It automatically reads the AI ​​model configuration configured by Scripting, sends a real request one by one to detect the activity, directly marks the results with green dots\/red dots, and gives the failure reason, response time and stability score.",
+    "ru" : "",
+    "zh" : "",
+    "de" : "",
+    "fr" : "",
+    "pt" : "",
+    "it" : "",
+    "es" : "",
+    "ja" : ""
+  },
+  "color" : "rgba(11, 91, 0, 1.00)",
+  "runInApp" : false,
+  "version" : "1.0.2"
+}

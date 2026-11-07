@@ -1,0 +1,1728 @@
+import {
+  Button,
+  Circle,
+  HStack,
+  Image,
+  LinearGradient,
+  Navigation,
+  NavigationStack,
+  ProgressView,
+  RoundedRectangle,
+  ZStack,
+  ScrollView,
+  ScrollViewReader,
+  ScrollViewProxy,
+  Spacer,
+  Text,
+  TextField,
+  VStack,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "scripting"
+import {
+  getAppInfo,
+  appStoreTextSlots,
+  parseAppStoreURL,
+  searchAppStore,
+  type AppStoreIdentity,
+  type AppStoreInfo,
+  type AppStoreSearchResult,
+} from "../core/appstore"
+import {
+  addTranslationHistory,
+  getTranslationHistory,
+  type TranslationHistoryItem,
+} from "../core/search-history"
+import { EmptyState } from "./common"
+import { PriceToggle, RegionPriceList, MultiRegionCompactList } from "./region-prices"
+import { VersionBadgeMenu } from "./version-history"
+import type { AppVersionNotes } from "../core/versions"
+import { TranslatedBlock } from "./translated-block"
+import { AnimText } from "./anim-text"
+import { AnimatedSection } from "./animated-section"
+import { GlassBadge, getGlassBadgeTokens } from "./glass-badge"
+import { IconPill, IconDownloadPanel, LinkBadgeButton } from "./icon-download"
+import { TranslationHistoryPanel } from "./translation-history"
+import { AppRavenCollectionsPage } from "./appraven-collections"
+import { isAppRavenLoggedOut } from "../core/appraven"
+import { safeAnimate, safeTimeout } from "../core/guarded"
+
+
+const TEXT_GRADIENT_STORAGE_KEY = "lingo_appstore_text_gradient_v1"
+const APP_STORE_SYMBOL = "appstore.fill"
+const APP_ICON_SIZE = 56
+const APP_ICON_RADIUS = 14
+const SEARCH_ICON_SIZE = APP_ICON_SIZE
+const TEXT_GRADIENT_COLORS: [string, string][] = [
+  ["#243B55", "#667EEA"], ["#0F766E", "#38BDF8"], ["#7C3AED", "#EC4899"],
+  ["#B45309", "#F59E0B"], ["#BE123C", "#FB7185"], ["#166534", "#84CC16"],
+  ["#1D4ED8", "#22D3EE"], ["#4338CA", "#A78BFA"], ["#334155", "#CBD5E1"],
+]
+/** 由 TEXT_GRADIENT_COLORS 单源派生（9 组色对与上方逐对一致），不再重复维护两份数据。 */
+const TEXT_GRADIENTS: LinearGradient[] = TEXT_GRADIENT_COLORS.map(
+  ([light, dark]) =>
+    ({ colors: [light, dark], startPoint: "topLeading", endPoint: "bottomTrailing" }) as LinearGradient,
+)
+function nextGradient(index: number) {
+  return (index + 1) % TEXT_GRADIENTS.length
+}
+
+/** 展开/收起弹簧：系统 snappy 曲线，驱动面板出入场、下方内容回流和箭头旋转。 */
+const PANEL_SPRING = Animation.snappy({ duration: 0.42 })
+/** 面板出入场过渡：展开时淡入并从下方 14pt 轻浮上来，收起时淡出并向上 10pt 离场。 */
+const PANEL_TRANSITION = Transition.asymmetric(
+  Transition.opacity().combined(Transition.offset({ x: 0, y: 14 })),
+  Transition.opacity().combined(Transition.offset({ x: 0, y: 10 })),
+).animation(PANEL_SPRING)
+/** 单个已选应用块的出入场过渡：加入时淡入浮起；删除时向右侧删除按钮方向滑出、轻微缩小并淡出。 */
+const APP_BLOCK_TRANSITION = Transition.asymmetric(
+  Transition.opacity().combined(Transition.offset({ x: 0, y: 14 })),
+  Transition.opacity().combined(Transition.offset({ x: 28, y: 0 })).combined(Transition.scale(0.96)),
+).animation(PANEL_SPRING)
+/** 分享页合集弹窗淡入成型：系统 sheet 的底部上滑不可定制，容器保持透明使其滑动不可见，
+ *  内容延迟 320ms 后淡入 + 从 0.96 轻微放大成型，不再从底部直接弹。 */
+const COLLECTIONS_SHEET_FADE = Transition.opacity().combined(Transition.scale(0.96)).animation(Animation.smooth({ duration: 0.35 }))
+
+
+/** 一键重置胶囊：淡青色（teal），比 Link 徽章稍大，点击收起该应用全部展开面板。
+ *  胶囊底色/描边换成与「更新/说明/图标」胶囊同款淡黑灰（仅底色，文字和圆点仍青色）；
+ *  静止状态始终显示青色「Reset」；点击后才显示反馈（同 Link「已复制」）：
+ *  有展开面板 → 重置 + 绿色「已重置」；全部已收起 → 灰色「不重置」，均 1.2s 后还原。 */
+function ResetBadgeButton(props: { hasExpanded: boolean; onTap: () => void; foregroundStyle?: any }) {
+  /** 反馈态：done=已重置（绿），noop=不重置（灰），idle=静止 Reset */
+  const [feedback, setFeedback] = useState<"done" | "noop" | null>(null)
+  useEffect(() => {
+    if (!feedback) return
+    const timer = safeTimeout(() => setFeedback(null), 1200)
+    return () => clearTimeout(timer)
+  }, [feedback])
+
+  const tokens = getGlassBadgeTokens(feedback === "noop" ? "neutral" : "teal")
+  const label = feedback === "done" ? "已重置" : feedback === "noop" ? "不重置" : "Reset"
+  // 静止态淡灰文字（同下排按钮）；仅反馈态保留彩色：成功绿、无操作灰
+  const color = feedback === "done" ? "#34c759" : feedback === "noop" ? "secondaryLabel" : (props.foregroundStyle || "secondaryLabel")
+  const dotColor = feedback === "done" ? "#34c759" : tokens.tint
+
+  return (
+    <Button
+      buttonStyle="plain"
+      action={() => {
+        if (props.hasExpanded) {
+          props.onTap()
+          setFeedback("done")
+        } else {
+          setFeedback("noop")
+        }
+      }}
+    >
+      <HStack
+        spacing={6}
+        padding={{ horizontal: 13, vertical: 6.5 }}
+        background={{ style: { light: "rgba(0,0,0,0.05)", dark: "rgba(0,0,0,0.22)" }, shape: "capsule" }}
+        clipShape="capsule"
+      >
+        <Circle fill={dotColor} frame={{ width: 6, height: 6 }} />
+        <Text font="footnote" fontWeight="medium" foregroundStyle={color}>{label}</Text>
+      </HStack>
+    </Button>
+  )
+}
+
+function AppStoreIcon(props: {
+  imageUrl?: string
+  size?: number
+  foregroundStyle?: any
+  onTap?: () => void
+}) {
+  const size = props.size ?? APP_ICON_SIZE
+  const radius = Math.round(size * APP_ICON_RADIUS / APP_ICON_SIZE)
+  if (props.imageUrl) {
+    return (
+      <Image
+        imageUrl={props.imageUrl}
+        resizable
+        aspectRatio={{ contentMode: "fit" }}
+        frame={{ width: size, height: size }}
+        clipShape={{ type: "rect", cornerRadius: radius, style: "continuous" }}
+        placeholder={
+          <Image
+            systemName={APP_STORE_SYMBOL}
+            font={Math.round(size * 0.56)}
+            foregroundStyle={props.foregroundStyle}
+            frame={{ width: size, height: size }}
+          />
+        }
+        onTapGesture={props.onTap}
+        shadow={{ color: "rgba(0,0,0,0.12)", radius: 5, y: 2 }}
+      />
+    )
+  }
+  return (
+    <Image
+      systemName={APP_STORE_SYMBOL}
+      font={Math.round(size * 0.56)}
+      foregroundStyle={props.foregroundStyle}
+      frame={{ width: size, height: size }}
+      onTapGesture={props.onTap}
+    />
+  )
+}
+
+export { AppStoreIcon }
+
+/** 直接跳转 App Store 商店页：Safari.openURL 打开 apps.apple.com 链接会被系统直接拉起 App Store 应用。
+ *  优先官方 trackViewUrl，缺失时用 region/appid 拼接兜底。
+ *  注意：旧实现 AppStore.presentApp 需要在 Scripting App 内弹模态，在分享/意图宿主里点了毫无反应，已弃用。 */
+function openAppStorePage(appid: string, url?: string, region?: string) {
+  const link = url || `https://apps.apple.com/${region || "us"}/app/id${appid}`
+  return Safari.openURL(link)
+}
+
+/** 下载水印图标：应用图标右下角叠一个纯文字「Down」（无胶囊背景，仅轻阴影保证可读），
+ *  点击整个图标直接跳转 App Store 商店页；失败文字短暂变红。 */
+function DownIconBadge(props: {
+  imageUrl?: string
+  size: number
+  foregroundStyle?: any
+  appid: string
+  /** 商店页链接（优先），缺失用 region/appid 拼接。 */
+  url?: string
+  region?: string
+}) {
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    if (!failed) return
+    const timer = safeTimeout(() => setFailed(false), 1200)
+    return () => clearTimeout(timer)
+  }, [failed])
+
+  async function open() {
+    try {
+      await openAppStorePage(props.appid, props.url, props.region)
+      try { HapticFeedback.lightImpact() } catch {}
+    } catch {
+      setFailed(true)
+    }
+  }
+
+  return (
+    <ZStack onTapGesture={() => { void open() }}>
+      <AppStoreIcon
+        imageUrl={props.imageUrl}
+        size={props.size}
+        foregroundStyle={props.foregroundStyle}
+      />
+      <Text
+        font="caption"
+        fontWeight="semibold"
+        foregroundStyle={failed ? "#FF3B30" : (props.foregroundStyle || "secondaryLabel")}
+        shadow={{ color: "rgba(0,0,0,0.45)", radius: 1.5, y: 0.5 }}
+        offset={{ x: props.size * 0.13, y: props.size * 0.13 }}
+      >
+        Down
+      </Text>
+    </ZStack>
+  )
+}
+
+function CardDivider() {
+  return (
+    <RoundedRectangle
+      fill="rgba(120, 120, 128, 0.14)"
+      cornerRadius={0.5}
+      frame={{ maxWidth: "infinity", height: 0.5 }}
+      padding={{ horizontal: 16 }}
+    />
+  )
+}
+
+/** 合集弹窗默认高度（pt，>1 的数字 = 固定点数，不随宿主容器比例缩放）：
+ *  登录表单本体实测 ~357pt（头图 67 + 已保存账号行 + 三行输入框 + 页内距），
+ *  每多一个已保存账号再 +~55pt。Cookie 行默认隐藏（轻点登录页左上角老鹰图标显示、再点隐藏、长按登录），
+ *  隐藏时下方多出的空白是透明背景不影响观感；显示后内容仍在 420pt 内。
+ *  旧值 0.36 分数在分享宿主里折算高度远小于此，把 Cookie 行往下全部裁掉且无处滚动；
+ *  固定高度装得下表单本体 + 账号列表，超出部分由登录表单内部 ScrollView 滚动兜底。
+ *  2026-10-12 用户要求：合集页与登入页的弹窗方框统一为 350pt。 */
+const LOGIN_SHEET_DETENT = 350
+/** 登录页弹窗高度：与合集页保持一致（同为 350pt），全屏钮仍 large；
+ *  表单本体超出部分由登录表单内部 ScrollView 滚动兜底。 */
+const LOGIN_PAGE_SHEET_DETENT = LOGIN_SHEET_DETENT
+/** 搜索页 Reset 行星星按钮双层嵌套填充（与合集页顶部方框钮同款）：外层浅灰方框 + 内层灰白圆底。 */
+const STAR_BOX_FILL = { light: "rgba(120,120,128,0.18)", dark: "rgba(120,120,128,0.24)" } as const
+const STAR_INNER_FILL = { light: "rgba(248,248,251,0.75)", dark: "rgba(240,240,245,0.70)" } as const
+
+/**
+ * 分享页头部评分星星合集入口：无背景无圆点的原生排版，点击星星弹跳后弹出合集窗口。
+ * 默认：登录页与合集页统一 350pt（LOGIN_SHEET_DETENT），内容超出内部滚动；合集页顶部全屏按钮点一次全屏、再点缩回。
+ * 搜索页紧凑形态传 onToggle（内联折叠）：不弹底部弹窗，展开状态由宿主持有（同「图标」面板）。
+ */
+function RatingCollectionsButton(props: {
+  rating: number
+  ratingCount: string
+  foregroundStyle: any
+  appid: string
+  /** 搜索页 Reset 行用的紧凑形态：只渲染小星星 + 灰色圆环（不显示评分/评价数）。 */
+  compact?: boolean
+  onToggle?: () => void
+}) {
+  const [tick, setTick] = useState(0)
+  const [isPresented, setIsPresented] = useState(false)
+  const [fullscreen, setFullscreen] = useState(false)
+  // 紧凑星星呼吸灯：0/1 往复，1100ms 一跳（与合集页顶部钮同节奏）
+  const [starPulse, setStarPulse] = useState(0)
+  useEffect(() => {
+    if (!props.compact) return
+    let stopped = false
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const schedule = () => {
+      timer = safeTimeout(() => {
+        if (stopped) return
+        setStarPulse((value) => 1 - value)
+        schedule()
+      }, 1100)
+    }
+    schedule()
+    return () => {
+      stopped = true
+      if (timer) clearTimeout(timer)
+    }
+  }, [props.compact])
+  const [loggedIn, setLoggedIn] = useState(() => {
+    try { return !isAppRavenLoggedOut() } catch { return false }
+  })
+  /** sheet 内容淡入就绪：容器 presentationBackground 已透明 + 无拖拽条，系统上滑空跑完全不可见，
+   *  320ms 后内容再淡入 + 从 0.96 放大成型，观感即为淡出成型而非底部弹出。 */
+  const [sheetReady, setSheetReady] = useState(false)
+  useEffect(() => {
+    if (!isPresented) {
+      setSheetReady(false)
+      return
+    }
+    setSheetReady(false)
+    const timer = safeTimeout(() => {
+      safeAnimate(() => setSheetReady(true), () => setSheetReady(true))
+    }, 320)
+    return () => clearTimeout(timer)
+  }, [isPresented, tick])
+  return (
+    <Button
+      buttonStyle="plain"
+      action={() => {
+        setTick(value => value + 1)
+        // 每次打开前刷新登录态：分享页实例可能在退出前就已挂载，避免持有旧账号状态。
+        setLoggedIn(() => {
+          try { return !isAppRavenLoggedOut() } catch { return false }
+        })
+        if (props.onToggle) {
+          // 内联折叠模式（搜索页）：就地展开/收起，不弹底部弹窗。
+          props.onToggle()
+          return
+        }
+        setFullscreen(false)
+        setIsPresented(true)
+      }}
+      sheet={{
+        isPresented,
+        onChanged: presented => {
+          // 系统下滑手势会直接收 sheet：内容已随容器一起不可见，无需补离场动画。
+          if (!presented) setSheetReady(false)
+          setIsPresented(presented)
+        },
+        content: (
+          <VStack
+            key={`appraven-sheet-${tick}`}
+            spacing={0}
+            frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
+            presentationBackground="clear"
+            presentationDetents={fullscreen && loggedIn ? ["large"] : [loggedIn ? LOGIN_SHEET_DETENT : LOGIN_PAGE_SHEET_DETENT]}
+            presentationDragIndicator="hidden"
+          >
+            {sheetReady ? (
+              <VStack
+                key={`appraven-fade-${tick}`}
+                spacing={0}
+                frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
+                transition={COLLECTIONS_SHEET_FADE}
+              >
+                <AppRavenCollectionsPage
+                  appid={props.appid}
+                  foregroundStyle={props.foregroundStyle}
+                  onLoginStateChange={state => {
+                    setLoggedIn(state)
+                    if (!state) setFullscreen(false)
+                  }}
+                  fullscreen={fullscreen}
+                  onToggleFullscreen={() => setFullscreen(value => !value)}
+                />
+              </VStack>
+            ) : null}
+          </VStack>
+        ),
+      }}
+    >
+      {props.compact ? (
+        <HStack
+          padding={{ horizontal: 4, vertical: 4 }}
+          background={<RoundedRectangle fill={STAR_BOX_FILL} cornerRadius={10} />}
+          clipShape={{ type: "rect", cornerRadius: 10, style: "continuous" }}
+          opacity={starPulse === 0 ? 1 : 0.45}
+          animation={{ animation: Animation.easeOut(1.05), value: starPulse }}
+        >
+          <ZStack frame={{ width: 32, height: 32 }}>
+            <RoundedRectangle fill={STAR_INNER_FILL} cornerRadius={8} />
+            <Image
+              systemName="star.fill"
+              font={15}
+              foregroundStyle="systemYellow"
+              contentTransition="symbolEffect"
+              symbolEffect={{ effect: "bounce", value: tick }}
+            />
+          </ZStack>
+        </HStack>
+      ) : (
+        <HStack spacing={4}>
+          <Image
+            systemName="star.fill"
+            font="caption2"
+            foregroundStyle="systemYellow"
+            contentTransition="symbolEffect"
+            symbolEffect={{ effect: "bounce", value: tick }}
+          />
+          <AnimText font="caption" fontWeight="semibold" anim="numericText" foregroundStyle={props.foregroundStyle}>
+            {props.rating.toFixed(1)}
+          </AnimText>
+          {props.ratingCount ? (
+            <AnimText font="caption" foregroundStyle="tertiaryLabel" anim="numericText">
+              {`(${props.ratingCount})`}
+            </AnimText>
+          ) : null}
+        </HStack>
+      )}
+    </Button>
+  )
+}
+
+/** 搜索页内联合集面板：不走底部弹窗，与「更新/说明/图标」面板一样就地折叠展开（星星按钮本身不加任何折叠箭头）。
+ *  无背景方框（透出搜索页白色底，图标按钮的灰色胶囊不动）；默认自然高度贴合内容，扩大按钮撑到近全屏 + 页内滚动，缩小还原。 */
+function InlineCollectionsPanel(props: {
+  appid: string
+  foregroundStyle: any
+}) {
+  /** 扩大/缩小切换：默认自然高度贴合内容；扩大后固定近全屏高度 + 页内滚动。 */
+  const [fullscreen, setFullscreen] = useState(false)
+  return (
+    <VStack
+      spacing={0}
+      frame={fullscreen
+        ? { maxWidth: "infinity", height: Math.round(Device.screen.height * 0.78) }
+        : { maxWidth: "infinity" }}
+      animation={{ animation: Animation.snappy({ duration: 0.42 }), value: fullscreen }}
+    >
+      <AppRavenCollectionsPage
+        appid={props.appid}
+        foregroundStyle={props.foregroundStyle}
+        onLoginStateChange={state => {
+          if (!state) setFullscreen(false)
+        }}
+        fullscreen={fullscreen}
+        onToggleFullscreen={() => setFullscreen(value => !value)}
+        inline
+      />
+    </VStack>
+  )
+}
+
+/** 搜索页删除按钮：在原圆形图标外套灰色双层圆（外灰环 + 内灰白圆底，同星星按钮的双层配色），
+ *  并复用同款呼吸灯（opacity 1↔0.45、1100ms 一跳 easeOut 1.05s）；点击仍删除该应用。 */
+function RemovePickedButton(props: { onRemove: () => void }) {
+  const [pulse, setPulse] = useState(0)
+  useEffect(() => {
+    let stopped = false
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const schedule = () => {
+      timer = safeTimeout(() => {
+        if (stopped) return
+        setPulse((value) => 1 - value)
+        schedule()
+      }, 1100)
+    }
+    schedule()
+    return () => {
+      stopped = true
+      if (timer) clearTimeout(timer)
+    }
+  }, [])
+
+  return (
+    <Button
+      buttonStyle="borderless"
+      action={props.onRemove}
+    >
+      <HStack
+        padding={{ horizontal: 4, vertical: 4 }}
+        background={<Circle fill={STAR_BOX_FILL} />}
+        opacity={pulse === 0 ? 1 : 0.45}
+        animation={{ animation: Animation.easeOut(1.05), value: pulse }}
+      >
+        <ZStack frame={{ width: 32, height: 32 }}>
+          <Circle fill={STAR_INNER_FILL} />
+          <Image
+            systemName="xmark.circle.fill"
+            foregroundStyle={{ light: "rgba(255,59,48,0.55)", dark: "rgba(255,69,58,0.60)" }}
+            font="title3"
+          />
+        </ZStack>
+      </HStack>
+    </Button>
+  )
+}
+
+/** 应用头部：图标 + 动效标题 + 徽章行 + 价格胶囊（偏中右侧） */
+function AppHeader(props: {
+  info: AppStoreInfo
+  appid: string
+  region: string
+  /** 徽章显示的版本号；查看历史说明时与所选版本一致。 */
+  displayVersion?: string
+  onSelectNotes: (entry: AppVersionNotes) => void
+  priceExpanded: boolean
+  onTogglePrice: () => void
+  onChangeTextGradient: () => void
+  onResetTextGradient: () => void
+  foregroundStyle: any
+}) {
+  const info = props.info
+  const iconUrl = info.artworkUrl512 || info.artworkUrl100
+  const ratingCount = typeof info.userRatingCount === "number"
+    ? info.userRatingCount.toLocaleString()
+    : ""
+
+  return (
+    <VStack
+      alignment="leading"
+      spacing={14}
+      padding={{ horizontal: 16, vertical: 20 }}
+      frame={{ maxWidth: "infinity", alignment: "leading" as any }}
+    >
+      <HStack spacing={14} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
+        <AppStoreIcon
+          imageUrl={iconUrl}
+          size={APP_ICON_SIZE}
+          foregroundStyle={props.foregroundStyle}
+          onTap={props.onChangeTextGradient}
+        />
+         <VStack alignment="leading" spacing={5} onTapGesture={props.onResetTextGradient} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
+          <AnimText
+            font="title3"
+            fontWeight="bold"
+            lineLimit={2}
+            foregroundStyle={props.foregroundStyle}
+            dur={0.4}
+          >
+            {info.trackName || "未知应用"}
+          </AnimText>
+          <AnimText font="subheadline" foregroundStyle={props.foregroundStyle} anim="interpolate" dur={0.35}>
+            {info.sellerName || "—"}
+          </AnimText>
+        </VStack>
+        <PriceToggle
+          appid={props.appid}
+          expanded={props.priceExpanded}
+          onToggle={props.onTogglePrice}
+          foregroundStyle={props.foregroundStyle}
+        />
+      </HStack>
+
+      <HStack spacing={8} alignment="firstTextBaseline">
+        {info.version ? (
+          <VersionBadgeMenu appid={props.appid} version={info.version} displayVersion={props.displayVersion} region={props.region} currentNotes={info.releaseNotes} onSelectNotes={props.onSelectNotes} foregroundStyle={props.foregroundStyle} />
+        ) : null}
+        {info.primaryGenreName ? (
+          <GlassBadge style="teal">
+                         <AnimText font="caption" foregroundStyle={props.foregroundStyle} anim="interpolate">{info.primaryGenreName}</AnimText>
+          </GlassBadge>
+        ) : null}
+        {typeof info.averageUserRating === "number" ? (
+          <RatingCollectionsButton
+            rating={info.averageUserRating}
+            ratingCount={ratingCount}
+            foregroundStyle={props.foregroundStyle}
+            appid={props.appid}
+          />
+        ) : null}
+        <Spacer />
+      </HStack>
+    </VStack>
+  )
+}
+
+export function AppStoreView(props: { url: string }) {
+  const dismiss = Navigation.useDismiss()
+  const identity = parseAppStoreURL(props.url)
+  const [reloadToken, setReloadToken] = useState(0)
+
+  return (
+    <NavigationStack>
+      <AppStoreContent
+        identity={identity}
+        reloadToken={reloadToken}
+        onReload={() => setReloadToken((value) => value + 1)}
+        onClose={dismiss}
+      />
+    </NavigationStack>
+  )
+}
+
+/** 底部搜索区：搜索 App Store 应用，选择后直接在页面底部翻译（最多六个应用） */
+type PickedApp = {
+  selectionId: number
+  appid: string
+  region: string
+  trackName: string
+  artistName?: string
+  artworkUrl?: string
+  version?: string
+  releaseNotes?: string
+  selectedVersionNotes?: AppVersionNotes
+  description?: string
+  detailLoading?: boolean
+  detailError?: string
+  priceExpanded?: boolean
+  /** 更新译文折叠状态：默认折叠，点「更新」胶囊才展开翻译。 */
+  releaseNotesExpanded?: boolean
+  /** 应用说明折叠状态：默认折叠，展开时才翻译。 */
+  descriptionExpanded?: boolean
+  /** 图标面板折叠状态：默认折叠，点「图标」胶囊展开。 */
+  iconExpanded?: boolean
+  /** AppRaven 合集面板折叠状态：默认折叠，点星星展开（搜索页内联，不弹底部弹窗）。 */
+  appravenExpanded?: boolean
+  /** 每次详情成功刷新 +1；译文卡据此强制重译。 */
+  detailToken?: number
+  /** 只有用户主动刷新才递增（首次详情加载不算），避免刚展开就重译已缓存内容。 */
+  refreshToken?: number
+  /** 详情页数据（用于图标下载 / 链接复制等功能）。 */
+  detail?: AppStoreInfo
+}
+
+function AppSearchSection(props: {
+  searchOpen: boolean
+  inputVisible: boolean
+  onInputVisibilityChanged: (visible: boolean) => void
+  swapDescriptions: boolean
+  onRefreshReady?: (refresh: () => Promise<void>) => void
+  translationHost?: Translation
+  foregroundStyle: any
+  gradientColors?: [string, string]
+  /** 折叠后把对应应用区滚回视口顶部，避免内容骤减造成的过度滚动空白。 */
+  onScrollToApp?: (key: string) => void
+  /** 把「从翻译记录重新选中应用」回调注册给宿主页面（记录面板使用）。 */
+  onPickReady?: (pick: (item: TranslationHistoryItem) => void) => void
+  /** 翻译记录发生变化（新增/删除/清空）时通知宿主，用于控制记录按钮显示。 */
+  onHistoryChanged?: () => void
+}) {
+  const [query, setQuery] = useState("")
+  const [searching, setSearching] = useState(false)
+  const [searchError, setSearchError] = useState("")
+  const [results, setResults] = useState<AppStoreSearchResult[]>([])
+  const [picked, setPicked] = useState<PickedApp[]>([])
+  const reqIdRef = useRef(0)
+  // Refs are the synchronous authority; rendered state may lag behind a tap.
+  const mountedRef = useRef(true)
+  const pickedRef = useRef<PickedApp[]>([])
+  const resultsRef = useRef<AppStoreSearchResult[]>([])
+  const selectionIdRef = useRef(0)
+  const detailIdRef = useRef(0)
+  const detailRequestsRef = useRef(new Map<number, number>())
+  const queryRef = useRef("")
+  const searchOpenRef = useRef(props.searchOpen)
+  searchOpenRef.current = props.searchOpen
+  const swapRef = useRef(props.swapDescriptions)
+  swapRef.current = props.swapDescriptions
+
+  function updatePicked(items: PickedApp[]) {
+    pickedRef.current = items
+    setPicked(items)
+  }
+
+  function invalidateSearch() {
+    reqIdRef.current += 1
+    resultsRef.current = []
+    setResults([])
+    setSearching(false)
+    setSearchError("")
+  }
+
+  function clearSearch() {
+    invalidateSearch()
+    queryRef.current = ""
+    setQuery("")
+  }
+
+  function changeQuery(value: string) {
+    // Native TextField may echo a programmatic clear; it is not a new search.
+    if (value === queryRef.current) return
+    queryRef.current = value
+    setQuery(value)
+    invalidateSearch()
+  }
+
+  async function doSearch() {
+    const term = queryRef.current.trim()
+    if (!mountedRef.current || !searchOpenRef.current || !term) return
+    clearSearch()
+    props.onInputVisibilityChanged(false)
+    const reqId = reqIdRef.current
+    const isCurrent = () => mountedRef.current && searchOpenRef.current && reqId === reqIdRef.current
+    setSearching(true)
+    try {
+      // 默认美区，搜不到再试中国区；旧搜索不继续发起回退请求。
+      let list = await searchAppStore(term, "us")
+      if (!isCurrent()) return
+      if (list.length === 0) list = await searchAppStore(term, "cn")
+      if (!isCurrent()) return
+      resultsRef.current = list
+      setResults(list)
+      if (list.length === 0) {
+        setSearchError(`未找到与「${term}」相关的应用`)
+        props.onInputVisibilityChanged(true)
+      }
+    } catch (reason) {
+      if (!isCurrent()) return
+      setSearchError(reason instanceof Error ? reason.message : String(reason))
+      props.onInputVisibilityChanged(true)
+    } finally {
+      if (isCurrent()) setSearching(false)
+    }
+  }
+
+  useEffect(() => {
+    // Reopening the input or leaving search invalidates invisible row callbacks.
+    if (!props.inputVisible && props.searchOpen) return
+    reqIdRef.current += 1
+    resultsRef.current = []
+    setResults([])
+    setSearching(false)
+  }, [props.inputVisible, props.searchOpen])
+
+  // 搜索页每个已选应用的槽位缓存：slotCancelled 是翻译引擎高频轮询的取消
+  // 回调，旧实现每次回调都全量重算 appStoreTextSlots（8k 截断 ×2）；改为查
+  // 最近一次渲染写入的结果（纯函数，与重算一致），缺失时才退回重算。
+  const slotsCacheRef = useRef(new Map<number, ReturnType<typeof appStoreTextSlots>>())
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      reqIdRef.current += 1
+      resultsRef.current = []
+      pickedRef.current = []
+      detailRequestsRef.current.clear()
+      slotsCacheRef.current.clear()
+    }
+  }, [])
+
+  function isSelected(app: PickedApp) {
+    return mountedRef.current && pickedRef.current.some((item) => item.selectionId === app.selectionId)
+  }
+
+  function selectVersionNotes(app: PickedApp, entry: AppVersionNotes) {
+    if (!isSelected(app)) return
+    updatePicked(pickedRef.current.map(item => item.selectionId === app.selectionId ? {
+      ...item,
+      selectedVersionNotes: entry,
+      releaseNotesExpanded: swapRef.current ? item.releaseNotesExpanded : true,
+      descriptionExpanded: swapRef.current ? true : item.descriptionExpanded,
+    } : item))
+    settleAfterCollapse(app)
+  }
+
+  function slotCancelled(app: PickedApp, index: 0 | 1, slots: ReturnType<typeof appStoreTextSlots>) {
+    const current = pickedRef.current.find(item => item.selectionId === app.selectionId)
+    if (!mountedRef.current || !current || current.detailLoading || current.detailToken !== app.detailToken) return true
+    if (index === 0 ? !current.releaseNotesExpanded : !current.descriptionExpanded) return true
+    // 轮询回调内零重算：查最近渲染写入的槽位缓存；detailToken/detailLoading
+    // 守卫仍覆盖换详情的主要失效路径，缓存缺失时退回重算保持旧语义。
+    const baseline = slotsCacheRef.current.get(app.selectionId)
+    const active = baseline
+      ? baseline[index]
+      : appStoreTextSlots(current, current.selectedVersionNotes, swapRef.current)[index]
+    return active.identity !== slots[index].identity || active.content !== slots[index].content
+  }
+
+  async function loadPickedDetails(app: PickedApp, preserveAvailable = false) {
+    if (!isSelected(app)) return
+    const detailId = ++detailIdRef.current
+    detailRequestsRef.current.set(app.selectionId, detailId)
+    const isCurrent = () => isSelected(app) && detailRequestsRef.current.get(app.selectionId) === detailId
+    updatePicked(pickedRef.current.map((item) => item.selectionId === app.selectionId
+      ? {
+        ...item,
+        detailLoading: true,
+        detailError: "",
+        detailToken: (item.detailToken || 0) + 1,
+        // 首次填充详情（preserveAvailable）不是用户刷新，不得让译文卡重译。
+        refreshToken: preserveAvailable ? item.refreshToken : (item.refreshToken || 0) + 1,
+      }
+      : item))
+    try {
+      const info = await getAppInfo({ appid: app.appid, region: app.region, url: "" })
+      if (!isCurrent()) return
+      updatePicked(pickedRef.current.map((item) => item.selectionId === app.selectionId
+        ? {
+          ...item,
+          releaseNotes: preserveAvailable && item.version && item.releaseNotes !== undefined
+            ? item.releaseNotes : info.releaseNotes || "",
+          description: preserveAvailable ? item.description ?? info.description ?? "" : info.description || "",
+          // 版本号与更新说明必须同次取得，刷新不能给旧版本挂上新说明。
+          version: preserveAvailable && item.version && item.releaseNotes !== undefined
+            ? item.version : info.version,
+          detail: info,
+          detailLoading: false,
+          detailError: "",
+        }
+        : item))
+    } catch (reason) {
+      if (!isCurrent()) return
+      updatePicked(pickedRef.current.map((item) => item.selectionId === app.selectionId
+        ? { ...item, detailLoading: false, detailError: reason instanceof Error ? reason.message : String(reason) }
+        : item))
+    } finally {
+      if (isCurrent()) detailRequestsRef.current.delete(app.selectionId)
+    }
+  }
+
+  async function refreshPicked() {
+    if (!mountedRef.current) return
+    const current = pickedRef.current
+    await Promise.all(current.map((app) => loadPickedDetails(app)))
+  }
+
+  useEffect(() => {
+    props.onRefreshReady?.(refreshPicked)
+  }, [props.onRefreshReady, picked])
+
+  function settleAfterCollapse(app: PickedApp) {
+    // 收起时面板先播放离场过渡（约 0.42s），译文卡（含 WebView 字体视图）
+    // 在过渡结束后才真正卸载，内容高度逐步收缩，ScrollView 偏移可能停在
+    // 旧位置形成过度滚动空白。等布局基本收缩后把该应用区平滑滚回视口
+    // 顶部；第二次调用覆盖 WebView 晚卸载的极端情况，不强制重渲染列表。
+    const key = `${app.appid}-${app.selectionId}`
+    for (const delay of [140, 560]) {
+      safeTimeout(() => {
+        if (!mountedRef.current || !isSelected(app)) return
+        props.onScrollToApp?.(key)
+      }, delay)
+    }
+  }
+
+  useEffect(() => {
+    const expanded = pickedRef.current.find(app => app.releaseNotesExpanded || app.descriptionExpanded)
+    if (expanded) settleAfterCollapse(expanded)
+  }, [props.swapDescriptions])
+
+  function removePicked(app: PickedApp) {
+    if (!isSelected(app)) return
+    detailRequestsRef.current.delete(app.selectionId)
+    const index = pickedRef.current.findIndex((item) => item.selectionId === app.selectionId)
+    const remaining = pickedRef.current.filter((item) => item.selectionId !== app.selectionId)
+    // Cancel translation ownership immediately, before the children unmount.
+    updatePicked(remaining)
+    // 删除展开着长译文/面板的应用时，高度骤减同样会留下过度滚动空白；
+    // 把视口定位到被删应用原来的位置（下一个应用，或删最后一个时的搜索卡）。
+    if (app.priceExpanded || app.releaseNotesExpanded || app.descriptionExpanded || app.iconExpanded) {
+      const neighbor = remaining.length > 0
+        ? remaining[Math.min(index, remaining.length - 1)]
+        : undefined
+      const key = neighbor ? `${neighbor.appid}-${neighbor.selectionId}` : "app-search-card"
+      for (const delay of [140, 560]) {
+        safeTimeout(() => {
+          if (!mountedRef.current) return
+          props.onScrollToApp?.(key)
+        }, delay)
+      }
+    }
+    if (remaining.length === 0) {
+      clearSearch()
+      props.onInputVisibilityChanged(true)
+    }
+  }
+
+  async function pickResult(item: AppStoreSearchResult) {
+    // A row is valid only in the exact result batch which rendered this action.
+    // Clearing the batch below locks all row actions before any await/render.
+    if (!mountedRef.current || !searchOpenRef.current
+      || results !== resultsRef.current || !resultsRef.current.includes(item)) return
+    const appid = String(item.trackId)
+    if (pickedRef.current.some((p) => p.appid === appid)) {
+      setSearchError("这个应用已经添加。")
+      return
+    }
+    if (pickedRef.current.length >= 6) {
+      setSearchError("一次最多翻译六个应用。请先删除一个已选应用。")
+      return
+    }
+    const entry: PickedApp = {
+      selectionId: ++selectionIdRef.current,
+      appid,
+      region: item.region,
+      trackName: item.trackName,
+      artistName: item.artistName,
+      artworkUrl: item.artworkUrl100,
+      version: item.version,
+      releaseNotes: item.releaseNotes,
+      description: item.description,
+    }
+    updatePicked([...pickedRef.current, entry])
+    // 记录到翻译历史（最新在前，去重置顶）
+    addTranslationHistory({
+      appid,
+      region: entry.region,
+      trackName: entry.trackName,
+      artistName: entry.artistName,
+      artworkUrl: entry.artworkUrl,
+      recordedAt: Date.now(),
+    })
+    props.onHistoryChanged?.()
+    clearSearch()
+    // Search already carries full text for most apps; only fill absent fields.
+    if (entry.releaseNotes === undefined || entry.description === undefined) {
+      await loadPickedDetails(entry, true)
+    }
+  }
+
+  /** 从翻译记录重新选中应用：加入已选列表（若未选中）、记录置顶并滚动定位到该应用。 */
+  async function pickFromHistory(item: TranslationHistoryItem) {
+    if (!mountedRef.current) return
+    let target = pickedRef.current.find((p) => p.appid === item.appid)
+    if (!target) {
+      if (pickedRef.current.length >= 6) {
+        setSearchError("一次最多翻译六个应用。请先删除一个已选应用。")
+        return
+      }
+      const entry: PickedApp = {
+        selectionId: ++selectionIdRef.current,
+        appid: item.appid,
+        region: item.region || "us",
+        trackName: item.trackName,
+        artistName: item.artistName,
+        artworkUrl: item.artworkUrl,
+      }
+      updatePicked([...pickedRef.current, entry])
+      target = entry
+    }
+    // 点击记录后置顶并持久化
+    addTranslationHistory({
+      appid: item.appid,
+      region: item.region || "us",
+      trackName: item.trackName,
+      artistName: item.artistName,
+      artworkUrl: item.artworkUrl,
+      recordedAt: Date.now(),
+    })
+    clearSearch()
+    // 滚动定位到该应用区（等布局完成后）
+    const key = `${target.appid}-${target.selectionId}`
+    safeTimeout(() => {
+      if (mountedRef.current) props.onScrollToApp?.(key)
+    }, 120)
+    // 历史记录不保存正文，拉取详情获得更新/说明
+    if (target.releaseNotes === undefined || target.description === undefined) {
+      await loadPickedDetails(target, true)
+    }
+  }
+
+  useEffect(() => {
+    props.onPickReady?.(pickFromHistory)
+  }, [props.onPickReady])
+
+  // 仅应用增删驱动整卡动画。价格/图标展开不能把已有长译文
+  // 卷入同一隐式动画事务；各面板继续使用自己的局部过渡。
+  const pickedSignature = picked.map((app) => app.selectionId).join(",")
+
+  if (!props.searchOpen && picked.length === 0) {
+    return <Spacer frame={{ width: 0, height: 0 }} />
+  }
+
+  return (
+    <VStack
+      key="app-search-card"
+      alignment="leading"
+      spacing={14}
+      padding={props.inputVisible
+        ? { horizontal: 18, vertical: 16 }
+        : picked.length > 0
+          ? { horizontal: 18, vertical: 14 }
+          : { horizontal: 18, vertical: 0 }}
+      frame={{ maxWidth: "infinity", alignment: "leading" as any }}
+      background={<RoundedRectangle fill={{ light: "#FFFFFF", dark: "#1C1C1E" }} cornerRadius={24} />}
+      clipShape={{ type: "rect", cornerRadius: 24, style: "continuous" }}
+      animation={{ animation: PANEL_SPRING, value: pickedSignature }}
+    >
+      {props.searchOpen ? (
+        <>
+          {props.inputVisible ? (
+            <AnimatedSection index={0}>
+              <VStack alignment="leading" spacing={10}>
+                <HStack
+                  spacing={8}
+                  padding={{ horizontal: 12, vertical: 4 }}
+                  background={<RoundedRectangle fill={{ light: "rgba(120,120,128,0.10)", dark: "rgba(120,120,128,0.18)" }} cornerRadius={14} />}
+                  clipShape={{ type: "rect", cornerRadius: 14, style: "continuous" }}
+                >
+                  <TextField
+                    title=""
+                    prompt="搜索应用名称"
+                    value={query}
+                    onChanged={changeQuery}
+                    onSubmit={doSearch}
+                    submitLabel="search"
+                    frame={{ maxWidth: "infinity" }}
+                  />
+                  {query.trim().length > 0 ? (
+                    <Image
+                      systemName="xmark.circle.fill"
+                      foregroundStyle="tertiaryLabel"
+                      font="caption"
+                      contentShape="rect"
+                      onTapGesture={clearSearch}
+                    />
+                  ) : null}
+                </HStack>
+              </VStack>
+            </AnimatedSection>
+          ) : null}
+          {searching ? (
+            <AnimatedSection index={1}>
+              <HStack spacing={8} padding={{ vertical: 4 }}>
+                <ProgressView />
+                <AnimText font="caption" foregroundStyle="tertiaryLabel" anim="opacity">正在搜索 App Store 应用…</AnimText>
+              </HStack>
+            </AnimatedSection>
+          ) : null}
+
+          {/* 搜索结果列表 */}
+          {results.length > 0 ? (
+            <AnimatedSection index={2}>
+              <VStack alignment="leading" spacing={2} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
+                {results.map((item, resultIndex) => (
+                  <AnimatedSection key={String(item.trackId)} index={resultIndex + 3}>
+                    <Button
+                      buttonStyle="plain"
+                      action={() => { void pickResult(item) }}
+                    >
+                      <HStack
+                        spacing={12}
+                        padding={{ horizontal: 10, vertical: 9 }}
+                        frame={{ maxWidth: "infinity" }}
+                        contentShape="rect"
+                        background={<RoundedRectangle fill={{ light: "rgba(120,120,128,0.07)", dark: "rgba(120,120,128,0.12)" }} cornerRadius={16} />}
+                        clipShape={{ type: "rect", cornerRadius: 16, style: "continuous" }}
+                      >
+                        <AppStoreIcon
+                          imageUrl={item.artworkUrl100}
+                          size={SEARCH_ICON_SIZE}
+                          foregroundStyle={props.foregroundStyle}
+                        />
+                        <VStack alignment="leading" spacing={3} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
+                          <Text font="body" fontWeight="semibold" foregroundStyle={props.foregroundStyle} lineLimit={1}>{item.trackName}</Text>
+                          <Text font="caption" foregroundStyle={props.foregroundStyle} lineLimit={1}>
+                            {item.artistName || "—"}{item.formattedPrice ? ` · ${item.formattedPrice}` : ""}
+                          </Text>
+                        </VStack>
+                      </HStack>
+                    </Button>
+                  </AnimatedSection>
+                ))}
+              </VStack>
+            </AnimatedSection>
+          ) : null}
+
+          {searchError ? (
+            <AnimatedSection index={2}>
+              <HStack spacing={8} padding={{ vertical: 4 }}>
+                <Image systemName="exclamationmark.triangle.fill" font="caption" foregroundStyle="systemOrange" />
+                <AnimText font="caption" foregroundStyle="systemOrange" anim="opacity">{searchError}</AnimText>
+              </HStack>
+            </AnimatedSection>
+          ) : null}
+        </>
+      ) : null}
+
+      {/* 已选应用的译文（最多六个，只显示译文不显示原文） */}
+      {picked.map((app, index) => {
+        const slots = appStoreTextSlots(app, app.selectedVersionNotes, props.swapDescriptions)
+        // 渲染期写入最近一次槽位结果，供 slotCancelled 轮询查询（见其注释）。
+        slotsCacheRef.current.set(app.selectionId, slots)
+        return (
+        <VStack key={`${app.appid}-${app.selectionId}`} alignment="leading" spacing={12} frame={{ maxWidth: "infinity", alignment: "leading" as any }} transition={APP_BLOCK_TRANSITION}>
+          {index > 0 || (props.searchOpen && (props.inputVisible || searching || results.length > 0 || !!searchError)) ? <CardDivider /> : null}
+          {/* 应用头部 */}
+          <HStack spacing={12} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
+            <DownIconBadge
+              imageUrl={app.artworkUrl}
+              size={SEARCH_ICON_SIZE}
+              foregroundStyle={props.foregroundStyle}
+              appid={app.appid}
+              url={app.detail?.trackViewUrl}
+              region={app.region}
+            />
+            <VStack alignment="leading" spacing={6} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
+              <HStack spacing={8} alignment="firstTextBaseline">
+                {/* 搜索页三胶囊底色换成与下排「更新/说明/图标」同款淡黑灰（仅底色，文字色不变）
+                    分享页不传 grayBackground，保持原胶囊样式 */}
+                {app.version ? (
+                  <VersionBadgeMenu appid={app.appid} version={app.version} displayVersion={app.selectedVersionNotes?.version} region={app.region} currentNotes={app.releaseNotes} onSelectNotes={entry => selectVersionNotes(app, entry)} grayBackground foregroundStyle={props.foregroundStyle} />
+                ) : null}
+                <LinkBadgeButton
+                  url={app.detail?.trackViewUrl}
+                  fallbackUrl={`https://apps.apple.com/us/app/id${app.appid}`}
+                  foregroundStyle={props.foregroundStyle}
+                />
+              </HStack>
+              {/* 一键重置 */}
+              <HStack padding={{ leading: 16 }} spacing={8}>
+                <ResetBadgeButton
+                  hasExpanded={app.priceExpanded === true
+                    || app.releaseNotesExpanded === true
+                    || app.descriptionExpanded === true
+                    || app.iconExpanded === true
+                    || app.appravenExpanded === true}
+                  foregroundStyle={props.foregroundStyle}
+                  onTap={() => {
+                    if (!isSelected(app)) return
+                    updatePicked(pickedRef.current.map((item) => item.selectionId === app.selectionId
+                      ? {
+                        ...item,
+                        priceExpanded: false,
+                        releaseNotesExpanded: false,
+                        descriptionExpanded: false,
+                        iconExpanded: false,
+                        appravenExpanded: false,
+                      }
+                      : item))
+                    // 与单个面板收起同样处理：内容高度骤减时把该应用滚回视口顶部
+                    settleAfterCollapse(app)
+                  }}
+                />
+              </HStack>
+            </VStack>
+            <PriceToggle
+              appid={app.appid}
+              expanded={!!app.priceExpanded}
+              onToggle={() => {
+                if (!isSelected(app)) return
+                const wasExpanded = app.priceExpanded === true
+                updatePicked(pickedRef.current.map((item) => item.selectionId === app.selectionId
+                  ? { ...item, priceExpanded: !item.priceExpanded }
+                  : item))
+                if (wasExpanded) settleAfterCollapse(app)
+              }}
+              foregroundStyle={props.foregroundStyle}
+            />
+          </HStack>
+          {app.priceExpanded ? (
+            <VStack key={`search-price-${app.selectionId}`} alignment="leading" spacing={10} padding={{ horizontal: 4, vertical: 4 }} frame={{ maxWidth: "infinity", alignment: "leading" as any }} transition={PANEL_TRANSITION}>
+              <MultiRegionCompactList appid={app.appid} foregroundStyle={props.foregroundStyle} />
+            </VStack>
+          ) : null}
+          {app.detailError ? (
+            <HStack spacing={8}>
+              <Text font="caption" foregroundStyle="systemOrange">{app.detailError}</Text>
+              <Button title="重试" action={() => { void loadPickedDetails(app, true) }} />
+            </HStack>
+          ) : null}
+          {/* 稳定 key 属于面板槽位，不随价格展开或上下文互换改变。
+              id 是业务属性，不能代替原生视图的 key。 */}
+          {slots[0].content === undefined ? null : (
+          <VStack key={`search-release-slot-${app.selectionId}`} alignment="leading" spacing={8} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
+            {app.releaseNotesExpanded === true ? (
+              <VStack key={`search-release-body-${app.selectionId}`} alignment="leading" spacing={0} frame={{ maxWidth: "infinity", alignment: "leading" as any }} transition={Transition.identity()}>
+                <TranslatedBlock
+                  id={`search-release-notes-${app.selectionId}-${app.appid}`}
+                  snapshotScope={`search-release-notes:${app.appid}:${app.region}:${slots[0].identity}`}
+                  contentIdentity={`${app.selectionId}:${app.appid}:${app.region}:${slots[0].identity}`}
+                  content={slots[0].content || ""}
+                  emptyText={slots[0].emptyText}
+                  isCancelled={() => slotCancelled(app, 0, slots)}
+                  translationHost={props.translationHost}
+                  foregroundStyle={props.foregroundStyle}
+                  gradientColors={props.gradientColors}
+                  darkBackground="#1C1C1E"
+                  translationOnly
+                  translationEnabled={app.detailLoading !== true}
+                  priority={2}
+                  translationToken={app.refreshToken}
+                />
+              </VStack>
+            ) : null}
+          </VStack>
+          )}
+          {/* 应用说明译文（译文-only，默认折叠，展开时才翻译） */}
+          {slots[1].content === undefined ? null : (
+          <VStack key={`search-description-slot-${app.selectionId}`} alignment="leading" spacing={8} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
+            {app.descriptionExpanded ? (
+              <VStack key={`search-description-body-${app.selectionId}`} alignment="leading" spacing={0} frame={{ maxWidth: "infinity", alignment: "leading" as any }} transition={Transition.identity()}>
+                <TranslatedBlock
+                  id={`search-description-${app.selectionId}-${app.appid}`}
+                  snapshotScope={`search-description:${app.appid}:${app.region}:${slots[1].identity}`}
+                  contentIdentity={`${app.selectionId}:${app.appid}:${app.region}:${slots[1].identity}`}
+                  content={slots[1].content || ""}
+                  emptyText={slots[1].emptyText}
+                  isCancelled={() => slotCancelled(app, 1, slots)}
+                  translationHost={props.translationHost}
+                  foregroundStyle={props.foregroundStyle}
+                  gradientColors={props.gradientColors}
+                  darkBackground="#1C1C1E"
+                  translationOnly
+                  translationEnabled={app.detailLoading !== true}
+                  priority={2}
+                  translationToken={app.refreshToken}
+                />
+              </VStack>
+            ) : null}
+          </VStack>
+          )}
+          {/* 折叠控制：更新/说明/图标胶囊 + 右侧独立星星（方形双层嵌套呼吸灯，大小不变） */}
+          <HStack spacing={8} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
+            <HStack
+              spacing={6}
+              padding={{ horizontal: 6, vertical: 5 }}
+              background={{ style: { light: "rgba(0,0,0,0.05)", dark: "rgba(0,0,0,0.22)" }, shape: "capsule" }}
+              clipShape="capsule"
+            >
+            <Button
+              buttonStyle="plain"
+              action={() => {
+                if (!isSelected(app)) return
+                const wasExpanded = app.releaseNotesExpanded === true
+                updatePicked(pickedRef.current.map((item) => item.selectionId === app.selectionId
+                  ? { ...item, releaseNotesExpanded: !item.releaseNotesExpanded }
+                  : item))
+                if (wasExpanded) settleAfterCollapse(app)
+              }}
+            >
+              <HStack spacing={6} padding={{ horizontal: 12, vertical: 8 }}>
+                <Image
+                  systemName="chevron.down"
+                  font="caption2"
+                  foregroundStyle={props.foregroundStyle}
+                  rotationEffect={app.releaseNotesExpanded ? 180 : 0}
+                  animation={{ animation: PANEL_SPRING, value: app.releaseNotesExpanded === true }}
+                />
+                <Text font="subheadline" foregroundStyle={props.foregroundStyle}>更新</Text>
+              </HStack>
+            </Button>
+            <Button
+              buttonStyle="plain"
+              action={() => {
+                if (!isSelected(app)) return
+                const wasExpanded = app.descriptionExpanded === true
+                updatePicked(pickedRef.current.map((item) => item.selectionId === app.selectionId
+                  ? { ...item, descriptionExpanded: !item.descriptionExpanded }
+                  : item))
+                if (wasExpanded) settleAfterCollapse(app)
+              }}
+            >
+              <HStack spacing={6} padding={{ horizontal: 12, vertical: 8 }}>
+                <Image
+                  systemName="chevron.down"
+                  font="caption2"
+                  foregroundStyle={props.foregroundStyle}
+                  rotationEffect={app.descriptionExpanded ? 180 : 0}
+                  animation={{ animation: PANEL_SPRING, value: app.descriptionExpanded === true }}
+                />
+                <Text font="subheadline" foregroundStyle={props.foregroundStyle}>说明</Text>
+              </HStack>
+            </Button>
+            <IconPill
+              bare
+              expanded={app.iconExpanded === true}
+              foregroundStyle={props.foregroundStyle}
+              onToggle={() => {
+                if (!isSelected(app)) return
+                const wasExpanded = app.iconExpanded === true
+                updatePicked(pickedRef.current.map((item) => item.selectionId === app.selectionId
+                  ? { ...item, iconExpanded: item.iconExpanded === true ? false : true }
+                  : item))
+                if (wasExpanded) settleAfterCollapse(app)
+              }}
+            />
+          </HStack>
+            <Spacer />
+            <HStack spacing={8}>
+              <RatingCollectionsButton
+                compact
+                onToggle={() => {
+                  if (!isSelected(app)) return
+                  const wasExpanded = app.appravenExpanded === true
+                  updatePicked(pickedRef.current.map((item) => item.selectionId === app.selectionId
+                    ? { ...item, appravenExpanded: !item.appravenExpanded }
+                    : item))
+                  if (wasExpanded) settleAfterCollapse(app)
+                }}
+                rating={app.detail && typeof app.detail.averageUserRating === "number" ? app.detail.averageUserRating : 0}
+                ratingCount={app.detail && typeof app.detail.userRatingCount === "number" ? app.detail.userRatingCount.toLocaleString() : ""}
+                foregroundStyle={props.foregroundStyle}
+                appid={app.appid}
+              />
+              <RemovePickedButton onRemove={() => removePicked(app)} />
+            </HStack>
+          </HStack>
+          {/* 图标下载面板（点「图标」胶囊展开，仅保存到相册） */}
+          {app.iconExpanded === true ? (
+            <VStack alignment="leading" spacing={0} frame={{ maxWidth: "infinity", alignment: "leading" as any }} transition={PANEL_TRANSITION}>
+              <IconDownloadPanel url={app.artworkUrl} title={app.trackName} />
+            </VStack>
+          ) : null}
+          {/* AppRaven 合集面板（点星星就地展开，不弹底部弹窗；星星不加折叠箭头） */}
+          {app.appravenExpanded === true ? (
+            <VStack key={`search-appraven-${app.selectionId}`} alignment="leading" spacing={0} frame={{ maxWidth: "infinity", alignment: "leading" as any }} transition={PANEL_TRANSITION}>
+              <InlineCollectionsPanel
+                appid={app.appid}
+                foregroundStyle={props.foregroundStyle}
+              />
+            </VStack>
+          ) : null}
+        </VStack>
+        )
+      })}
+    </VStack>
+  )
+}
+
+function AppStoreContent(props: {
+  identity: AppStoreIdentity | null
+  reloadToken: number
+  onReload: () => void
+  onClose: () => void
+}) {
+  const contentOwner = `${props.identity?.appid || ""}:${props.identity?.region || ""}`
+  const ownerRef = useRef(contentOwner)
+  ownerRef.current = contentOwner
+  const [loadedInfo, setLoadedInfo] = useState<{ owner: string; info: AppStoreInfo } | null>(null)
+  const info = loadedInfo?.owner === contentOwner ? loadedInfo.info : null
+  const [selectedVersion, setSelectedVersion] = useState<{ owner: string; entry: AppVersionNotes } | null>(null)
+  const selectedNotes = selectedVersion?.owner === contentOwner ? selectedVersion.entry : null
+  const [loading, setLoading] = useState(!!props.identity)
+  const [error, setError] = useState("")
+  const [priceExpanded, setPriceExpanded] = useState(false)
+  const [contentToken, setContentToken] = useState(0)
+  // Refresh must invalidate an in-flight native translation immediately, not
+  // only after App Store lookup returns. The native promise itself is not
+  // cancellable, but its late result must lose the right to update this card.
+  const translationGenerationRef = useRef(0)
+  const [translationGeneration, setTranslationGeneration] = useState(0)
+  const [searchOpen, setSearchOpen] = useState(!props.identity)
+  const [searchInputVisible, setSearchInputVisible] = useState(true)
+  const [swapDescriptions, setSwapDescriptions] = useState(false)
+  const slots = useMemo(() => appStoreTextSlots(info || {}, selectedNotes, swapDescriptions), [info, selectedNotes, swapDescriptions])
+  const slotsRef = useRef(slots)
+  slotsRef.current = slots
+  const searchRefreshRef = useRef<() => Promise<void>>(() => Promise.resolve())
+  const searchPickRef = useRef<(item: TranslationHistoryItem) => void>(() => {})
+  const [historyOpen, setHistoryOpen] = useState(false)
+  // 翻译记录数：为空时底部「翻译记录」按钮整体不渲染（点不着，也无任何 UI）。
+  const [historyCount, setHistoryCount] = useState(() => getTranslationHistory().length)
+  const refreshHistoryCount = () => setHistoryCount(getTranslationHistory().length)
+  const scrollProxyRef = useRef<ScrollViewProxy>()
+  /** 分享按钮长按识别后，松手可能再补出一次点按：接下来 ~0.7s 内吞掉，避免误跳转。 */
+  const shareTapGuardRef = useRef(false)
+  /**
+   * 折叠后把对应应用区滚回视口顶部：内容高度骤减时 ScrollView 会停在旧偏移
+   * 形成过度滚动空白；scrollTo 会一次性夹紧偏移，避免需要手动点击回弹。
+   *
+   * 这里必须全程不外抛：本函数主要被 setTimeout 回调调用（「查看新说明」
+   * 就是其中一条），而定时代回调里的同步异常会直接终止整个脚本。旧实现
+   * 的 catch 分支又直接调 proxy.scrollTo，一旦滚动本身失败就整页消失。
+   */
+  const scrollToApp = (key: string) => {
+    const proxy = scrollProxyRef.current
+    if (!proxy) return
+    const scroll = () => {
+      try {
+        proxy.scrollTo(key, "top")
+      } catch {}
+    }
+    safeAnimate(scroll, scroll)
+  }
+  const [textGradientIndex, setTextGradientIndex] = useState<number | null>(() => {
+    // 渲染期读共享 Storage：读取异常不应该弄崩整页（项目内其它 Storage 读取都包了 try）。
+    try {
+      const stored = Storage.get<number>(TEXT_GRADIENT_STORAGE_KEY, { shared: true })
+      if (stored === null || stored === -1) return null
+      return Number.isInteger(stored) && stored >= 0 && stored < TEXT_GRADIENTS.length ? stored : 0
+    } catch {
+      return null
+    }
+  })
+  const textGradient = textGradientIndex === null ? undefined : TEXT_GRADIENTS[textGradientIndex]
+  const textForeground = textGradient || { light: "#000000", dark: "#FFFFFF" }
+  useEffect(() => {
+    try {
+      Storage.set(TEXT_GRADIENT_STORAGE_KEY, textGradientIndex === null ? -1 : textGradientIndex, { shared: true })
+    } catch {}
+  }, [textGradientIndex])
+
+  // 与旧版一致：页面持有专用 Translation 实例，译文卡走独立会话，
+  // 快速渐进出结果（局部刷新），避免共享单例排队冲突。
+  // 分享扩展内存紧张时构造原生会话可能失败：失败降级为共享实例，
+  // 而不是在渲染阶段抛异常。
+  const [translationHost] = useState<Translation>(() => {
+    try { return new Translation() } catch { return Translation.shared }
+  })
+
+  const mountedRef = useRef(true)
+  const loadRequestRef = useRef(0)
+
+  function selectContentVersion(entry: AppVersionNotes) {
+    if (!mountedRef.current || ownerRef.current !== contentOwner || !info) return
+    // 同步失效旧版本的译文回调，再交给状态刷新页面。
+    slotsRef.current = appStoreTextSlots(info, entry, swapDescriptions)
+    setSelectedVersion({ owner: contentOwner, entry })
+    for (const delay of [140, 560]) safeTimeout(() => {
+      if (mountedRef.current && ownerRef.current === contentOwner) scrollToApp("appstore-content")
+    }, delay)
+  }
+
+  function contentSlotCancelled(index: 0 | 1) {
+    const active = slotsRef.current[index]
+    return !mountedRef.current || loading || ownerRef.current !== contentOwner ||
+      translationGenerationRef.current !== translationGeneration ||
+      active.identity !== slots[index].identity || active.content !== slots[index].content
+  }
+
+  function invalidateContentTranslation() {
+    translationGenerationRef.current += 1
+    setTranslationGeneration(translationGenerationRef.current)
+  }
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      // 让返回后仍在进行的请求失去写入资格。
+      loadRequestRef.current += 1
+    }
+  }, [])
+
+  async function load(forceTranslate = false) {
+    if (!mountedRef.current || !props.identity) {
+      if (mountedRef.current) {
+        setLoadedInfo(null)
+        setLoading(false)
+      }
+      return
+    }
+    // Invalidate the old card before waiting for the network refresh. This
+    // prevents a late translation from being mistaken for refreshed content.
+    if (info) invalidateContentTranslation()
+    const requestId = ++loadRequestRef.current
+    const isCurrent = () => mountedRef.current && requestId === loadRequestRef.current && ownerRef.current === contentOwner
+    setLoading(true)
+    setError("")
+    try {
+      const nextInfo = await getAppInfo(props.identity)
+      if (!isCurrent()) return
+      setLoadedInfo({ owner: contentOwner, info: nextInfo })
+      // 链接直达的应用也记入翻译记录，便于之后从「记录」快速找回
+      addTranslationHistory({
+        appid: props.identity.appid,
+        region: props.identity.region || "us",
+        trackName: nextInfo.trackName || "未知应用",
+        artistName: nextInfo.sellerName,
+        artworkUrl: nextInfo.artworkUrl512 || nextInfo.artworkUrl100,
+        recordedAt: Date.now(),
+      })
+      refreshHistoryCount()
+      // 首次装载只挂载一次译文卡；刷新/重载时才递增 token，
+      // 避免说明卡刚开始翻译就被首屏第二次渲染取消。
+      if (forceTranslate || props.reloadToken > 0) setContentToken((value) => value + 1)
+    } catch (reason) {
+      if (!isCurrent()) return
+      // 保留当前页面内容，避免刷新失败时整页退化成白屏。
+      setError(reason instanceof Error ? reason.message : String(reason))
+    } finally {
+      if (isCurrent()) {
+        setLoading(false)
+      }
+    }
+  }
+
+  useEffect(() => { setSelectedVersion(null) }, [contentOwner])
+
+  useEffect(() => {
+    void load()
+    return () => {
+      // identity/reloadToken 变化时，旧请求不能回写新页面状态。
+      loadRequestRef.current += 1
+    }
+  }, [props.identity?.appid, props.identity?.region, props.reloadToken])
+
+  return (
+    <ScrollViewReader>
+    {(proxy) => {
+      scrollProxyRef.current = proxy
+      return (
+    <ScrollView
+      listStyle="plain"
+      scrollContentBackground="hidden"
+       background={{ light: "#FFFFFF", dark: "#000000" }}
+      navigationTitle=""
+      navigationBarTitleDisplayMode="inline"
+      refreshable={async () => {
+        if (searchOpen) await searchRefreshRef.current()
+        else await load(true)
+      }}
+      translationHost={translationHost}
+      overlay={{
+        alignment: "bottom",
+        content: (
+          <HStack
+            spacing={12}
+            padding={{ horizontal: 14, vertical: 10 }}
+            frame={{ maxWidth: "infinity", alignment: "center" as any }}
+          >
+            <HStack
+              spacing={18}
+              padding={{ horizontal: 22, vertical: 16 }}
+              background={{
+                style: { light: "rgba(255,255,255,0.85)", dark: "rgba(28,28,30,0.85)" },
+                shape: "capsule",
+              }}
+                             shadow={{ color: "rgba(0,0,0,0.12)", radius: 14, y: 4 }}
+            >
+              {props.identity ? (
+                <Button
+                  buttonStyle="borderless"
+                  disabled={loading}
+                  action={() => {
+                    if (searchOpen) {
+                      void searchRefreshRef.current()
+                    } else {
+                      props.onReload()
+                    }
+                  }}
+                >
+                  <Image
+                     systemName="arrow.clockwise"
+                     font={18}
+                     foregroundStyle={{ light: "#000000", dark: "#FFFFFF" }}
+                     frame={{ width: 36, height: 36 }}
+                     background={{ style: { light: "rgba(142, 142, 147, 0.22)", dark: "rgba(142, 142, 147, 0.28)" }, shape: "circle" }}
+                   />
+                </Button>
+              ) : null}
+              {props.identity && historyCount > 0 ? (
+                <Button
+                  buttonStyle="borderless"
+                  disabled={loading}
+                  action={() => {
+                    setHistoryOpen((value) => !value)
+                    // 面板挂载后滚到顶部，避免面板在长内容下方看不见
+                    if (!historyOpen) {
+                      safeTimeout(() => {
+                        if (!mountedRef.current) return
+                        const proxy = scrollProxyRef.current
+                        if (!proxy) return
+                        const scroll = () => {
+                          try { proxy.scrollTo("translation-history-panel", "top") } catch {}
+                        }
+                        safeAnimate(scroll, scroll)
+                      }, 120)
+                    }
+                  }}
+                >
+                  <Image
+                    systemName="clock.arrow.circlepath"
+                    font={18}
+                    foregroundStyle={historyOpen
+                      ? { light: "#FFFFFF", dark: "#000000" }
+                      : { light: "#000000", dark: "#FFFFFF" }}
+                    frame={{ width: 36, height: 36 }}
+                    background={historyOpen
+                      ? { style: { light: "#000000", dark: "#FFFFFF" }, shape: "circle" }
+                      : { style: { light: "rgba(142, 142, 147, 0.22)", dark: "rgba(142, 142, 147, 0.28)" }, shape: "circle" }}
+                  />
+                </Button>
+              ) : null}
+{props.identity ? (
+                <Button
+                  buttonStyle="borderless"
+                  disabled={loading}
+                  action={() => {
+                    setSearchInputVisible(true)
+                    setSearchOpen(true)
+                  }}
+                >
+                  <Image systemName="magnifyingglass" font={18} foregroundStyle={{ light: "#000000", dark: "#FFFFFF" }} frame={{ width: 36, height: 36 }} background={{ style: { light: "rgba(142, 142, 147, 0.22)", dark: "rgba(142, 142, 147, 0.28)" }, shape: "circle" }} />
+                </Button>
+              ) : null}
+              {props.identity ? (
+                <Button buttonStyle="borderless" disabled={loading} action={() => {
+                  setSwapDescriptions(value => !value)
+                  if (!searchOpen) for (const delay of [140, 560]) safeTimeout(() => {
+                    if (mountedRef.current && ownerRef.current === contentOwner) scrollToApp("appstore-content")
+                  }, delay)
+                }}>
+                  <Image systemName="arrow.up.arrow.down" font={18} foregroundStyle={{ light: "#000000", dark: "#FFFFFF" }} frame={{ width: 36, height: 36 }} background={{ style: { light: "rgba(142, 142, 147, 0.22)", dark: "rgba(142, 142, 147, 0.28)" }, shape: "circle" }} />
+                </Button>
+              ) : null}
+              {props.identity && info ? (() => {
+                const identity = props.identity
+                const shareLink = info.trackViewUrl || identity.url
+                // 分享按钮：点击 = 直接跳转 App Store 商店页（Safari.openURL，系统拉起 App Store）；长按 = 复制链接（原功能）。
+                // 手势挂 ZStack（同登录页老鹰图标先例，Button 上无挂手势的先例）；长按补出的点按由 shareTapGuardRef 吞掉。
+                return (
+                  <ZStack
+                    contentShape="rect"
+                    onTapGesture={() => {
+                      if (shareTapGuardRef.current) return
+                      void (async () => {
+                        try {
+                          await openAppStorePage(identity.appid, shareLink, identity.region)
+                          try { HapticFeedback.lightImpact() } catch {}
+                        } catch {}
+                      })()
+                    }}
+                    onLongPressGesture={{
+                      minDuration: 450,
+                      perform: () => {
+                        shareTapGuardRef.current = true
+                        safeTimeout(() => { shareTapGuardRef.current = false }, 700)
+                        void (async () => {
+                          try {
+                            await Pasteboard.setString(shareLink)
+                            try { HapticFeedback.lightImpact() } catch {}
+                          } catch {}
+                        })()
+                      },
+                    }}
+                  >
+                    <Image
+                       systemName="square.and.arrow.up"
+                       font={18}
+                       foregroundStyle={{ light: "#000000", dark: "#FFFFFF" }}
+                       frame={{ width: 36, height: 36 }}
+                       background={{ style: { light: "rgba(142, 142, 147, 0.22)", dark: "rgba(142, 142, 147, 0.28)" }, shape: "circle" }}
+                     />
+                  </ZStack>
+                )
+              })() : null}
+              <Button
+                role="close"
+                buttonStyle={props.identity ? "borderless" : "borderedProminent"}
+                frame={{ maxWidth: props.identity ? undefined : 160 }}
+                action={() => {
+                   if (props.identity && searchOpen) {
+                     setSearchOpen(false)
+                     setSearchInputVisible(true)
+                   } else {
+                     props.onClose()
+                   }
+                 }}
+              >
+                <Image
+                  systemName="xmark"
+                  font={18}
+                  foregroundStyle={{ light: "#000000", dark: "#FFFFFF" }}
+                  frame={{ width: 36, height: 36 }}
+                  background={{ style: { light: "rgba(142, 142, 147, 0.22)", dark: "rgba(142, 142, 147, 0.28)" }, shape: "circle" }}
+                />
+              </Button>
+            </HStack>
+          </HStack>
+        ),
+      }}
+    >
+      <VStack
+        alignment="leading"
+        spacing={0}
+        padding={{ bottom: 110 }}
+        frame={{ maxWidth: "infinity", alignment: "topLeading" as any }}
+      >
+        <AppSearchSection searchOpen={searchOpen} inputVisible={searchInputVisible} onInputVisibilityChanged={setSearchInputVisible} swapDescriptions={swapDescriptions} onRefreshReady={(refresh) => { searchRefreshRef.current = refresh }} onPickReady={(pick) => { searchPickRef.current = pick }} onHistoryChanged={refreshHistoryCount} translationHost={translationHost} foregroundStyle={textForeground} gradientColors={textGradientIndex === null ? undefined : TEXT_GRADIENT_COLORS[textGradientIndex]} onScrollToApp={scrollToApp} />
+        {historyOpen ? (
+          <VStack key="translation-history-panel" spacing={0} padding={{ top: 8, bottom: 4 }} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
+          <TranslationHistoryPanel
+            foregroundStyle={textForeground}
+            onPick={(item) => {
+              setHistoryOpen(false)
+              setSearchOpen(true)
+              setSearchInputVisible(false)
+              void searchPickRef.current(item)
+            }}
+            onRequestClose={() => setHistoryOpen(false)}
+            onCountChanged={(count) => {
+              setHistoryCount(count)
+              // 记录被清空后按钮随之消失，面板也一并收起，避免留下空面板。
+              if (count === 0) setHistoryOpen(false)
+            }}
+          />
+          </VStack>
+        ) : null}
+      {!searchOpen ? (
+        <> 
+          {!props.identity ? (
+          <EmptyState
+            symbol="link.badge.plus"
+            title="不是有效的 App Store 链接"
+            message="请从 App Store 分享应用链接到 Lingo。"
+          />
+        ) : loading && !info ? (
+          <VStack alignment="leading" spacing={12} padding={{ vertical: 18 }}>
+            <HStack spacing={10}>
+              <ProgressView />
+              <AnimText font="body" fontWeight="medium" anim="interpolate" dur={0.3}>正在读取应用信息…</AnimText>
+            </HStack>
+            <AnimText font="caption" anim="interpolate" dur={0.45}>正在连接 Apple App Store 数据服务</AnimText>
+          </VStack>
+        ) : error && !info ? (
+          <AnimatedSection index={0}>
+          <VStack alignment="leading" spacing={12} padding={{ vertical: 8 }}>
+            <HStack spacing={8}>
+              <Image systemName="wifi.exclamationmark" foregroundStyle="systemOrange" />
+              <Text fontWeight="semibold">读取失败</Text>
+            </HStack>
+            <Text foregroundStyle="systemRed">{error}</Text>
+            <Button title="重新加载" systemImage="arrow.clockwise" buttonStyle="borderedProminent" action={load} />
+          </VStack>
+          </AnimatedSection>
+        ) : info && props.identity ? (
+          <VStack key="appstore-content" alignment="leading" spacing={0} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
+            <AnimatedSection index={0}>
+              <AppHeader info={info} appid={props.identity.appid} region={props.identity.region} displayVersion={selectedNotes?.version} onSelectNotes={selectContentVersion} priceExpanded={priceExpanded} onTogglePrice={() => setPriceExpanded((value) => !value)} onChangeTextGradient={() => setTextGradientIndex((current) => current === null ? 0 : nextGradient(current))} onResetTextGradient={() => setTextGradientIndex(null)} foregroundStyle={textForeground} />
+            </AnimatedSection>
+            {priceExpanded ? (
+              <>
+                <CardDivider />
+                <AnimatedSection index={1}>
+                  <VStack alignment="leading" spacing={10} padding={{ horizontal: 16, vertical: 16 }} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
+                    <RegionPriceList appid={props.identity.appid} foregroundStyle={textForeground} />
+                  </VStack>
+                </AnimatedSection>
+              </>
+            ) : null}
+            <CardDivider />
+            <AnimatedSection index={2}>
+              <VStack alignment="leading" spacing={10} padding={{ horizontal: 16, vertical: 16 }} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
+                <TranslatedBlock id="release-notes" snapshotScope={`share-release-notes:${contentOwner}:${slots[0].identity}`} contentIdentity={`${contentOwner}:${slots[0].identity}`} translationFirst content={slots[0].content || ""} emptyText={slots[0].emptyText} foregroundStyle={textForeground} gradientColors={textGradientIndex === null ? undefined : TEXT_GRADIENT_COLORS[textGradientIndex]} priority={3} translationDelayMs={0} translationEnabled={!loading} translationToken={contentToken + translationGeneration} translationHost={translationHost} isCancelled={() => contentSlotCancelled(0)} />
+               </VStack>
+            </AnimatedSection>
+            <CardDivider />
+            <AnimatedSection index={3}>
+              <VStack alignment="leading" spacing={10} padding={{ horizontal: 16, vertical: 16 }} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
+                <TranslatedBlock id="app-description" snapshotScope={`share-description:${contentOwner}:${slots[1].identity}`} contentIdentity={`${contentOwner}:${slots[1].identity}`} translationFirst content={slots[1].content || ""} emptyText={slots[1].emptyText} foregroundStyle={textForeground} gradientColors={textGradientIndex === null ? undefined : TEXT_GRADIENT_COLORS[textGradientIndex]} priority={1} translationDelayMs={180} translationEnabled={!loading} translationToken={contentToken + translationGeneration} translationHost={translationHost} isCancelled={() => contentSlotCancelled(1)} />
+               </VStack>
+            </AnimatedSection>
+          </VStack>
+        ) : null}
+        </>
+      ) : null}
+      </VStack>
+    </ScrollView>
+      )
+    }}
+    </ScrollViewReader>
+  )
+}

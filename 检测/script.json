@@ -1,0 +1,46 @@
+{
+  "icon" : "antenna.radiowaves.left.and.right",
+  "entry" : "index.tsx",
+  "description" : "推荐使用这个版本* IP Health Check — Check IP health and quality.\n* Custom IP Lookup — Enter any IP address for analysis.\n* Fast & Lightweight — Simple, efficient, and easy to use.",
+  "localizedNames" : {
+    "es" : "",
+    "pt" : "",
+    "en" : "",
+    "ru" : "",
+    "zh" : "",
+    "de" : "",
+    "it" : "",
+    "ja" : "",
+    "fr" : ""
+  },
+  "permissions" : null,
+  "contributors" : [
+
+  ],
+  "localizedDescriptions" : {
+    "fr" : "",
+    "de" : "",
+    "it" : "",
+    "ru" : "",
+    "en" : "",
+    "es" : "",
+    "zh" : "",
+    "ja" : "",
+    "pt" : ""
+  },
+  "name" : "Report ip",
+  "author" : null,
+  "intentInputTypes" : [
+
+  ],
+  "remoteResource" : {
+    "hash" : "ef5703caf9727a385344f8ee32c836cf",
+    "autoUpdateInterval" : null,
+    "url" : "https:\/\/github.com\/worldhellotravel1999-hue\/Scripting\/tree\/main\/检测"
+  },
+  "version" : "1.0.0",
+  "iconImage" : "",
+  "runInApp" : false,
+  "remoteDefinitionId" : null,
+  "color" : "rgba(174, 109, 216, 1)"
+}
