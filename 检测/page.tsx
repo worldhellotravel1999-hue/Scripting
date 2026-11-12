@@ -1,5 +1,5 @@
 import {
-  Button, Capsule, Circle, GeometryReader, HStack, Image, Map, MapCircle, MapCompass, MapScaleView,
+  AbortController, Button, Capsule, Circle, GeometryReader, HStack, Image, Map, MapCircle, MapCompass, MapScaleView,
   Marker, Navigation, NavigationStack, ProgressView, Rectangle, ScrollView, Spacer, Text, TextField,
   VStack, Widget, ZStack, gradient, modifiers, useEffect, useObservable, useRef, useState,
 } from "scripting"
@@ -11,6 +11,12 @@ import type { LookupResult } from "./utils/lookup"
 import { accessTypeLabel, detectionTime, locationDetails, networkDetails } from "./utils/details"
 import { activeRiskFlags, shouldShowRiskScale } from "./utils/flags"
 import { buildWidgetSnapshot, saveWidgetSnapshot } from "./utils/widget_sync"
+import { diagnoseNetwork } from "./utils/network"
+import type { NetworkReport } from "./utils/network_model"
+import { NetworkSection, ServiceSection } from "./network_section"
+import { SortableModules } from "./sortable_modules"
+import { scoreModules } from "./score_modules"
+import { NetworkSettingsPanel } from "./network_settings"
 import { fetchGeoReport, sameIP, withTimeout } from "./utils/geo"
 import type { ExitObservation, GeoReport, GeoRow } from "./utils/geo"
 import { fetchIPPure } from "./utils/ippure"
@@ -34,11 +40,14 @@ type PageState = {
   pureLoading: boolean
   rtc: WebRTCReport | null
   rtcLoading: boolean
+  network: NetworkReport | null
+  networkLoading: boolean
   updatedAt: string
 }
 const EMPTY: PageState = {
   loading: true, error: null, ip: "", source: "", manual: false,
-  result: null, geo: null, pure: null, pureLoading: true, rtc: null, rtcLoading: true, updatedAt: "",
+  result: null, geo: null, pure: null, pureLoading: true, rtc: null, rtcLoading: true,
+  network: null, networkLoading: true, updatedAt: "",
 }
 const GEO_SOURCES = ["Cloudflare", "IP2Location", "DB-IP", "MaxMind", "IPInfo.io", "Bilibili"]
 const TITLE_BORDER = gradient("linear", {
@@ -350,11 +359,13 @@ function ExitRows({ state, privacy }: { state: PageState; privacy: boolean }) {
     ...(state.ip ? [{ source: state.source || "当前出口", ip: state.ip, location: "" }] : []),
     ...(state.geo?.exits || []),
     ...(state.pure?.exit ? [state.pure.exit] : []),
+    ...(state.network?.domesticExit ? [{ source: "IPIP.net", ip: state.network.domesticExit.ip,
+      location: [state.network.domesticExit.location, state.network.domesticExit.isp].filter(Boolean).join(" · ") }] : []),
   ]
   const differs = exits.some(exit => state.ip && !sameIP(exit.ip, state.ip))
   return <>
     <WebRTCRows report={state.rtc} exits={exits} loading={state.rtcLoading} manual={state.manual} privacy={privacy} />
-    {!state.manual ? <Note text="HTTP 出口对照" /> : null}
+    {!state.manual ? <Note text="HTTP 出口对照 · 国内探针同样遵循当前分流规则" /> : null}
     {state.manual ? <Row label="出口对照" value="手动查询不检测设备出口" /> : <>
       {exits.map(exit => <Row key={exit.source} label={exit.source}>
         <VStack alignment="leading" spacing={3} frame={{ maxWidth: "infinity", alignment: "leading" }}>
@@ -386,6 +397,7 @@ export default function IPPage({ initialAddress }: { initialAddress?: string }) 
   const [queryError, setQueryError] = useState("")
   const [copied, setCopied] = useState(false)
   const request = useRef(0)
+  const networkController = useRef<AbortController | null>(null)
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const widgetTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -400,11 +412,14 @@ export default function IPPage({ initialAddress }: { initialAddress?: string }) 
 
   async function detect(address?: string) {
     const run = ++request.current
+    networkController.current?.abort()
+    const controller = new AbortController()
+    networkController.current = controller
     const manual = !!address
     animate(() => {
       setCopied(false)
       setMapExpanded(false)
-      setState({ ...EMPTY, ip: address || "", manual, rtcLoading: !manual })
+      setState({ ...EMPTY, ip: address || "", manual, rtcLoading: !manual, networkLoading: !manual })
       setQueryError("")
       setSearchOpen(false)
     }, Animation.easeOut(0.28))
@@ -412,6 +427,13 @@ export default function IPPage({ initialAddress }: { initialAddress?: string }) 
     let source = manual ? "手动查询" : ""
     const update = (patch: Partial<PageState>) => {
       if (run === request.current) animate(() => setState(previous => ({ ...previous, ...patch })))
+    }
+    let networkTask: Promise<NetworkReport | null> | null = null
+    const startNetwork = (contextIP: string | null) => {
+      networkTask = diagnoseNetwork(contextIP, controller.signal, network => update({ network }))
+        .then(network => { update({ network, networkLoading: false }); return network })
+        .catch(() => { update({ networkLoading: false }); return null })
+      return networkTask
     }
     // WebRTC 独立于 HTTP 出口探测；两者并行，HTTP 失败也能显示实际候选。
     const rtcTask = manual ? Promise.resolve() : fetchWebRTC(() => run === request.current)
@@ -426,6 +448,7 @@ export default function IPPage({ initialAddress }: { initialAddress?: string }) 
         source = probe.source
       }
       update({ ip, source })
+      if (!manual) startNetwork(ip)
       const lookupTask = lookupAddress(ip, true)
         .then(result => {
           update({ result, error: result.info ? null : "归属查询暂不可用，已保留同地址风险数据" })
@@ -441,7 +464,7 @@ export default function IPPage({ initialAddress }: { initialAddress?: string }) 
       const pureTask = fetchIPPure(ip, () => run === request.current)
         .then(pure => { update({ pure, pureLoading: false }); return pure })
         .catch(() => { update({ pureLoading: false }); return null })
-      const [result, , , pureReport] = await Promise.all([lookupTask, geoTask, rtcTask, pureTask])
+      const [result, , , pureReport, network] = await Promise.all([lookupTask, geoTask, rtcTask, pureTask, networkTask])
       if (run !== request.current) return
       update({ loading: false, updatedAt: new Date().toLocaleTimeString("zh-CN", { hour12: false }) })
       saveWidgetSnapshot(buildWidgetSnapshot({
@@ -449,11 +472,15 @@ export default function IPPage({ initialAddress }: { initialAddress?: string }) 
         info: result?.info ?? null,
         reputation: result?.reputation ?? null,
         pure: pureReport,
+        manual,
+        network,
       }))
       scheduleWidgetReload()
     } catch (error) {
-      await rtcTask
-      update({ loading: false, pureLoading: false, error: String(error).replace(/^Error: /, "") })
+      if (run !== request.current) return
+      if (!manual && !networkTask) startNetwork(null)
+      await Promise.all([rtcTask, networkTask])
+      update({ loading: false, pureLoading: false, networkLoading: false, error: String(error).replace(/^Error: /, "") })
     }
   }
 
@@ -495,6 +522,7 @@ export default function IPPage({ initialAddress }: { initialAddress?: string }) 
     void detect(initialAddress && validIPAddress(initialAddress) ? initialAddress : undefined)
     return () => {
       request.current++
+      networkController.current?.abort()
       if (copyTimer.current !== null) clearTimeout(copyTimer.current)
       if (widgetTimer.current !== null) clearTimeout(widgetTimer.current)
     }
@@ -533,7 +561,8 @@ export default function IPPage({ initialAddress }: { initialAddress?: string }) 
         <VStack spacing={0} frame={{ maxWidth: "infinity", alignment: "leading" }}
           background={SURFACE} clipShape={{ type: "rect", cornerRadius: 18 }}>
           <ScanLine active={state.loading} />
-          <Band order={0}>
+          <SortableModules manual={state.manual} modules={{
+          overview: <Band order={0}>
             <HStack spacing={5} padding={{ bottom: 12 }}>
               <StatusDot active={state.loading} color={state.error ? ACCENT.orange : ACCENT.teal} />
               <Text font={11} fontWeight="medium" foregroundStyle="secondaryLabel">
@@ -595,12 +624,12 @@ export default function IPPage({ initialAddress }: { initialAddress?: string }) 
             {flags?.hostname ? <Row label="IP 主机名" value={privacy ? "已隐藏 · 顶部眼睛可显示" : flags.hostname} mono={!privacy} /> : null}
             <Row label="IP 范围" value={clean(pure?.range, flags?.range)} mono />
             <TrafficRatio value={pure?.traffic || null} loading={state.pureLoading} />
-          </Band>
+          </Band>,
 
-          <LocationSection result={state.result} pure={pure} rows={geoRows} privacy={privacy}
-            expanded={mapExpanded} onToggle={toggleMap} />
+          location: <LocationSection result={state.result} pure={pure} rows={geoRows} privacy={privacy}
+            expanded={mapExpanded} onToggle={toggleMap} />,
 
-          <Band order={2}>
+          attributes: <Band order={2}>
             <Row label="IP 来源">
               <Tag text={pure?.isBroadcast == null ? state.pureLoading ? "查询中" : "暂无判定" : pure.isBroadcast ? "广播 IP" : "原生 IP"}
                 color={pure?.isBroadcast == null ? ACCENT.violet : pure.isBroadcast ? ACCENT.pink : ACCENT.teal} />
@@ -608,27 +637,23 @@ export default function IPPage({ initialAddress }: { initialAddress?: string }) 
             <Row label="IP 属性"><Tag text={attribute} color={hosting ? ACCENT.pink : ACCENT.blue} /></Row>
             <ReputationFlags reputation={flags || null} proxy={proxy} />
             <Note text="IP 来源与住宅分类由 IPPure 补充；代理与风险标记来自 ip-api / proxycheck，仅列出已命中项，未列出可能是未命中或暂无数据。" />
-          </Band>
+          </Band>,
 
-          <Band title="IPPure 系数" icon="shield.lefthalf.filled" hint="IPPure" shaded order={3}>
-            {pure?.risk == null ? <ScorePending loading={state.pureLoading} />
-              : shouldShowRiskScale(pure.risk) ? <RiskScale key={`pure-${state.ip}`} value={pure.risk} /> : null}
-            {pure?.note ? <Note text={pure.note} /> : null}
-          </Band>
-          <Band title="Cloudflare 系数" hint="经 IPPure" order={4}>
-            {pure?.cloudflareRisk == null ? <ScorePending loading={state.pureLoading} />
-              : shouldShowRiskScale(pure.cloudflareRisk) ? <RiskScale key={`cf-${state.ip}`} value={pure.cloudflareRisk} /> : null}
-            <Note text="浏览器检测分数会变化；仅显示与查询 IP 一致的结果。" />
-          </Band>
-          <Band title="proxycheck 风险" hint="proxycheck.io" shaded order={5}>
+          ...scoreModules(pure, state.ip),
+          proxycheck: <Band title="proxycheck 风险" hint="proxycheck.io" shaded order={5}>
             {risk == null ? <ScorePending loading={state.loading} />
               : shouldShowRiskScale(risk) ? <RiskScale key={`pc-${state.ip}`} value={risk} /> : null}
             <ReputationDetails reputation={flags || null} />
-          </Band>
+          </Band>,
 
-          <Band title="泄露检测" icon="network" hint="WebRTC · 出口对照" order={6}>
+          leak: <Band title="泄露检测" icon="network" hint="WebRTC · 出口对照" order={6}>
             <ExitRows state={state} privacy={privacy} />
-          </Band>
+          </Band>,
+          network: <NetworkSection report={state.network} loading={state.networkLoading} manual={state.manual} privacy={privacy} />,
+          media: <ServiceSection report={state.network} group="media" loading={state.networkLoading} />,
+          ai: <ServiceSection report={state.network} group="ai" loading={state.networkLoading} />,
+          settings: <NetworkSettingsPanel onSaved={() => { scheduleWidgetReload(); void refresh() }} />,
+          }} />
         </VStack>
         <HStack spacing={5} padding={{ top: 13 }} foregroundStyle="secondaryLabel">
           <Image systemName="arrow.down" font={9} />

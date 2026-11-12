@@ -5,7 +5,8 @@ import { validIPAddress, parseProxyCheck, assembleLookupResult } from "../utils/
 import { parseIPPure } from "../utils/ippure"
 import { normalizeRTCAddress, rtcAddressScope, parseWebRTC, assessWebRTC } from "../utils/webrtc"
 import { detectionTime, locationDetails, networkDetails } from "../utils/details"
-import { activeRiskFlags, hasKnownRiskFlags, shouldShowRiskScale } from "../utils/flags"
+import { activeRiskFlags, hasKnownRiskFlags, hasRiskScore, shouldShowRiskScale } from "../utils/flags"
+import { scoreModules } from "../score_modules"
 import { buildWidgetSnapshot, parseWidgetSnapshot } from "../utils/widget_sync"
 import { hasCoordinates } from "../utils/map"
 import type { IPInfo } from "../utils/ip"
@@ -75,6 +76,8 @@ async function run() {
   check("零分与缺失不显示刻度条", () => !shouldShowRiskScale(0) && !shouldShowRiskScale(null)
     && !shouldShowRiskScale(undefined) && !shouldShowRiskScale(Number.NaN))
   check("正分显示刻度条", () => shouldShowRiskScale(0.5) && shouldShowRiskScale(1) && shouldShowRiskScale(100))
+  check("有效评分包含真实零分和百分制边界", () => [0, 0.5, 100].every(hasRiskScore))
+  check("缺失与非法评分不算已取得数据", () => [null, undefined, false, "0", -1, 101, NaN, Infinity].every(value => !hasRiskScore(value)))
 
   const widgetInfo: IPInfo = { query: ip, status: "success", country: "美国", countryCode: "US",
     regionName: "California", city: "Mountain View", isp: "Google", org: "Google LLC",
@@ -146,6 +149,22 @@ async function run() {
   check("IPPure IPv6 不借用残留 IPv4 评分", () => parseIPPure("2001:db8::1", { queriedIP: "2001:db8::1", basic: { ip: "2001:db8::1" }, risk: 88, riskIP: ip }, null).risk === null)
   check("Cloudflare 独立校验地址", () => parseIPPure(ip, { ...base, cf: { ip: "1.1.1.1", risk_score: 99 } }, null).cloudflareRisk === null)
   check("人机比异常值拒绝", () => parseIPPure(ip, { ...base, traffic: { human: 80, bot: 80 } }, null).traffic === null)
+
+  const missingScores = scoreModules(parseIPPure(ip, base, null), ip)
+  check("只有归属数据时两个系数分区都隐藏", () => missingScores.ippure === null && missingScores.cloudflare === null)
+  check("查询尚未返回时不创建系数占位", () => Object.values(scoreModules(null, ip)).every(value => value === null))
+  const onlyPure = scoreModules(parseIPPure(ip, { ...base, risk: 35, riskIP: ip }, null), ip)
+  check("仅 IPPure 有评分时独立显示", () => onlyPure.ippure !== null && onlyPure.cloudflare === null)
+  const onlyCF = scoreModules(parseIPPure(ip, { ...base, cf: { ip, risk_score: 67 } }, null), ip)
+  check("仅 Cloudflare 有评分时独立显示", () => onlyCF.ippure === null && onlyCF.cloudflare !== null)
+  check("两源均有同址评分时都显示", () => Object.values(scoreModules(parseIPPure(ip,
+    { ...base, risk: 35, riskIP: ip, cf: { ip, risk_score: 67 } }, null), ip)).every(value => value !== null))
+  check("同址零分不被误当缺失而隐藏分区", () => Object.values(scoreModules(parseIPPure(ip,
+    { ...base, risk: 0, riskIP: ip, cf: { ip, risk_score: 0 } }, null), ip)).every(value => value !== null))
+  check("异址评分不会让系数分区出现", () => Object.values(scoreModules(parseIPPure(ip,
+    { ...base, risk: 35, riskIP: "1.1.1.1", cf: { ip: "1.1.1.1", risk_score: 67 } }, null), ip)).every(value => value === null))
+  check("异常评分不会让系数分区出现", () => Object.values(scoreModules(parseIPPure(ip,
+    { ...base, risk: "35", riskIP: ip, cf: { ip, risk_score: 101 } }, null), ip)).every(value => value === null))
 
   const info: IPInfo = { query: ip, status: "success", country: "美国", countryCode: "US", regionName: "", city: "", isp: "Example", org: "example", as: "", lat: 37, lon: -122, timezone: "Etc/UTC", offset: 0 }
   check("地理详情保留 UTC 0 偏移", () => locationDetails(info).some(row => row.value === "Etc/UTC · UTC+00:00"))

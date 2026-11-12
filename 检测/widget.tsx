@@ -1,5 +1,6 @@
 import {
-  Button,
+  Link,
+  Script,
   Capsule,
   Circle,
   HStack,
@@ -13,11 +14,7 @@ import {
   ZStack,
   modifiers,
 } from "scripting"
-import { RefreshIPIntent } from "./app_intents"
 import {
-  calculateRiskValue,
-  fetchChinaIP,
-  fetchIPInfo,
   formatIPAddress,
   formatIPLocation,
   getPrivacyMode,
@@ -25,24 +22,29 @@ import {
 } from "./utils/ip"
 import { hasCoordinates, takeIPMapSnapshot } from "./utils/map"
 import { withTimeout } from "./utils/geo"
-import { accessTypeLabel } from "./utils/details"
 import { readWidgetSnapshot } from "./utils/widget_sync"
 import type { WidgetRiskSource, WidgetSnapshot } from "./utils/widget_sync"
+import { getNetworkSettings } from "./utils/network_settings"
+import { NetworkWidget, NetworkWidgetSummary } from "./network_widget"
+import type { WidgetMapImage } from "./network_widget"
 
 export interface WidgetProps {
+  snapshot: WidgetSnapshot | null
+  refreshMinutes: number
+  privacyMode: boolean
   ipInfo: IPInfo | null
   riskValue: number | null
   riskSource: WidgetRiskSource
   accessType: string
   vpnStatus: string
   widgetSize: { width: number; height: number }
-  mapImage?: any
+  mapImage?: WidgetMapImage
   mapSize?: { width: number; height: number }
 }
 
 function riskText(value: number | null, source: WidgetRiskSource): string {
-  if (value == null) return "风险 —"
-  const prefix = source === "IPPure" ? "IPPure" : source === "heuristic" ? "估算" : "风险"
+  if (value == null || source === "heuristic") return "风险 —"
+  const prefix = source === "IPPure" ? "IPPure 风险" : "风险"
   return `${prefix} ${value}%`
 }
 
@@ -201,20 +203,19 @@ function RiskGauge({
 }
 
 function widgetRootModifiers() {
-  const root = modifiers()
-
-  if (!Widget.isTransparentMode) {
-    root.widgetBackground(COLORS.background)
-  }
-
-  return root
+  // widgetBackground automatically respects transparent, blur and tinted modes.
+  return modifiers().widgetBackground(COLORS.background)
     .ignoresSafeArea()
     .frame({ maxWidth: "infinity", maxHeight: "infinity" })
 }
 
+function usesRadarLayout(): boolean {
+  const parameter = (Widget.parameter ?? "").trim().toLowerCase()
+  return parameter !== "map"
+}
+
 function FullMapBackground(props: WidgetProps) {
   const size = props.widgetSize
-  const transparentMode = Widget.isTransparentMode
   const isLarge = Widget.family === "systemLarge" || Widget.family === "systemExtraLarge"
   const isSmall = Widget.family === "systemSmall"
   const hasMap = !!props.mapImage && !!props.mapSize
@@ -231,103 +232,27 @@ function FullMapBackground(props: WidgetProps) {
   return (
     <ZStack alignment="topLeading" frame={size}>
       {hasMap ? (
-        transparentMode ? (
-          <ZStack frame={size}>
-            <Image
-              image={props.mapImage}
-              resizable
-              scaleToFill
-              frame={size}
-              position={mapCenter}
-              modifiers={modifiers().mask(
-                <Rectangle
-                  fill={{
-                    gradient: [
-                      { color: "rgba(255,255,255,0.00)", location: 0.00 },
-                      { color: "rgba(255,255,255,0.01)", location: Math.max(0, revealStart - 0.14) },
-                      { color: "rgba(255,255,255,0.06)", location: revealStart },
-                      { color: "rgba(255,255,255,0.18)", location: revealStart + (revealMid - revealStart) * 0.45 },
-                      { color: "rgba(255,255,255,0.36)", location: revealMid },
-                      { color: "rgba(255,255,255,0.57)", location: revealMid + (revealEnd - revealMid) * 0.45 },
-                      { color: "rgba(255,255,255,0.76)", location: revealEnd },
-                      { color: "rgba(255,255,255,0.90)", location: revealEnd + (1 - revealEnd) * 0.42 },
-                      { color: "rgba(255,255,255,0.97)", location: revealEnd + (1 - revealEnd) * 0.72 },
-                      { color: "rgba(255,255,255,1.00)", location: 1.00 },
-                    ],
-                    startPoint: { x: 0, y: 0.5 },
-                    endPoint: { x: 1, y: 0.5 },
-                  }}
-                  frame={size}
-                />
-              )}
-            />
-          </ZStack>
-        ) : (
+        <ZStack frame={size} modifiers={modifiers().mask(
+          <Rectangle fill={{
+            gradient: [
+              { color: "rgba(255,255,255,0.00)", location: 0 },
+              { color: "rgba(255,255,255,0.01)", location: Math.max(0, revealStart - 0.14) },
+              { color: "rgba(255,255,255,0.08)", location: revealStart },
+              { color: "rgba(255,255,255,0.38)", location: revealMid },
+              { color: "rgba(255,255,255,0.82)", location: revealEnd },
+              { color: "rgba(255,255,255,1.00)", location: 1 },
+            ],
+            startPoint: { x: 0, y: 0.5 },
+            endPoint: { x: 1, y: 0.5 },
+          }} frame={size} />
+        )}>
           <Image
-              image={props.mapImage}
-              resizable
-              scaleToFill
-              frame={size}
-              position={mapCenter}
-            />
-        )
-      ) : transparentMode ? null : (
-        <Rectangle fill={COLORS.background} frame={size} />
-      )}
-
-      {!transparentMode ? (
-        <ZStack frame={size}>
-          <Rectangle
-            fill={{
-              light: {
-                gradient: [
-                  { color: "rgba(255,255,255,1.00)", location: 0.00 },
-                  { color: "rgba(255,255,255,0.92)", location: revealStart },
-                  { color: "rgba(255,255,255,0.58)", location: revealMid },
-                  { color: "rgba(255,255,255,0.18)", location: revealEnd },
-                  { color: "rgba(255,255,255,0.00)", location: 1.00 },
-                ],
-                startPoint: { x: 0, y: 0.5 },
-                endPoint: { x: 1, y: 0.5 },
-              },
-              dark: {
-                gradient: [
-                  { color: "rgba(0,0,0,1.00)", location: 0.00 },
-                  { color: "rgba(0,0,0,0.92)", location: revealStart },
-                  { color: "rgba(0,0,0,0.58)", location: revealMid },
-                  { color: "rgba(0,0,0,0.18)", location: revealEnd },
-                  { color: "rgba(0,0,0,0.00)", location: 1.00 },
-                ],
-                startPoint: { x: 0, y: 0.5 },
-                endPoint: { x: 1, y: 0.5 },
-              },
-            }}
+            image={props.mapImage!}
+            widgetAccentedRenderingMode="fullColor"
+            resizable
+            scaleToFill
             frame={size}
-          />
-          <Rectangle
-            fill={{
-              light: {
-                gradient: [
-                  { color: "rgba(255,255,255,0.34)", location: 0.00 },
-                  { color: "rgba(255,255,255,0.02)", location: 0.28 },
-                  { color: "rgba(255,255,255,0.02)", location: 0.72 },
-                  { color: "rgba(255,255,255,0.40)", location: 1.00 },
-                ],
-                startPoint: { x: 0.5, y: 0 },
-                endPoint: { x: 0.5, y: 1 },
-              },
-              dark: {
-                gradient: [
-                  { color: "rgba(0,0,0,0.34)", location: 0.00 },
-                  { color: "rgba(0,0,0,0.02)", location: 0.28 },
-                  { color: "rgba(0,0,0,0.02)", location: 0.72 },
-                  { color: "rgba(0,0,0,0.40)", location: 1.00 },
-                ],
-                startPoint: { x: 0.5, y: 0 },
-                endPoint: { x: 0.5, y: 1 },
-              },
-            }}
-            frame={size}
+            position={mapCenter}
           />
         </ZStack>
       ) : null}
@@ -348,7 +273,7 @@ function DashboardWidget(props: WidgetProps & { layout: Layout }): VirtualNode {
   const info = props.ipInfo!
   const layout = props.layout
   const location = formatIPLocation(info)
-  const displayIP = formatIPAddress(info.query, getPrivacyMode())
+  const displayIP = formatIPAddress(info.query, props.privacyMode)
   const asn = info.as || info.org || info.isp || "未知 ASN"
   const accessType = props.accessType || "暂无分类"
   const risk = riskText(props.riskValue, props.riskSource)
@@ -359,8 +284,8 @@ function DashboardWidget(props: WidgetProps & { layout: Layout }): VirtualNode {
   if (layout.large) {
     const contentHeight = Math.max(210, props.widgetSize.height - layout.padding * 2)
     return (
-      <Button
-        intent={RefreshIPIntent(undefined)}
+      <Link
+        url={Script.createRunURLScheme(Script.name)}
         buttonStyle="plain"
         modifiers={widgetRootModifiers()}
       >
@@ -395,15 +320,17 @@ function DashboardWidget(props: WidgetProps & { layout: Layout }): VirtualNode {
               valueColor={COLORS.status}
               width={layout.leftWidth}
             />
+            <Spacer />
+            <NetworkWidgetSummary snapshot={props.snapshot} refreshMinutes={props.refreshMinutes} width={layout.leftWidth} />
           </VStack>
         </ZStack>
-      </Button>
+      </Link>
     )
   }
 
   return (
-    <Button
-      intent={RefreshIPIntent(undefined)}
+    <Link
+      url={Script.createRunURLScheme(Script.name)}
       buttonStyle="plain"
       modifiers={widgetRootModifiers()}
     >
@@ -412,7 +339,7 @@ function DashboardWidget(props: WidgetProps & { layout: Layout }): VirtualNode {
 
         <VStack
           alignment="leading"
-          spacing={7}
+          spacing={3}
           frame={{ width: layout.leftWidth }}
           position={{
             x: layout.padding + layout.leftWidth / 2,
@@ -423,7 +350,7 @@ function DashboardWidget(props: WidgetProps & { layout: Layout }): VirtualNode {
             font={14}
             fontWeight="semibold"
             foregroundStyle={COLORS.title}
-            offset={{ x: 0, y: -5 }}
+            offset={{ x: 0, y: -2 }}
           >
             IP信息概览
           </Text>
@@ -439,23 +366,24 @@ function DashboardWidget(props: WidgetProps & { layout: Layout }): VirtualNode {
             valueColor={COLORS.status}
             width={layout.leftWidth}
           />
+          <NetworkWidgetSummary snapshot={props.snapshot} refreshMinutes={props.refreshMinutes} width={layout.leftWidth} compact />
         </VStack>
       </ZStack>
-    </Button>
+    </Link>
   )
 }
 
 function CompactWidget(props: WidgetProps & { layout: Layout }): VirtualNode {
   const info = props.ipInfo!
   const location = formatIPLocation(info)
-  const displayIP = formatIPAddress(info.query, getPrivacyMode())
+  const displayIP = formatIPAddress(info.query, props.privacyMode)
   const accessType = props.accessType || "暂无分类"
   const risk = riskText(props.riskValue, props.riskSource)
   const height = Math.max(118, props.widgetSize.height - 24)
 
   return (
-    <Button
-      intent={RefreshIPIntent(undefined)}
+    <Link
+      url={Script.createRunURLScheme(Script.name)}
       buttonStyle="plain"
       modifiers={widgetRootModifiers()}
     >
@@ -483,27 +411,36 @@ function CompactWidget(props: WidgetProps & { layout: Layout }): VirtualNode {
             valueColor={COLORS.status}
             width={props.layout.leftWidth}
           />
+          <Spacer minLength={2} />
+          <NetworkWidgetSummary snapshot={props.snapshot} refreshMinutes={props.refreshMinutes} width={props.layout.leftWidth} compact />
         </VStack>
       </ZStack>
-    </Button>
+    </Link>
   )
 }
 
 function EmptyWidget({ message }: { message: string }) {
   return (
-    <VStack
-      alignment="center"
-      spacing={8}
-      modifiers={widgetRootModifiers()}
-    >
-      <Image systemName="network.slash" font={24} foregroundStyle={COLORS.red} />
-      <Text foregroundStyle={COLORS.secondary}>{message}</Text>
-    </VStack>
+    <Link url={Script.createRunURLScheme(Script.name)} buttonStyle="plain" modifiers={widgetRootModifiers()}>
+      <VStack alignment="center" spacing={8} padding={12}>
+        <Image systemName="network" font={24} foregroundStyle={COLORS.secondary} widgetAccentedRenderingMode="fullColor" />
+        <Text font={12} foregroundStyle={COLORS.secondary}>{message}</Text>
+        <Text font={10} foregroundStyle={COLORS.secondary}>打开脚本检测 IP 与网络</Text>
+      </VStack>
+    </Link>
   )
 }
 
 function WidgetView(props: WidgetProps): VirtualNode {
-  if (!props.ipInfo) return <EmptyWidget message="无法获取 IP 数据" />
+  if (usesRadarLayout()) return <NetworkWidget
+    snapshot={props.snapshot}
+    family={Widget.family}
+    size={props.widgetSize}
+    mapImage={props.mapImage}
+    privacyMode={props.privacyMode}
+    refreshMinutes={props.refreshMinutes}
+  />
+  if (!props.ipInfo) return <EmptyWidget message="还没有共享检测结果" />
   const layout = layoutMetrics(Widget.family, props.widgetSize)
   return layout.dashboard
     ? <DashboardWidget {...props} layout={layout} />
@@ -526,52 +463,30 @@ function ipInfoFromSnapshot(snapshot: WidgetSnapshot): IPInfo {
   }
 }
 
-async function getWidgetProps(): Promise<WidgetProps> {
-  const widgetSize = Widget.displaySize ?? { width: 338, height: 158 }
+export async function getWidgetProps(): Promise<WidgetProps> {
+  const widgetSize = Widget.displaySize ?? { width: 338, height: 354 }
   const layout = layoutMetrics(Widget.family, widgetSize)
   const snapshot = readWidgetSnapshot()
-  let ipInfo: IPInfo | null = null
-  let riskValue: number | null = null
-  let riskSource: WidgetRiskSource = null
-  let accessType = "暂无分类"
-  let vpnStatus = "未知"
-
-  if (snapshot) {
-    // 以页面刚查询的地址与风险为准，避免小组件另查出口导致 IP、地图、风险不同步。
-    ipInfo = ipInfoFromSnapshot(snapshot)
-    riskValue = snapshot.risk
-    riskSource = snapshot.riskSource
-    accessType = snapshot.accessType || accessTypeLabel(ipInfo, null, null)
-    vpnStatus = snapshot.vpnStatus || "未知"
-  } else {
-    const [liveInfo, chinaIP] = await Promise.all([fetchIPInfo(), fetchChinaIP()])
-    if (!liveInfo) {
-      return {
-        ipInfo: null,
-        riskValue: null,
-        riskSource: null,
-        accessType: "暂无分类",
-        vpnStatus: "未知",
-        widgetSize,
-      }
-    }
-    ipInfo = liveInfo
-    const result = calculateRiskValue(liveInfo, chinaIP)
-    riskValue = result.riskValue
-    riskSource = "heuristic"
-    accessType = accessTypeLabel(liveInfo, null, null)
-    vpnStatus = result.vpnStatus
-  }
-
-  let mapImage: any
+  const { refreshMinutes } = getNetworkSettings()
+  const privacyMode = getPrivacyMode()
+  // No snapshot means no independent exit/reputation probes. The App owns each detection round.
+  const ipInfo = snapshot ? ipInfoFromSnapshot(snapshot) : null
+  const riskValue = snapshot?.riskSource === "heuristic" ? null : snapshot?.risk ?? null
+  const riskSource = riskValue == null ? null : snapshot?.riskSource ?? null
+  const accessType = snapshot?.accessType || "暂无分类"
+  const vpnStatus = snapshot?.vpnStatus || "未知"
+  let mapImage: WidgetMapImage | undefined
   let mapSize: { width: number; height: number } | undefined
+  const radar = usesRadarLayout()
+  const needsMap = radar || layout.dashboard || Widget.family === "systemSmall"
 
-  if ((layout.dashboard || Widget.family === "systemSmall") && hasCoordinates(ipInfo)) {
+  if (needsMap && hasCoordinates(ipInfo)) {
     const snapshotOptions = {
       lat: ipInfo.lat,
       lon: ipInfo.lon,
-      width: widgetSize.width,
-      height: widgetSize.height,
+      width: radar ? layout.large ? Math.min(108, Math.round((widgetSize.width - 24) * 0.33))
+        : Widget.family === "systemMedium" ? Math.round((widgetSize.width - 20) * 0.43) - 8 : 50 : widgetSize.width,
+      height: radar ? layout.large ? 63 : Widget.family === "systemMedium" ? widgetSize.height - 76 : 46 : widgetSize.height,
       family: Widget.family,
     }
     const [lightSnap, darkSnap] = await Promise.all([
@@ -589,6 +504,9 @@ async function getWidgetProps(): Promise<WidgetProps> {
   }
 
   return {
+    snapshot,
+    refreshMinutes,
+    privacyMode,
     ipInfo,
     riskValue,
     riskSource,
@@ -606,10 +524,16 @@ export async function renderIPWidget() {
 
 async function presentIPWidget() {
   try {
-    Widget.present(await renderIPWidget())
+    const props = await getWidgetProps()
+    Widget.present(<WidgetView {...props} />, {
+      policy: "after",
+      date: new Date(Date.now() + props.refreshMinutes * 60_000),
+    })
   } catch (error) {
     console.error("[IP检测] 小组件渲染失败", error)
-    try { Widget.present(<EmptyWidget message="IP 数据暂不可用" />) }
+    try { Widget.present(<EmptyWidget message="IP 数据暂不可用" />, {
+      policy: "after", date: new Date(Date.now() + 15 * 60_000),
+    }) }
     catch (fallbackError) { console.error("[IP检测] 无法呈现错误视图", fallbackError) }
   }
 }

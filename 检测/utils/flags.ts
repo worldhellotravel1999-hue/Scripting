@@ -44,7 +44,12 @@ export function hasKnownRiskFlags(
   ].some(value => value != null)
 }
 
-/** 0 分代表无风险，不渲染刻度条；缺失与正分分别交给待获取状态和 RiskScale。 */
+/** 真实 0 分也是有效数据；拒绝缺失、非数值和超出百分制范围的评分。 */
+export function hasRiskScore(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100
+}
+
+/** 0 分不渲染刻度条；缺失时是否隐藏整区由调用方决定。 */
 export function shouldShowRiskScale(value: number | null | undefined): boolean {
   return typeof value === "number" && Number.isFinite(value) && value > 0
 }

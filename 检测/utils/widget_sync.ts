@@ -1,4 +1,6 @@
 import { canonicalAddress } from "./ip"
+import { parseNetworkReport, reportMatchesIP } from "./network_model"
+import type { NetworkReport } from "./network_model"
 import type { IPInfo } from "./ip"
 import { activeRiskFlags, hasKnownRiskFlags } from "./flags"
 import { accessTypeLabel } from "./details"
@@ -27,6 +29,8 @@ export interface WidgetSnapshot {
   riskSource: WidgetRiskSource
   accessType: string
   vpnStatus: string
+  manual: boolean
+  network: NetworkReport | null
 }
 
 function text(value: unknown): string {
@@ -50,6 +54,8 @@ export function buildWidgetSnapshot(input: {
   info: IPInfo | null | undefined
   reputation: LookupResult["reputation"]
   pure: IPPureReport | null | undefined
+  manual?: boolean
+  network?: NetworkReport | null
 }): WidgetSnapshot {
   const info = input.info
   const reputation = input.reputation
@@ -66,6 +72,8 @@ export function buildWidgetSnapshot(input: {
   return {
     version: 1,
     savedAt: Date.now(),
+    manual: input.manual === true,
+    network: reportMatchesIP(input.network ?? null, input.ip, input.manual) ? parseNetworkReport(input.network) : null,
     ip: canonicalAddress(input.ip) || input.ip.trim(),
     country: text(info?.country),
     countryCode: text(info?.countryCode),
@@ -100,6 +108,8 @@ export function parseWidgetSnapshot(raw: unknown): WidgetSnapshot | null {
   return {
     version: 1,
     savedAt: typeof data.savedAt === "number" && Number.isFinite(data.savedAt) ? data.savedAt : 0,
+    manual: data.manual === true,
+    network: reportMatchesIP(parseNetworkReport(data.network), ip, data.manual === true) ? parseNetworkReport(data.network) : null,
     ip,
     country: text(data.country),
     countryCode: text(data.countryCode),
