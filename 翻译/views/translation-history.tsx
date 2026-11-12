@@ -2,12 +2,15 @@ import {
   Button,
   HStack,
   Image,
+  ScrollView,
+  DragGesture,
   useMemo,
   RoundedRectangle,
-  ScrollView,
   Text,
   VStack,
+  ZStack,
   useState,
+  useRef,
 } from "scripting"
 import {
   clearTranslationHistory,
@@ -15,16 +18,16 @@ import {
   removeTranslationHistoryItem,
   type TranslationHistoryItem,
 } from "../core/search-history"
-import { AnimatedSection } from "./animated-section"
 import { AppStoreIcon } from "./app-store"
+import { guard } from "../core/guarded"
 
-/** 翻译记录面板：列出最近翻译过的应用（最新在前）。
- *  点击记录 → 通过 onPick 重新定位/重选该应用进行翻译；
- *  点「删除」单条移除；底部胶囊工具条：清空（trash）+ 完成（checkmark）。 */
-/** 记录不超过该条数时不套内滚容器：列表按内容收缩，底部工具条紧跟最后一条记录，避免卡片下部大片留白割裂（5×56+4×2=288 ≤ 300，行为与旧内滚一致）。 */
+/** 翻译记录面板：点击记录重新翻译，点叉号单条删除；
+ *  右滑任意记录露出清空历史和记录数量，退出由主页面底部历史按钮切换。 */
+/** 少量记录按内容收缩，超过 300pt 时在面板内滚动。 */
 const HISTORY_INLINE_MAX = 5
-
-/** 工具条圆形灰底（与 common.tsx 语言栏交换按钮同值）。 */
+const HISTORY_MAX_HEIGHT = 300
+const HISTORY_ACTION_REVEAL_WIDTH = 112
+const HISTORY_ACTION_CIRCLE_SIZE = 36
 const CIRCLE_GRAY_BG = { light: "rgba(142, 142, 147, 0.22)", dark: "rgba(142, 142, 147, 0.28)" } as const
 
 /** 单条记录行：图标 + 名称/开发者·时间 + 删除按钮。 */
@@ -34,45 +37,118 @@ function HistoryRow(props: {
   foregroundStyle: any
   onPick: (item: TranslationHistoryItem) => void
   onRemove: (item: TranslationHistoryItem) => void
+  count: number
+  onClearAll: () => void
+  isOpen: boolean
+  onOpenChange: (isOpen: boolean) => void
 }) {
   const item = props.item
   // 面板随父级重渲染时逐行重算 formatTime（内部 new Date ×2~3）；记录数少但
   // 正是清单点名的模式，按行 memo 掉。
   const timeLabel = useMemo(() => formatTime(item.recordedAt), [item.recordedAt])
+  const ignoreTapsUntil = useRef(0)
+  const swipeGesture = DragGesture({ minDistance: 12, coordinateSpace: "global" })
+    .onChanged(guard((value) => {
+      const dx = value?.translation?.width
+      const dy = value?.translation?.height
+      if (typeof dx !== "number" || typeof dy !== "number" || !Number.isFinite(dx) || !Number.isFinite(dy)) return
+      // Only a clearly horizontal swipe changes the row; vertical drags remain scrolls.
+      if (Math.abs(dx) < 32 || Math.abs(dx) <= Math.abs(dy) * 1.5) return
+      ignoreTapsUntil.current = Date.now() + 350
+      if (dx > 0 && !props.isOpen) props.onOpenChange(true)
+      if (dx < 0 && props.isOpen) props.onOpenChange(false)
+    }, "history-row-swipe-changed"))
+    .onEnded(guard((value) => {
+      const dx = value?.translation?.width
+      const dy = value?.translation?.height
+      if (typeof dx === "number" && typeof dy === "number" && Number.isFinite(dx) && Number.isFinite(dy)
+        && Math.abs(dx) >= 32 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        ignoreTapsUntil.current = Date.now() + 350
+      }
+    }, "history-row-swipe-ended"))
+  const canTap = () => Date.now() >= ignoreTapsUntil.current
+
   return (
-    <AnimatedSection index={props.index}>
-      <HStack
-        spacing={12}
-        padding={{ horizontal: 10, vertical: 8 }}
-        frame={{ maxWidth: "infinity" }}
-        contentShape="rect"
-        background={<RoundedRectangle fill={{ light: "rgba(120,120,128,0.07)", dark: "rgba(120,120,128,0.12)" }} cornerRadius={16} />}
-        clipShape={{ type: "rect", cornerRadius: 16, style: "continuous" }}
-        onTapGesture={() => props.onPick(item)}
+    <ZStack
+      alignment="leading"
+      frame={{ maxWidth: "infinity" }}
+      contentShape="rect"
+      clipShape={{ type: "rect", cornerRadius: 0 }}
+      simultaneousGesture={swipeGesture}
+    >
+      {props.isOpen ? <HStack
+        spacing={10}
+        padding={{ horizontal: 10, vertical: 7 }}
+        background={{
+          style: { light: "rgba(255,255,255,0.85)", dark: "rgba(28,28,30,0.85)" },
+          shape: "capsule",
+        }}
+        shadow={{ color: "rgba(0,0,0,0.12)", radius: 14, y: 4 }}
       >
-        <AppStoreIcon
-          imageUrl={item.artworkUrl}
-          size={40}
-          foregroundStyle={props.foregroundStyle}
-        />
-        <VStack alignment="leading" spacing={2} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
-          <Text font="body" fontWeight="semibold" lineLimit={1}>{item.trackName || "未知应用"}</Text>
-          <Text font="caption" foregroundStyle="tertiaryLabel" lineLimit={1}>
-            {item.artistName || "—"}{` · ${timeLabel}`}
+        <Button buttonStyle="borderless" action={props.onClearAll} help="清空历史记录">
+          <Text
+            font={12}
+            fontWeight="semibold"
+            foregroundStyle={{ light: "#000000", dark: "#FFFFFF" }}
+            frame={{ width: HISTORY_ACTION_CIRCLE_SIZE, height: HISTORY_ACTION_CIRCLE_SIZE, alignment: "center" as any }}
+            background={{ style: CIRCLE_GRAY_BG, shape: "circle" }}
+          >
+            all
           </Text>
-        </VStack>
-        <Button
-          buttonStyle="borderless"
-          action={() => props.onRemove(item)}
-        >
-          <Image
-            systemName="xmark.circle.fill"
-            foregroundStyle={{ light: "rgba(255,59,48,0.55)", dark: "rgba(255,69,58,0.60)" }}
-            font="title3"
-          />
         </Button>
-      </HStack>
-    </AnimatedSection>
+        <Text
+          font={14}
+          fontWeight="semibold"
+          foregroundStyle={{ light: "#000000", dark: "#FFFFFF" }}
+          frame={{ width: HISTORY_ACTION_CIRCLE_SIZE, height: HISTORY_ACTION_CIRCLE_SIZE, alignment: "center" as any }}
+          background={{ style: CIRCLE_GRAY_BG, shape: "circle" }}
+          help={`${props.count} 条历史记录`}
+        >
+          {String(props.count)}
+        </Text>
+      </HStack> : null}
+      <VStack spacing={0} frame={{ maxWidth: "infinity" }}>
+        <HStack
+          spacing={12}
+          padding={{ horizontal: 10, vertical: 8 }}
+          frame={{ maxWidth: "infinity" }}
+          contentShape="rect"
+          background={<RoundedRectangle fill={{ light: "#F5F5F7", dark: "#2C2C2E" }} cornerRadius={16} />}
+          clipShape={{ type: "rect", cornerRadius: 16, style: "continuous" }}
+          offset={{ x: props.isOpen ? HISTORY_ACTION_REVEAL_WIDTH : 0, y: 0 }}
+          animation={{ animation: Animation.easeOut(0.55), value: props.isOpen }}
+        >
+          <HStack
+            spacing={12}
+            frame={{ maxWidth: "infinity" }}
+            contentShape="rect"
+            onTapGesture={() => { if (canTap()) props.onPick(item) }}
+          >
+            <AppStoreIcon
+              imageUrl={item.artworkUrl}
+              size={40}
+              foregroundStyle={props.foregroundStyle}
+            />
+            <VStack alignment="leading" spacing={2} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
+              <Text font="body" fontWeight="semibold" lineLimit={1}>{item.trackName || "未知应用"}</Text>
+              <Text font="caption" foregroundStyle="tertiaryLabel" lineLimit={1}>
+                {item.artistName || "—"}{` · ${timeLabel}`}
+              </Text>
+            </VStack>
+          </HStack>
+          <Button
+            buttonStyle="borderless"
+            action={() => { if (canTap()) props.onRemove(item) }}
+          >
+            <Image
+              systemName="xmark.circle.fill"
+              foregroundStyle={{ light: "rgba(255,59,48,0.55)", dark: "rgba(255,69,58,0.60)" }}
+              font="title3"
+            />
+          </Button>
+        </HStack>
+      </VStack>
+    </ZStack>
   )
 }
 
@@ -80,23 +156,24 @@ export function TranslationHistoryPanel(props: {
   foregroundStyle: any
   /** 点击一条记录：由页面把该应用重新加入已选列表并滚动定位。 */
   onPick: (item: TranslationHistoryItem) => void
-  /** 关闭面板（点空白/完成时由页面处理，这里只负责记录操作）。 */
-  onRequestClose?: () => void
   /** 记录数变化（删除/清空）时回传最新条数，供页面隐藏记录按钮/收起面板。 */
   onCountChanged?: (count: number) => void
 }) {
   const [items, setItems] = useState<TranslationHistoryItem[]>(() => getTranslationHistory())
+  const [openRowId, setOpenRowId] = useState<string | null>(null)
 
   function removeItem(item: TranslationHistoryItem) {
     removeTranslationHistoryItem(item.appid)
     const next = getTranslationHistory()
     setItems(next)
+    setOpenRowId(null)
     props.onCountChanged?.(next.length)
   }
 
   function clearAll() {
     clearTranslationHistory()
     setItems([])
+    setOpenRowId(null)
     props.onCountChanged?.(0)
   }
 
@@ -108,12 +185,12 @@ export function TranslationHistoryPanel(props: {
       foregroundStyle={props.foregroundStyle}
       onPick={props.onPick}
       onRemove={removeItem}
+      count={items.length}
+      onClearAll={clearAll}
+      isOpen={openRowId === item.appid}
+      onOpenChange={(isOpen) => setOpenRowId(isOpen ? item.appid : null)}
     />
   )
-
-  const toolbarIconColor = items.length > 0
-    ? { light: "#000000", dark: "#FFFFFF" } as const
-    : { light: "rgba(0,0,0,0.35)", dark: "rgba(255,255,255,0.35)" } as const
 
   return (
     <VStack
@@ -124,68 +201,17 @@ export function TranslationHistoryPanel(props: {
       background={<RoundedRectangle fill={{ light: "#FFFFFF", dark: "#1C1C1E" }} cornerRadius={24} />}
       clipShape={{ type: "rect", cornerRadius: 24, style: "continuous" }}
     >
-      {items.length === 0 ? null : items.length <= HISTORY_INLINE_MAX ? (
+      {items.length > 0 ? items.length <= HISTORY_INLINE_MAX ? (
         <VStack alignment="leading" spacing={2} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
           {items.map(renderRow)}
         </VStack>
       ) : (
-        <ScrollView
-          axes="vertical"
-          frame={{ maxWidth: "infinity", height: 300 }}
-        >
+        <ScrollView axes="vertical" frame={{ maxWidth: "infinity", height: HISTORY_MAX_HEIGHT }}>
           <VStack alignment="leading" spacing={2} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
             {items.map(renderRow)}
           </VStack>
         </ScrollView>
-      )}
-
-      {/* 底部胶囊工具条：与主页面底部菜单栏同款（大胶囊缩小 20%，按钮不变），记录数居中夹在两按钮之间 */}
-      <HStack spacing={14} padding={{ horizontal: 18, vertical: 13 }} frame={{ maxWidth: "infinity", alignment: "center" as any }}>
-        <HStack
-          spacing={14}
-          padding={{ horizontal: 18, vertical: 13 }}
-          background={{
-            style: { light: "rgba(255,255,255,0.85)", dark: "rgba(28,28,30,0.85)" },
-            shape: "capsule",
-          }}
-          shadow={{ color: "rgba(0,0,0,0.12)", radius: 14, y: 4 }}
-        >
-          <Button
-            buttonStyle="borderless"
-            disabled={items.length === 0}
-            action={clearAll}
-          >
-            <Image
-              systemName="xmark"
-              font={14}
-              foregroundStyle={toolbarIconColor}
-              frame={{ width: 29, height: 29 }}
-              background={{ style: CIRCLE_GRAY_BG, shape: "circle" }}
-            />
-          </Button>
-          {/* 记录数居中夹在两按钮之间（同款圆形灰底） */}
-          <Text
-            font="caption"
-            fontWeight="semibold"
-            foregroundStyle={toolbarIconColor}
-            frame={{ width: 29, height: 29, alignment: "center" as any }}
-            background={{ style: CIRCLE_GRAY_BG, shape: "circle" }}
-          >
-            {String(items.length)}
-          </Text>
-          {props.onRequestClose ? (
-            <Button buttonStyle="borderless" action={props.onRequestClose}>
-              <Image
-                systemName="checkmark"
-                font={14}
-                foregroundStyle={{ light: "#000000", dark: "#FFFFFF" }}
-                frame={{ width: 29, height: 29 }}
-                background={{ style: CIRCLE_GRAY_BG, shape: "circle" }}
-              />
-            </Button>
-          ) : null}
-        </HStack>
-      </HStack>
+      ) : null}
     </VStack>
   )
 }

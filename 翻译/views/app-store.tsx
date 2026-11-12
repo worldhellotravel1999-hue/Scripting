@@ -1652,7 +1652,6 @@ function AppStoreContent(props: {
               setSearchInputVisible(false)
               void searchPickRef.current(item)
             }}
-            onRequestClose={() => setHistoryOpen(false)}
             onCountChanged={(count) => {
               setHistoryCount(count)
               // 记录被清空后按钮随之消失，面板也一并收起，避免留下空面板。
