@@ -4,6 +4,7 @@ import {
   Image,
   ScrollView,
   DragGesture,
+  useEffect,
   useMemo,
   RoundedRectangle,
   Text,
@@ -21,8 +22,8 @@ import {
 import { AppStoreIcon } from "./app-store"
 import { guard } from "../core/guarded"
 
-/** 翻译记录面板：点击记录重新翻译，点叉号单条删除；
- *  右滑任意记录露出清空历史和记录数量，退出由主页面底部历史按钮切换。 */
+/** 翻译记录面板：嵌入在搜索框下方，点击记录重新翻译，点叉号单条删除；
+ *  右滑任意记录露出清空历史和记录数量。 */
 /** 少量记录按内容收缩，超过 300pt 时在面板内滚动。 */
 const HISTORY_INLINE_MAX = 5
 const HISTORY_MAX_HEIGHT = 300
@@ -86,26 +87,33 @@ function HistoryRow(props: {
         shadow={{ color: "rgba(0,0,0,0.12)", radius: 14, y: 4 }}
       >
         <Button buttonStyle="borderless" action={props.onClearAll} help="清空历史记录">
-          <Text
-            font={12}
-            fontWeight="semibold"
+          <Image
+            systemName="square"
             foregroundStyle={{ light: "#000000", dark: "#FFFFFF" }}
+            font="title3"
             frame={{ width: HISTORY_ACTION_CIRCLE_SIZE, height: HISTORY_ACTION_CIRCLE_SIZE, alignment: "center" as any }}
             background={{ style: CIRCLE_GRAY_BG, shape: "circle" }}
-          >
-            all
-          </Text>
+          />
         </Button>
-        <Text
-          font={14}
-          fontWeight="semibold"
-          foregroundStyle={{ light: "#000000", dark: "#FFFFFF" }}
+        <ZStack
           frame={{ width: HISTORY_ACTION_CIRCLE_SIZE, height: HISTORY_ACTION_CIRCLE_SIZE, alignment: "center" as any }}
           background={{ style: CIRCLE_GRAY_BG, shape: "circle" }}
           help={`${props.count} 条历史记录`}
         >
-          {String(props.count)}
-        </Text>
+          <Image
+            systemName="square"
+            foregroundStyle={{ light: "#000000", dark: "#FFFFFF" }}
+            font="title3"
+          />
+          <Text
+            font={10}
+            fontWeight="semibold"
+            foregroundStyle={{ light: "#000000", dark: "#FFFFFF" }}
+            lineLimit={1}
+          >
+            {String(props.count)}
+          </Text>
+        </ZStack>
       </HStack> : null}
       <VStack spacing={0} frame={{ maxWidth: "infinity" }}>
         <HStack
@@ -154,13 +162,18 @@ function HistoryRow(props: {
 
 export function TranslationHistoryPanel(props: {
   foregroundStyle: any
+  historyCount?: number
   /** 点击一条记录：由页面把该应用重新加入已选列表并滚动定位。 */
   onPick: (item: TranslationHistoryItem) => void
-  /** 记录数变化（删除/清空）时回传最新条数，供页面隐藏记录按钮/收起面板。 */
+  /** 记录数变化（删除/清空）时回传最新条数，供搜索区同步显隐。 */
   onCountChanged?: (count: number) => void
 }) {
   const [items, setItems] = useState<TranslationHistoryItem[]>(() => getTranslationHistory())
   const [openRowId, setOpenRowId] = useState<string | null>(null)
+
+  useEffect(() => {
+    setItems(getTranslationHistory())
+  }, [props.historyCount])
 
   function removeItem(item: TranslationHistoryItem) {
     removeTranslationHistoryItem(item.appid)
@@ -195,11 +208,8 @@ export function TranslationHistoryPanel(props: {
   return (
     <VStack
       alignment="leading"
-      spacing={12}
-      padding={{ horizontal: 18, vertical: 16 }}
+      spacing={6}
       frame={{ maxWidth: "infinity", alignment: "leading" as any }}
-      background={<RoundedRectangle fill={{ light: "#FFFFFF", dark: "#1C1C1E" }} cornerRadius={24} />}
-      clipShape={{ type: "rect", cornerRadius: 24, style: "continuous" }}
     >
       {items.length > 0 ? items.length <= HISTORY_INLINE_MAX ? (
         <VStack alignment="leading" spacing={2} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
