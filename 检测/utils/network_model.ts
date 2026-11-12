@@ -67,10 +67,11 @@ export const EMPTY_LOCAL: LocalNetwork = {
 export function pendingServices(): ServiceResult[] {
   return SERVICES.map(({ id, name, group }) => ({ id, name, group, state: "unknown", status: null, ms: null, detail: "未检测", policy: "" }))
 }
-export function classifyService(status: number | null, body = ""): { state: ServiceState; detail: string } {
+export function classifyService(status: number | null, body = "", bodyReadOK = true): { state: ServiceState; detail: string } {
   if (status == null) return { state: "unknown", detail: "连接失败或超时" }
   if ([401, 403, 407, 429, 451].includes(status)) return { state: "restricted", detail: `HTTP ${status} · 认证、限流或访问限制` }
   if (status >= 200 && status < 300) {
+    if (!bodyReadOK) return { state: "unknown", detail: `HTTP ${status} · 正文读取失败` }
     const sample = body.slice(0, 200_000)
     if (/cf-chl-|challenge-platform|<title>\s*(just a moment|attention required)|unusual traffic|verify (that )?you are human|(?:complete|solve|enter|verify) (?:the |this |a )?captcha|not available in your (country|region)|unsupported_country|access denied/i.test(sample)) {
       return { state: "restricted", detail: `HTTP ${status} · 验证或区域限制页面` }

@@ -39,11 +39,21 @@ const C = {
 
 export function widgetNetworkState(snapshot: NetworkSnapshot | null, refreshMinutes = 15, now = Date.now()): WidgetNetworkState {
   if (!snapshot) return { report: null, status: "empty", stale: false, updatedAt: 0 }
-  if (snapshot.manual) return { report: null, status: "manual", stale: false, updatedAt: snapshot.savedAt }
+  const ipStale = !Number.isFinite(snapshot.savedAt) || snapshot.savedAt <= 0 || snapshot.savedAt > now + 60_000
+    || now - snapshot.savedAt >= refreshMinutes * 60_000
+  if (snapshot.manual) return { report: null, status: "manual", stale: ipStale, updatedAt: snapshot.savedAt }
   const candidate = snapshot.network ?? null
   const report = reportMatchesIP(candidate, snapshot.ip) ? candidate : null
-  return { report, status: report ? "ready" : "pending", stale: !!report && !isFreshReport(report, refreshMinutes, now),
+  return { report, status: report ? "ready" : "pending", stale: report ? !isFreshReport(report, refreshMinutes, now) : ipStale,
     updatedAt: report?.measuredAt ?? snapshot.savedAt }
+}
+
+/** 新鲜数据在过期时申请重绘，过期或无数据则按完整周期避免反复立即刷新。 */
+export function widgetReloadDate(snapshot: NetworkSnapshot | null, refreshMinutes = 15, now = Date.now()): Date {
+  const period = refreshMinutes * 60_000
+  const state = widgetNetworkState(snapshot, refreshMinutes, now)
+  const expiresAt = state.updatedAt + period
+  return new Date(snapshot && !state.stale && expiresAt > now ? expiresAt : now + period)
 }
 function timestamp(value: number, now: number): string {
   if (!Number.isFinite(value) || value <= 0) return "时间未知"
@@ -52,7 +62,8 @@ function timestamp(value: number, now: number): string {
   return date.toDateString() === current.toDateString() ? time : `${date.getMonth() + 1}/${date.getDate()} ${time}`
 }
 function pendingLabel(state: WidgetNetworkState): string {
-  return state.status === "manual" ? "手动查询 · 诊断未运行" : state.status === "empty" ? "打开脚本检测" : "诊断待检测"
+  const label = state.status === "manual" ? "手动查询 · 诊断未运行" : state.status === "empty" ? "打开脚本检测" : "诊断待检测"
+  return label + (state.stale ? " · 已过期" : "")
 }
 function widgetAddress(snapshot: NetworkSnapshot, privacy = true): string {
   const address = formatIPAddress(snapshot.ip, privacy)
@@ -72,6 +83,13 @@ function widgetAddress(snapshot: NetworkSnapshot, privacy = true): string {
   const boundaries = [...compact].map((char, index) => char === ":" && compact[index + 1] !== ":" ? index : -1).filter(index => index >= 0)
   const split = boundaries.sort((a, b) => Math.abs(a - midpoint) - Math.abs(b - midpoint))[0]
   return split == null ? compact : compact.slice(0, split + 1) + "\n" + compact.slice(split + 1)
+}
+function identityLabel(snapshot: NetworkSnapshot): string {
+  const asn = snapshot.as.trim()
+  const organization = (snapshot.org || snapshot.isp).trim()
+  if (!asn) return organization || "ASN 未知"
+  if (!organization || asn.toLowerCase().includes(organization.toLowerCase())) return asn
+  return `${asn} · ${organization}`
 }
 function flagLabel(snapshot: NetworkSnapshot): string {
   return snapshot.vpnStatus && !["未知", "未标记"].includes(snapshot.vpnStatus) ? snapshot.vpnStatus : ""
@@ -111,7 +129,7 @@ export function NetworkWidgetSummary({ snapshot, refreshMinutes = 15, width, now
       {`国内 ${latencyLabel(report.latency.domestic)}  ·  国际 ${latencyLabel(report.latency.overseas)}`}
     </Text> : null}
     <Text font={compact ? 7.5 : 8} foregroundStyle={state.stale ? C.amber : C.sub} lineLimit={1} minScaleFactor={0.75}>
-      {report ? timeAndStatus(state, now) + (state.stale ? " · 打开更新" : "") : state.updatedAt ? `IP 更新 ${timestamp(state.updatedAt, now)}` : ""}
+      {report ? timeAndStatus(state, now) + (state.stale ? " · 打开更新" : "") : state.updatedAt ? `IP 更新 ${timestamp(state.updatedAt, now)}${state.stale ? " · 已过期" : ""}` : ""}
     </Text>
   </VStack>
 }
@@ -158,8 +176,8 @@ function Header({ state, now, width, compact = false }: { state: WidgetNetworkSt
   const kind = local?.kind.replace(/\s*接口$/, "") || "未知接口"
   const families = local?.ipv4 && local.ipv6 ? "v4/v6" : local?.ipv4 ? "v4" : local?.ipv6 ? "v6" : ""
   const observed = [kind, families, local?.tunnel ? "隧道" : ""].filter(Boolean).join(" · ")
-  const status = state.report ? state.stale ? "上次检测 · 已过期"
-    : compact ? `${timestamp(state.updatedAt, now)} · ${kind}` : observed : pendingLabel(state)
+  const status = state.stale ? "上次检测 · 已过期" : state.report
+    ? compact ? `${timestamp(state.updatedAt, now)} · ${kind}` : observed : pendingLabel(state)
   return <HStack spacing={5} frame={{ width, height: 23 }}>
     <Image systemName="waveform.path.ecg" font={16} foregroundStyle={C.teal} widgetAccentedRenderingMode="fullColor" />
     <Text font={14} fontWeight="bold" foregroundStyle={C.text}>Report ip</Text>
@@ -182,7 +200,7 @@ function IPPanel({ snapshot, image, width, height, privacyMode }: {
         lineLimit={snapshot.ip.includes(":") ? 2 : 1} minScaleFactor={0.57}>{widgetAddress(snapshot, privacyMode)}</Text>
       <Text font={10} foregroundStyle={C.text} lineLimit={1} minScaleFactor={0.75}>{formatIPLocation(snapshot)}</Text>
       <Text font={8.5} foregroundStyle={C.sub} lineLimit={1} minScaleFactor={0.7}>
-        {snapshot.as || snapshot.org || snapshot.isp || "ASN 未知"}</Text>
+        {identityLabel(snapshot)}</Text>
       <Text font={9} foregroundStyle={riskTint(snapshot)} lineLimit={1} minScaleFactor={0.7}>
         {[riskLabel(snapshot), snapshot.accessType, flagLabel(snapshot)].filter(Boolean).join(" · ")}</Text>
     </VStack>
@@ -279,7 +297,7 @@ function MediumWidget(props: NetworkWidgetProps & { snapshot: NetworkSnapshot; s
           lineLimit={props.snapshot.ip.includes(":") ? 2 : 1} minScaleFactor={0.55}>{widgetAddress(props.snapshot, props.privacyMode ?? true)}</Text>
         <Text font={9.5} foregroundStyle={C.sub} lineLimit={1} minScaleFactor={0.65}>{formatIPLocation(props.snapshot)}</Text>
         <Text font={8} foregroundStyle={C.sub} lineLimit={1} minScaleFactor={0.7}>
-          {props.snapshot.as || props.snapshot.org || "ASN 未知"}</Text>
+          {identityLabel(props.snapshot)}</Text>
         <Text font={9} foregroundStyle={riskTint(props.snapshot)} lineLimit={1} minScaleFactor={0.65}>
           {[riskLabel(props.snapshot), props.snapshot.accessType, flagLabel(props.snapshot)].filter(Boolean).join(" · ")}</Text>
         <Text font={8.5} foregroundStyle={C.sub} lineLimit={1} minScaleFactor={0.7}>
@@ -325,7 +343,7 @@ function SmallWidget(props: NetworkWidgetProps & { snapshot: NetworkSnapshot; st
     <Text font={8} foregroundStyle={C.sub} lineLimit={1} minScaleFactor={0.7}>
       {report ? `国内 ${latencyLabel(report.latency.domestic)} · 国际 ${latencyLabel(report.latency.overseas)}` : "国内 — · 国际 —"}</Text>
     <Text font={7.5} foregroundStyle={props.state.stale ? C.amber : C.sub} lineLimit={1} minScaleFactor={0.7}>
-      {report ? `${timeAndStatus(props.state, props.now)} · 打开更新` : "打开更新"}</Text>
+      {report ? `${timeAndStatus(props.state, props.now)} · 打开更新` : props.state.stale ? "已过期 · 打开更新" : "打开更新"}</Text>
   </VStack>
 }
 

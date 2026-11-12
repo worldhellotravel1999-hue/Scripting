@@ -1,16 +1,17 @@
 import {
   AbortController, Button, Capsule, Circle, GeometryReader, HStack, Image, Map, MapCircle, MapCompass, MapScaleView,
   Marker, Navigation, NavigationStack, ProgressView, Rectangle, ScrollView, Spacer, Text, TextField,
-  VStack, Widget, ZStack, gradient, modifiers, useEffect, useObservable, useRef, useState,
+  VStack, ZStack, gradient, modifiers, useEffect, useObservable, useRef, useState,
 } from "scripting"
 import type { Color } from "scripting"
 import { fetchExitProbe, formatIPAddress, formatIPLocation, getPrivacyMode, setPrivacyMode } from "./utils/ip"
 import { approximateRadiusMeters, hasCoordinates } from "./utils/map"
 import { lookupAddress, validIPAddress } from "./utils/lookup"
 import type { LookupResult } from "./utils/lookup"
-import { accessTypeLabel, detectionTime, locationDetails, networkDetails } from "./utils/details"
+import { accessTypeLabel, detectionTime, locationDetails, networkDetails, networkIdentity } from "./utils/details"
 import { activeRiskFlags, shouldShowRiskScale } from "./utils/flags"
 import { buildWidgetSnapshot, saveWidgetSnapshot } from "./utils/widget_sync"
+import { scheduleWidgetReload } from "./utils/widget_reload"
 import { diagnoseNetwork } from "./utils/network"
 import type { NetworkReport } from "./utils/network_model"
 import { NetworkSection, ServiceSection } from "./network_section"
@@ -25,7 +26,7 @@ import { assessWebRTC, fetchWebRTC, normalizeRTCAddress } from "./utils/webrtc"
 import type { WebRTCReport } from "./utils/webrtc"
 import {
   ACCENT, Band, FlagRow, IconButton, LABEL_WIDTH, LINE, Note, PAGE_BG,
-  RiskScale, Row, SURFACE, ScanLine, StatusDot, Tag, animate,
+  RiskScale, Row, SURFACE, ScanLine, StatusDot, Tag, animate, animateIfCurrent,
 } from "./theme"
 
 type PageState = {
@@ -390,6 +391,7 @@ function ExitRows({ state, privacy }: { state: PageState; privacy: boolean }) {
 export default function IPPage({ initialAddress }: { initialAddress?: string }) {
   const dismiss = Navigation.useDismiss()
   const [privacy, setPrivacy] = useState(getPrivacyMode())
+  const privacyCurrent = useRef(privacy)
   const [state, setState] = useState<PageState>(EMPTY)
   const [searchOpen, setSearchOpen] = useState(false)
   const [mapExpanded, setMapExpanded] = useState(false)
@@ -399,34 +401,26 @@ export default function IPPage({ initialAddress }: { initialAddress?: string }) 
   const request = useRef(0)
   const networkController = useRef<AbortController | null>(null)
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const widgetTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  function scheduleWidgetReload() {
-    if (widgetTimer.current !== null) clearTimeout(widgetTimer.current)
-    // Storage 共享写入在后台落盘；稍等再刷新，避免小组件读到上一份快照或旧隐私设置。
-    widgetTimer.current = setTimeout(() => {
-      try { Widget.reloadUserWidgets() }
-      catch (error) { console.log("[IP检测] 小组件刷新失败", String(error)) }
-    }, 300)
-  }
-
   async function detect(address?: string) {
     const run = ++request.current
     networkController.current?.abort()
     const controller = new AbortController()
     networkController.current = controller
     const manual = !!address
-    animate(() => {
+    animateIfCurrent(() => run === request.current, () => {
       setCopied(false)
       setMapExpanded(false)
-      setState({ ...EMPTY, ip: address || "", manual, rtcLoading: !manual, networkLoading: !manual })
+      setState(previous => run === request.current
+        ? { ...EMPTY, ip: address || "", manual, rtcLoading: !manual, networkLoading: !manual } : previous)
       setQueryError("")
       setSearchOpen(false)
     }, Animation.easeOut(0.28))
     let ip = address || ""
     let source = manual ? "手动查询" : ""
     const update = (patch: Partial<PageState>) => {
-      if (run === request.current) animate(() => setState(previous => ({ ...previous, ...patch })))
+      animateIfCurrent(() => run === request.current, () => {
+        setState(previous => run === request.current ? { ...previous, ...patch } : previous)
+      })
     }
     let networkTask: Promise<NetworkReport | null> | null = null
     const startNetwork = (contextIP: string | null) => {
@@ -441,7 +435,7 @@ export default function IPPage({ initialAddress }: { initialAddress?: string }) 
       .catch(() => update({ rtc: { status: "error", candidates: [], errors: [], note: "WebRTC 检测失败，请重试。" }, rtcLoading: false }))
     try {
       if (!manual) {
-        const probe = await withTimeout(fetchExitProbe(), 7000)
+        const probe = await withTimeout(fetchExitProbe(controller.signal), 7000)
         if (run !== request.current) return
         if (!probe) throw new Error("未能获取出口 IP，请检查网络后重新检测")
         ip = probe.address
@@ -449,7 +443,7 @@ export default function IPPage({ initialAddress }: { initialAddress?: string }) 
       }
       update({ ip, source })
       if (!manual) startNetwork(ip)
-      const lookupTask = lookupAddress(ip, true)
+      const lookupTask = lookupAddress(ip, true, controller.signal)
         .then(result => {
           update({ result, error: result.info ? null : "归属查询暂不可用，已保留同地址风险数据" })
           return result
@@ -458,24 +452,29 @@ export default function IPPage({ initialAddress }: { initialAddress?: string }) 
           update({ error: String(error).replace(/^Error: /, "") })
           return null
         })
-      const geoTask = fetchGeoReport(ip, !manual)
+      const geoTask = fetchGeoReport(ip, !manual, controller.signal)
         .then(geo => { update({ geo }); return geo })
         .catch(() => { update({ error: "部分位置来源暂时不可用" }); return null })
-      const pureTask = fetchIPPure(ip, () => run === request.current)
+      const pureTask = fetchIPPure(ip, () => run === request.current, controller.signal)
         .then(pure => { update({ pure, pureLoading: false }); return pure })
         .catch(() => { update({ pureLoading: false }); return null })
       const [result, , , pureReport, network] = await Promise.all([lookupTask, geoTask, rtcTask, pureTask, networkTask])
       if (run !== request.current) return
       update({ loading: false, updatedAt: new Date().toLocaleTimeString("zh-CN", { hour12: false }) })
-      saveWidgetSnapshot(buildWidgetSnapshot({
-        ip,
-        info: result?.info ?? null,
-        reputation: result?.reputation ?? null,
-        pure: pureReport,
-        manual,
-        network,
-      }))
-      scheduleWidgetReload()
+      let saved = false
+      try {
+        saved = saveWidgetSnapshot(buildWidgetSnapshot({
+          ip,
+          info: result?.info ?? null,
+          connection: result?.connection ?? null,
+          reputation: result?.reputation ?? null,
+          pure: pureReport,
+          manual,
+          network,
+        }))
+      } catch (error) { console.log("[IP检测] 小组件快照保存失败", String(error)) }
+      if (saved) scheduleWidgetReload()
+      else update({ error: "本次检测完成，但小组件快照未能保存，请重试。" })
     } catch (error) {
       if (run !== request.current) return
       if (!manual && !networkTask) startNetwork(null)
@@ -502,9 +501,16 @@ export default function IPPage({ initialAddress }: { initialAddress?: string }) 
   }
 
   function togglePrivacy() {
-    const next = !privacy
-    setPrivacyMode(next)
-    animate(() => setPrivacy(next))
+    const next = !privacyCurrent.current
+    let saved = false
+    try { saved = setPrivacyMode(next) }
+    catch (error) { console.log("[IP检测] 隐私设置保存失败", String(error)) }
+    if (!saved) {
+      setState(previous => ({ ...previous, error: "隐私设置未能保存，请重试。" }))
+      return
+    }
+    privacyCurrent.current = next
+    animate(() => setPrivacy(privacyCurrent.current))
     scheduleWidgetReload()
   }
 
@@ -524,15 +530,15 @@ export default function IPPage({ initialAddress }: { initialAddress?: string }) 
       request.current++
       networkController.current?.abort()
       if (copyTimer.current !== null) clearTimeout(copyTimer.current)
-      if (widgetTimer.current !== null) clearTimeout(widgetTimer.current)
     }
   }, [])
 
   const info = state.result?.info
   const flags = state.result?.reputation
   const pure = state.pure
-  const asn = clean(pure?.asn, info?.as?.match(/AS\d+/i)?.[0], state.result?.connection?.asn)
-  const network = clean(pure?.organization, info?.asname, state.result?.connection?.organization, info?.isp)
+  const identity = networkIdentity(info, pure, state.result?.connection)
+  const asn = identity.asn || "—"
+  const network = identity.organization || "—"
   const hosting = pure?.networkType === "hosting" ? true : flags?.hosting ?? info?.hosting
   const proxy = flags?.proxy ?? info?.proxy
   const attribute = accessTypeLabel(info, flags, pure)

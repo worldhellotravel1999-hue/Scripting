@@ -1,10 +1,10 @@
 import { Script } from "scripting"
-import { canonicalAddress, expandIPv6, formatIPAddress, isPublicExitAddress, parseIPInfo, calculateRiskValue } from "../utils/ip"
+import { canonicalAddress, expandIPv6, formatIPAddress, isPublicExitAddress, parseIPInfo } from "../utils/ip"
 import { collectGeoRow, sameIP, withTimeout } from "../utils/geo"
 import { validIPAddress, parseProxyCheck, assembleLookupResult } from "../utils/lookup"
 import { parseIPPure } from "../utils/ippure"
 import { normalizeRTCAddress, rtcAddressScope, parseWebRTC, assessWebRTC } from "../utils/webrtc"
-import { detectionTime, locationDetails, networkDetails } from "../utils/details"
+import { detectionTime, locationDetails, networkDetails, networkIdentity, networkTypeLabel } from "../utils/details"
 import { activeRiskFlags, hasKnownRiskFlags, hasRiskScore, shouldShowRiskScale } from "../utils/flags"
 import { scoreModules } from "../score_modules"
 import { buildWidgetSnapshot, parseWidgetSnapshot } from "../utils/widget_sync"
@@ -43,7 +43,7 @@ async function run() {
   check("ip-api 拒绝错址响应", () => parseIPInfo({ status: "success", query: "1.1.1.1" }, "8.8.8.8") === null)
   check("ip-api 字段缺失不使小组件崩溃", () => {
     const info = parseIPInfo({ status: "success", query: "8.8.8.8", isp: 88, offset: 0 })
-    return !!info && info.isp === "" && info.offset === 0 && calculateRiskValue(info).riskValue >= 0
+    return !!info && info.isp === "" && info.org === "" && info.offset === 0
   })
   check("ip-api 忽略异常布尔值与坐标", () => {
     const info = parseIPInfo({ status: "success", query: "8.8.8.8", hosting: "false", lat: 999, lon: 999 })
@@ -106,10 +106,43 @@ async function run() {
   check("proxycheck 0 分不被 IPPure 覆盖", () => zeroSnapshot.risk === 0 && zeroSnapshot.riskSource === "proxycheck")
   const pureSnapshot = buildWidgetSnapshot({ ip, info: widgetInfo, reputation: null, pure: pureStub })
   check("proxycheck 缺失时回退 IPPure", () => pureSnapshot.risk === 77 && pureSnapshot.riskSource === "IPPure")
+  check("IPPure 归属同步到小组件", () => {
+    const pure = { ...pureStub, asn: "AS15169", organization: "Google LLC" }
+    const identity = networkIdentity(null, pure, null)
+    const built = buildWidgetSnapshot({ ip, info: null, reputation: null, pure })
+    return built.as === identity.asn && built.org === identity.organization
+      && built.as === "AS15169" && built.org === "Google LLC"
+  })
+  check("备选连接归属同步到小组件", () => {
+    const connection = { asn: "AS64500", organization: "Example Network", domain: "example.test" }
+    const built = buildWidgetSnapshot({ ip, info: null, connection, reputation: null, pure: null })
+    return built.as === connection.asn && built.org === connection.organization
+  })
+  check("ASN 附带机构仍进入共享快照", () => {
+    const asOnly = { ...widgetInfo, as: "AS15169 Google LLC", asname: "", org: "", isp: "" }
+    const built = buildWidgetSnapshot({ ip, info: asOnly, reputation: null, pure: null })
+    return built.as === "AS15169" && built.org === "Google LLC"
+  })
+  check("归属优先级与占位符统一", () => {
+    const connection = { asn: "AS64500", organization: "Alternate", domain: "" }
+    const pure = { ...pureStub, asn: "—", organization: "Primary" }
+    const identity = networkIdentity(widgetInfo, pure, connection)
+    const built = buildWidgetSnapshot({ ip, info: widgetInfo, connection, reputation: null, pure })
+    return identity.asn === "AS15169" && identity.organization === "Primary"
+      && built.as === identity.asn && built.org === identity.organization
+  })
   check("快照往返保留关键字段", () => {
     const parsed = parseWidgetSnapshot(snapshot)
     return !!parsed && parsed.ip === snapshot.ip && parsed.risk === 42 && parsed.riskSource === "proxycheck"
       && parsed.accessType === snapshot.accessType && parsed.vpnStatus === "VPN"
+  })
+  check("旧启发式风险不冒充真实来源评分", () => {
+    const parsed = parseWidgetSnapshot({ ...snapshot, risk: 73, riskSource: "heuristic" })
+    return !!parsed && parsed.ip === snapshot.ip && parsed.risk === null && parsed.riskSource === null
+  })
+  check("旧快照保留未知来源的非启发式评分", () => {
+    const parsed = parseWidgetSnapshot({ ...snapshot, risk: 42, riskSource: null })
+    return !!parsed && parsed.risk === 42 && parsed.riskSource === null
   })
   check("快照拒绝非法版本与地址", () => parseWidgetSnapshot({ ...snapshot, version: 2 }) === null
     && parseWidgetSnapshot({ ...snapshot, ip: "999.1.1.1" }) === null)
@@ -141,6 +174,19 @@ async function run() {
   check("IPPure 异址评分拒绝", () => parseIPPure(ip, { ...base, risk: 87, riskIP: "1.1.1.1" }, null).risk === null)
   check("IPPure 无来源评分拒绝", () => parseIPPure(ip, { ...base, risk: 87 }, null).risk === null)
   check("IPPure 同址零分保留", () => parseIPPure(ip, { ...base, risk: 0, riskIP: ip }, null).risk === 0)
+  check("归属请求失败不遮蔽独立同址评分", () => {
+    const report = parseIPPure(ip, { queriedIP: ip, risk: 35, riskIP: ip }, null)
+    return report.risk === 35 && report.source === "网页" && !report.note
+      && scoreModules(report, ip).ippure !== null
+  })
+  check("归属异址不污染独立同址零分", () => {
+    const report = parseIPPure(ip, { queriedIP: ip, basic: { ip: "1.1.1.1", asn: { number: 1 } }, risk: 0, riskIP: ip }, null)
+    return report.risk === 0 && report.asn === null && scoreModules(report, ip).ippure !== null
+  })
+  check("归属请求失败时仍须校验评分和查询地址", () =>
+    parseIPPure(ip, { queriedIP: ip, risk: 35, riskIP: "1.1.1.1" }, null).risk === null
+    && parseIPPure(ip, { queriedIP: "1.1.1.1", risk: 35, riskIP: ip }, null).risk === null
+    && parseIPPure(ip, { queriedIP: ip, risk: 35 }, null).risk === null)
   check("IPPure 官方异址仅作出口", () => {
     const report = parseIPPure(ip, null, { ip: "1.1.1.1", fraudScore: 99 })
     return report.risk === null && report.exit?.ip === "1.1.1.1"
@@ -149,6 +195,11 @@ async function run() {
   check("IPPure IPv6 不借用残留 IPv4 评分", () => parseIPPure("2001:db8::1", { queriedIP: "2001:db8::1", basic: { ip: "2001:db8::1" }, risk: 88, riskIP: ip }, null).risk === null)
   check("Cloudflare 独立校验地址", () => parseIPPure(ip, { ...base, cf: { ip: "1.1.1.1", risk_score: 99 } }, null).cloudflareRisk === null)
   check("人机比异常值拒绝", () => parseIPPure(ip, { ...base, traffic: { human: 80, bot: 80 } }, null).traffic === null)
+  check("IPPure 网页 ASN 拒绝非法数字", () => [-1, 0, 1.5, 4294967296, NaN, Infinity].every(number =>
+    parseIPPure(ip, { queriedIP: ip, basic: { ip, asn: { number } } }, null).asn === null))
+  check("IPPure 官方 ASN 拒绝非法数字并保留有效边界", () =>
+    [-1, 0, 1.5, 4294967296].every(asn => parseIPPure(ip, null, { ip, asn }).asn === null)
+    && parseIPPure(ip, null, { ip, asn: 4294967295 }).asn === "AS4294967295")
 
   const missingScores = scoreModules(parseIPPure(ip, base, null), ip)
   check("只有归属数据时两个系数分区都隐藏", () => missingScores.ippure === null && missingScores.cloudflare === null)
@@ -169,6 +220,8 @@ async function run() {
   const info: IPInfo = { query: ip, status: "success", country: "美国", countryCode: "US", regionName: "", city: "", isp: "Example", org: "example", as: "", lat: 37, lon: -122, timezone: "Etc/UTC", offset: 0 }
   check("地理详情保留 UTC 0 偏移", () => locationDetails(info).some(row => row.value === "Etc/UTC · UTC+00:00"))
   check("运营商机构去重", () => networkDetails(info, "EXAMPLE").length === 0)
+  check("异常网络类型不会取出对象原型", () => networkTypeLabel("constructor") === "constructor"
+    && networkTypeLabel("__proto__") === "__proto__" && networkTypeLabel("residential") === "住宅网络")
   check("异常时间不显示", () => detectionTime("invalid") === null)
   check("地图拒绝缺失坐标", () => !hasCoordinates({ ...info, lat: NaN }))
   check("地图拒绝越界坐标", () => !hasCoordinates({ ...info, lon: 181 }))

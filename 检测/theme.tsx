@@ -29,6 +29,13 @@ export function animate(update: () => void, animation = Animation.smooth({ durat
   catch { update() }
 }
 
+/** withAnimation 的闭包可能延后执行，状态提交时要重新核对查询轮次。 */
+export function animateIfCurrent(isCurrent: () => boolean, update: () => void,
+  animation = Animation.smooth({ duration: 0.35 })) {
+  if (!isCurrent()) return
+  animate(() => { if (isCurrent()) update() }, animation)
+}
+
 function useEntrance(delay = 0) {
   const [visible, setVisible] = useState(false)
   useEffect(() => {

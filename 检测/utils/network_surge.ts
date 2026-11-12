@@ -1,4 +1,5 @@
 import { AbortSignal, fetch } from "scripting"
+import type { Response } from "scripting"
 import { canonicalAddress } from "./ip"
 import { EMPTY_LOCAL, SERVICES, pendingServices } from "./network_model"
 import type { NetworkReport, ServiceResult, SurgeSummary } from "./network_model"
@@ -32,16 +33,38 @@ function validServices(raw: unknown): raw is Record<string, unknown>[] {
   })
 }
 
-async function requestJson(url: string, key?: string): Promise<{ data: unknown; status: number }> {
+/** 流式解析快照/API 响应；超过上限时停止读取并拒绝。 */
+export async function readSurgeJSON(response: Response, key?: string): Promise<{ data: unknown; status: number }> {
+  const status = response.status
   try {
-    const response = await fetch(url, { timeout: 3, signal: AbortSignal.timeout(3000),
+    const reader = response.body.getReader()
+    try {
+      if (!response.ok) return { data: null, status }
+      const decoder = new TextDecoder()
+      let body = "", bytes = 0
+      while (true) {
+        const chunk = await reader.read()
+        if (chunk.done) break
+        if (!chunk.value) throw new Error("响应流不完整")
+        bytes += chunk.value.length
+        if (bytes > 1_048_576) return { data: null, status }
+        body += decoder.decode(chunk.value, { stream: true })
+      }
+      body += decoder.decode()
+      const data: unknown = JSON.parse(body, (_name, entry: unknown) => typeof entry === "string" && key
+        ? entry.split(key).join("[凭据已隐藏]").split(encodeURIComponent(key)).join("[凭据已隐藏]") : entry)
+      return { data, status }
+    } finally { await reader.cancel().catch(() => {}) }
+  } catch { return { data: null, status } }
+}
+
+async function requestJson(url: string, key?: string, signal?: AbortSignal): Promise<{ data: unknown; status: number }> {
+  if (signal?.aborted) return { data: null, status: 0 }
+  try {
+    const timeout = AbortSignal.timeout(3000)
+    const response = await fetch(url, { timeout: 3, signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
       headers: key ? { "X-Key": key } : undefined, handleRedirect: async () => null })
-    if (!response.ok) return { data: null, status: response.status }
-    const body = await response.text()
-    if (body.length > 1_048_576) return { data: null, status: response.status }
-    const data: unknown = JSON.parse(body, (_name, entry: unknown) => typeof entry === "string" && key
-      ? entry.split(key).join("[凭据已隐藏]").split(encodeURIComponent(key)).join("[凭据已隐藏]") : entry)
-    return { data, status: response.status }
+    return await readSurgeJSON(response, key)
   } catch { return { data: null, status: 0 } }
 }
 
@@ -108,9 +131,9 @@ export function parseSurgeSnapshot(raw: unknown, settings: NetworkSettings, cont
   }
 }
 
-export async function readRemoteNetwork(settings: NetworkSettings, contextIP: string | null): Promise<NetworkReport | null> {
+export async function readRemoteNetwork(settings: NetworkSettings, contextIP: string | null, signal?: AbortSignal): Promise<NetworkReport | null> {
   if (!isNetworkSnapshotURL(settings.snapshotURL)) return null
-  const result = await requestJson(settings.snapshotURL)
+  const result = await requestJson(settings.snapshotURL, undefined, signal)
   return result.data === null ? null : parseSurgeSnapshot(result.data, settings, contextIP)
 }
 
@@ -154,7 +177,7 @@ const usablePolicy = (item: Record<string, unknown>): string => {
   return policy
 }
 
-/** 只为本轮新请求匹配服务域名，返回每个服务最新一条非 QUIC-BLOCK 日志。 */
+/** 匹配基线之后的同域请求；日志不能证明该请求一定来自本脚本。 */
 export function policiesAfterBaseline(data: unknown, baseline: number | null): Map<string, string> {
   const result = new Map<string, string>(), list = recentList(data)
   if (baseline === null || !Number.isSafeInteger(baseline) || baseline < 0 || !list) return result
@@ -238,21 +261,21 @@ export function surgeBaselineFromRequests(data: unknown): number | null {
 }
 
 /** 无密钥不请求 API；基线获取失败返回 null，本轮服务策略随之保持未知。 */
-export async function readSurgeBaseline(settings: NetworkSettings): Promise<number | null> {
+export async function readSurgeBaseline(settings: NetworkSettings, signal?: AbortSignal): Promise<number | null> {
   const key = getSurgeKey(), base = surgeBase(settings, key)
   if (!base) return null
-  const response = await requestJson(`${base}requests/recent`, key)
+  const response = await requestJson(`${base}requests/recent`, key, signal)
   return surgeBaselineFromRequests(response.data)
 }
 
 export async function enrichWithSurge(report: NetworkReport, settings: NetworkSettings,
-  baseline: number | null): Promise<NetworkReport> {
+  baseline: number | null, signal?: AbortSignal): Promise<NetworkReport> {
   const key = getSurgeKey(), base = surgeBase(settings, key)
   if (!key) return report
   if (!base) return { ...report, note: apiNote(report, ["Surge API 地址无效"]) }
   const [outbound, groups, recent] = await Promise.all([
-    requestJson(`${base}outbound`, key), requestJson(`${base}policy_groups`, key),
-    requestJson(`${base}requests/recent`, key),
+    requestJson(`${base}outbound`, key, signal), requestJson(`${base}policy_groups`, key, signal),
+    requestJson(`${base}requests/recent`, key, signal),
   ])
   const result = applySurgeObservation(report, outbound.data, groups.data, recent.data, baseline)
   return [outbound, groups, recent].some(response => response.status === 401 || response.status === 403)
@@ -287,7 +310,7 @@ export function applySurgeObservation(report: NetworkReport, outbound: unknown, 
   const policies = report.source === "device" && !reset ? policiesAfterBaseline(recent, baseline) : new Map<string, string>()
   const services = report.services.map(row => {
     const policy = policies.get(row.id)
-    return report.source === "surge" ? row : { ...row, policy: policy ? `本轮日志观测 · ${policy}` : "" }
+    return report.source === "surge" ? row : { ...row, policy: policy ? `同期同域日志 · ${policy}` : "" }
   })
   return { ...report, surge: summary, services, note: apiNote(report, issues) }
 }

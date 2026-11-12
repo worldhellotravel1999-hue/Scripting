@@ -1,5 +1,5 @@
 import { Script } from "scripting"
-import { PAGE_MODULES, moveModuleDifference, moveModuleOrder, normalizeModuleOrder, visibleModuleOrder } from "../utils/module_order"
+import { PAGE_MODULES, moveModuleOrder, normalizeModuleOrder, visibleModuleOrder } from "../utils/module_order"
 import type { PageModuleID } from "../utils/module_order"
 
 const original: PageModuleID[] = [...PAGE_MODULES]
@@ -26,12 +26,6 @@ const manualMoved = moveModuleOrder(original, manual, [0], manual.length)
 check("手动模式隐藏分区保留位置", manualMoved.indexOf("media") === original.indexOf("media") && manualMoved.indexOf("ai") === original.indexOf("ai"))
 check("手动模式可见分区顺序正确", equal(manualMoved.filter(id => id !== "media" && id !== "ai"), [...manual.slice(1), manual[0]]))
 check("切回当前出口时隐藏分区恢复", equal(normalizeModuleOrder(manualMoved), manualMoved) && manualMoved.length === original.length)
-check("原生向下移到目标前", equal(moveModuleDifference(original, original, ["location"], { position: "before", itemID: "ippure" }), [original[0], original[2], original[1], ...original.slice(3)]))
-check("原生向上移到目标前", equal(moveModuleDifference(original, original, ["ippure"], { position: "before", itemID: "location" }), [original[0], original[3], original[1], original[2], ...original.slice(4)]))
-check("原生移至尾部", equal(moveModuleDifference(original, original, ["overview"], { position: "end" }), [...original.slice(1), original[0]]))
-check("原生忽略未知或自身目标", equal(moveModuleDifference(original, original, ["unknown"], { position: "end" }), original)
-  && equal(moveModuleDifference(original, original, ["location"], { position: "before", itemID: "location" }), original))
-check("原生手动模式保留隐藏分区", equal(moveModuleDifference(original, manual, ["overview"], { position: "end" }), manualMoved))
 const withoutScores = original.filter(id => id !== "ippure" && id !== "cloudflare")
 check("无数据系数从可排序列表移除", equal(visibleModuleOrder(original, false, withoutScores), withoutScores))
 check("手动隐藏与缺评分同时生效", equal(visibleModuleOrder(original, true, withoutScores), withoutScores.filter(id => id !== "media" && id !== "ai")))

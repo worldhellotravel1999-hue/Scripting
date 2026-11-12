@@ -1,4 +1,5 @@
 import { fetch } from "scripting"
+import type { AbortSignal } from "scripting"
 import { canonicalAddress, formatIPLocation } from "./ip"
 import { countryName, sameIP, withTimeout } from "./geo"
 import type { ExitObservation, GeoRow } from "./geo"
@@ -24,6 +25,8 @@ type ObjectData = Record<string, any>
 const text = (value: unknown): string | null => typeof value === "string" && value.trim() ? value.trim() : null
 const flag = (value: unknown): boolean | null => typeof value === "boolean" ? value : null
 const percent = (value: unknown): number | null => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100 ? value : null
+const asn = (value: unknown): string | null => typeof value === "number" && Number.isSafeInteger(value)
+  && value > 0 && value <= 4294967295 ? `AS${value}` : null
 
 export function ipPureURL(ip: string): string {
   return `https://ippure.com/?ip=${encodeURIComponent(ip)}`
@@ -68,6 +71,7 @@ const PAGE_QUERY = `
 `
 
 async function pageData(ip: string, isCurrent: () => boolean): Promise<ObjectData | null> {
+  if (!isCurrent()) return null
   let web: WebViewController | null = null
   let cancellation: ReturnType<typeof setInterval> | undefined
   try {
@@ -89,10 +93,11 @@ async function pageData(ip: string, isCurrent: () => boolean): Promise<ObjectDat
   }
 }
 
-async function officialData(): Promise<ObjectData | null> {
+async function officialData(signal?: AbortSignal): Promise<ObjectData | null> {
+  if (signal?.aborted) return null
   try {
     return await withTimeout(async () => {
-      const response = await fetch("https://my.ippure.com/v1/info", { timeout: 5 })
+      const response = await fetch("https://my.ippure.com/v1/info", { timeout: 5, signal })
       return response.ok ? await response.json() as ObjectData : null
     }, 5500)
   } catch { return null }
@@ -117,19 +122,19 @@ export function parseIPPure(ip: string, page: ObjectData | null, official: Objec
     risk: null, cloudflareRisk: null, traffic: null, locations: [], exit: null, note: "",
   }
   const basic = page?.basic
-  const pageMatches = sameIP(text(page?.queriedIP) || "", ip) && sameIP(text(basic?.ip) || "", ip)
+  const queryMatches = sameIP(text(page?.queriedIP) || "", ip)
+  const pageMatches = queryMatches && sameIP(text(basic?.ip) || "", ip)
   if (pageMatches) {
-    const asn = basic.asn || {}
-    const range = asn.network?.range
+    const network = basic.asn || {}
+    const range = network.network?.range
     result.source = "网页"
-    result.asn = typeof asn.number === "number" ? `AS${asn.number}` : null
-    result.organization = text(asn.organization)
-    result.domain = text(asn.domain)
-    result.range = text(range?.start) && text(range?.end) ? `${range.start} - ${range.end}` : text(asn.network?.cidr)
+    result.asn = asn(network.number)
+    result.organization = text(network.organization)
+    result.domain = text(network.domain)
+    result.range = text(range?.start) && text(range?.end) ? `${range.start} - ${range.end}` : text(network.network?.cidr)
     result.isBroadcast = flag(basic.traits?.is_broadcast)
-    result.isResidential = flag(asn.is_residential)
-    result.networkType = text(asn.type)
-    result.risk = sameIP(text(page?.riskIP) || "", ip) ? percent(page?.risk) : null
+    result.isResidential = flag(network.is_residential)
+    result.networkType = text(network.type)
     const human = percent(page?.traffic?.human)
     const bot = percent(page?.traffic?.bot)
     if (human !== null && bot !== null && Math.abs(human + bot - 100) < 0.1) result.traffic = { human, bot }
@@ -138,12 +143,17 @@ export function parseIPPure(ip: string, page: ObjectData | null, official: Objec
       if (row) result.locations.push(row)
     }
   }
-  if (sameIP(text(page?.queriedIP) || "", ip) && sameIP(text(page?.bilibili?.addr) || "", ip)) {
+  // 评分请求与归属请求独立；只接受评分自己带有的同址证据。
+  if (queryMatches && sameIP(text(page?.riskIP) || "", ip)) {
+    result.risk = percent(page?.risk)
+    if (result.risk !== null) result.source ??= "网页"
+  }
+  if (queryMatches && sameIP(text(page?.bilibili?.addr) || "", ip)) {
     const data = page!.bilibili
     const row = locationRow("Bilibili", ip, { country_code: data.country, subdivisions: data.province, city: data.city })
     if (row) result.locations.push(row)
   }
-  if (sameIP(text(page?.queriedIP) || "", ip) && sameIP(text(page?.cf?.ip) || "", ip)) {
+  if (queryMatches && sameIP(text(page?.cf?.ip) || "", ip)) {
     result.cloudflareRisk = percent(page?.cf?.risk_score)
     const row = locationRow("Cloudflare", ip, page?.cf?.geo)
     if (row) result.locations.push(row)
@@ -160,7 +170,7 @@ export function parseIPPure(ip: string, page: ObjectData | null, official: Objec
       result.risk ??= percent(official?.fraudScore)
       result.isBroadcast ??= flag(official?.isBroadcast)
       result.isResidential ??= flag(official?.isResidential)
-      result.asn ??= typeof official?.asn === "number" ? `AS${official.asn}` : null
+      result.asn ??= asn(official?.asn)
       result.organization ??= text(official?.asOrganization)
     }
   }
@@ -169,7 +179,8 @@ export function parseIPPure(ip: string, page: ObjectData | null, official: Objec
   return result
 }
 
-export async function fetchIPPure(ip: string, isCurrent = () => true): Promise<IPPureReport> {
-  const [page, official] = await Promise.all([pageData(ip, isCurrent), officialData()])
+export async function fetchIPPure(ip: string, isCurrent = () => true, signal?: AbortSignal): Promise<IPPureReport> {
+  const active = () => !signal?.aborted && isCurrent()
+  const [page, official] = await Promise.all([pageData(ip, active), officialData(signal)])
   return parseIPPure(ip, page, official)
 }

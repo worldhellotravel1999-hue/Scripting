@@ -3,7 +3,7 @@ import { parseNetworkReport, reportMatchesIP } from "./network_model"
 import type { NetworkReport } from "./network_model"
 import type { IPInfo } from "./ip"
 import { activeRiskFlags, hasKnownRiskFlags } from "./flags"
-import { accessTypeLabel } from "./details"
+import { accessTypeLabel, networkIdentity } from "./details"
 import type { IPPureReport } from "./ippure"
 import type { LookupResult } from "./lookup"
 
@@ -52,6 +52,7 @@ function riskSource(value: unknown): WidgetRiskSource {
 export function buildWidgetSnapshot(input: {
   ip: string
   info: IPInfo | null | undefined
+  connection?: LookupResult["connection"]
   reputation: LookupResult["reputation"]
   pure: IPPureReport | null | undefined
   manual?: boolean
@@ -60,6 +61,7 @@ export function buildWidgetSnapshot(input: {
   const info = input.info
   const reputation = input.reputation
   const pure = input.pure
+  const identity = networkIdentity(info, pure, input.connection)
   const proxy = reputation?.proxy ?? info?.proxy ?? null
   const flags = activeRiskFlags(reputation, proxy)
   const known = hasKnownRiskFlags(reputation, proxy)
@@ -80,8 +82,8 @@ export function buildWidgetSnapshot(input: {
     regionName: text(info?.regionName),
     city: text(info?.city),
     isp: text(info?.isp),
-    org: text(info?.org),
-    as: text(info?.as),
+    org: identity.organization || text(info?.org),
+    as: identity.asn,
     lat: hasPoint ? rawLat : null,
     lon: hasPoint ? rawLon : null,
     risk,
@@ -101,7 +103,9 @@ export function parseWidgetSnapshot(raw: unknown): WidgetSnapshot | null {
   const ip = canonicalAddress(text(data.ip))
   if (!ip) return null
 
-  const risk = percentage(data.risk)
+  // 旧快照中的启发式分数不能当成真实来源的评分展示。
+  const risk = data.riskSource === "heuristic" ? null : percentage(data.risk)
+  const network = data.manual === true ? null : parseNetworkReport(data.network)
   const rawLat = coordinate(data.lat, 90)
   const rawLon = coordinate(data.lon, 180)
   const hasPoint = rawLat != null && rawLon != null
@@ -109,7 +113,7 @@ export function parseWidgetSnapshot(raw: unknown): WidgetSnapshot | null {
     version: 1,
     savedAt: typeof data.savedAt === "number" && Number.isFinite(data.savedAt) ? data.savedAt : 0,
     manual: data.manual === true,
-    network: reportMatchesIP(parseNetworkReport(data.network), ip, data.manual === true) ? parseNetworkReport(data.network) : null,
+    network: reportMatchesIP(network, ip) ? network : null,
     ip,
     country: text(data.country),
     countryCode: text(data.countryCode),

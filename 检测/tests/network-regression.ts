@@ -4,8 +4,9 @@ import {
   reportMatchesIP, serviceCounts,
 } from "../utils/network_model"
 import type { NetworkReport, ServiceResult } from "../utils/network_model"
-import { localAddressHint, localNetworkFromInterfaces, parseHTTPProtocol } from "../utils/network"
+import { localAddressHint, localNetworkFromInterfaces, parseDomesticExit, parseHTTPProtocol } from "../utils/network"
 import { buildWidgetSnapshot, parseWidgetSnapshot } from "../utils/widget_sync"
+import { widgetNetworkState, widgetReloadDate } from "../network_widget"
 import type { IPInfo } from "../utils/ip"
 
 // 离线回归：仅调用纯函数，所有响应、接口、时间和快照均为内存夹具。
@@ -94,6 +95,9 @@ async function run() {
     check(`HTTP ${status}请求失败`, () => equal(classifyService(status, "<title>Welcome</title>").state, "failed"))
   }
   check("5xx 验证页面仍保留请求失败状态", () => equal(classifyService(503, "cf-chl-widget").state, "failed"))
+  check("正文读取失败仍保留 403 受限状态", () => classifyService(403, "", false).state === "restricted")
+  check("正文读取失败时 2xx 不误报可访问", () => classifyService(200, "", false).state === "unknown"
+    && classifyService(200, "", true).state === "reachable")
   check("超时或连接失败保留未知，不借用旧正文", () => {
     const result = classifyService(null, "<title>Welcome</title>")
     return equal(result.state, "unknown") && /超时|连接失败/.test(result.detail)
@@ -190,6 +194,13 @@ async function run() {
     check(`无效 trace ${JSON.stringify(trace)} 保留未知`, () => equal(parseHTTPProtocol(trace), { quic: "unknown", httpProtocol: "" }))
   }
 
+  check("国内探针保留单段归属", () => equal(parseDomesticExit("当前 IP：8.8.8.8 来自于：美国"),
+    { ip: IP, location: "美国", isp: "" }))
+  check("国内探针识别公网 IPv6", () => equal(parseDomesticExit(`当前 IP：${V6} 来自于：美国 Cloudflare`),
+    { ip: V6_FULL, location: "美国", isp: "Cloudflare" }))
+  check("国内探针仍拒绝非法与私网地址", () => parseDomesticExit("当前 IP：999.999.999.999 来自于：中国") === null
+    && parseDomesticExit("当前 IP：192.168.1.1 来自于：中国") === null)
+
   // 双层快照：设备诊断只能附着到同址、非手动查询；兼容此前没有 network 的 v1。
   const report = reportFixture()
   const snapshot = buildWidgetSnapshot(widgetInput(report))
@@ -248,6 +259,20 @@ async function run() {
   })
 
   const now = Date.now()
+  const manualRecent = { ...snapshot, manual: true, network: null, savedAt: now - 14 * 60_000 }
+  const manualOld = { ...manualRecent, savedAt: now - 60 * 60_000 }
+  const pendingOld = { ...snapshot, manual: false, network: null, savedAt: now - 60 * 60_000 }
+  check("手动与无网络报告的旧快照显示过期", () => widgetNetworkState(manualOld, 15, now).stale
+    && widgetNetworkState(pendingOld, 15, now).stale && !widgetNetworkState(manualRecent, 15, now).stale)
+  check("新鲜快照按剩余有效期申请重绘", () => widgetReloadDate(manualRecent, 15, now).getTime() === now + 60_000)
+  check("过期或缺失快照等待完整周期避免立即重绘循环", () =>
+    widgetReloadDate(manualOld, 15, now).getTime() === now + 15 * 60_000
+    && widgetReloadDate(null, 15, now).getTime() === now + 15 * 60_000)
+  check("网络快照按照报告时间而不是 IP 保存时间过期", () => {
+    const oldReport = { ...snapshot, savedAt: now, network: reportFixture({ measuredAt: now - 16 * 60_000 }) }
+    return widgetNetworkState(oldReport, 15, now).stale
+      && widgetReloadDate(oldReport, 15, now).getTime() === now + 15 * 60_000
+  })
   const future = reportFixture({ measuredAt: now + 3_600_000 })
   check("未来一小时的 network 被 parser 拒绝", () => parseNetworkReport(future) === null)
   check("未来 network 不进入 builder", () => buildWidgetSnapshot(widgetInput(future)).network === null)

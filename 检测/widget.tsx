@@ -25,7 +25,7 @@ import { withTimeout } from "./utils/geo"
 import { readWidgetSnapshot } from "./utils/widget_sync"
 import type { WidgetRiskSource, WidgetSnapshot } from "./utils/widget_sync"
 import { getNetworkSettings } from "./utils/network_settings"
-import { NetworkWidget, NetworkWidgetSummary } from "./network_widget"
+import { NetworkWidget, NetworkWidgetSummary, widgetReloadDate } from "./network_widget"
 import type { WidgetMapImage } from "./network_widget"
 
 export interface WidgetProps {
@@ -274,7 +274,8 @@ function DashboardWidget(props: WidgetProps & { layout: Layout }): VirtualNode {
   const layout = props.layout
   const location = formatIPLocation(info)
   const displayIP = formatIPAddress(info.query, props.privacyMode)
-  const asn = info.as || info.org || info.isp || "未知 ASN"
+  const asn = info.as && info.org && !info.as.toLowerCase().includes(info.org.toLowerCase())
+    ? `${info.as} · ${info.org}` : info.as || info.org || info.isp || "未知 ASN"
   const accessType = props.accessType || "暂无分类"
   const risk = riskText(props.riskValue, props.riskSource)
   const status = layout.medium
@@ -308,7 +309,7 @@ function DashboardWidget(props: WidgetProps & { layout: Layout }): VirtualNode {
               <DataRow icon="mappin.and.ellipse" label="位置" value={location} width={layout.leftWidth} />
               <DataRow icon="network" label="IP" value={displayIP} width={layout.leftWidth} />
               <DataRow icon="building.2" label="ASN" value={asn} width={layout.leftWidth} />
-              <DataRow icon="antenna.radiowaves.left.and.right" label="ISP" value={info.isp || "未知网络"} width={layout.leftWidth} />
+              <DataRow icon="antenna.radiowaves.left.and.right" label="ISP" value={info.isp || info.org || "未知网络"} width={layout.leftWidth} />
             </VStack>
             <Spacer />
             {props.riskValue != null && props.riskValue > 0
@@ -527,7 +528,7 @@ async function presentIPWidget() {
     const props = await getWidgetProps()
     Widget.present(<WidgetView {...props} />, {
       policy: "after",
-      date: new Date(Date.now() + props.refreshMinutes * 60_000),
+      date: widgetReloadDate(props.snapshot, props.refreshMinutes),
     })
   } catch (error) {
     console.error("[IP检测] 小组件渲染失败", error)
@@ -535,6 +536,8 @@ async function presentIPWidget() {
       policy: "after", date: new Date(Date.now() + 15 * 60_000),
     }) }
     catch (fallbackError) { console.error("[IP检测] 无法呈现错误视图", fallbackError) }
+  } finally {
+    Script.exit()
   }
 }
 void presentIPWidget()

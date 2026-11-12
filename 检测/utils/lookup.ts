@@ -1,4 +1,4 @@
-import { fetch } from "scripting"
+import { AbortSignal, fetch } from "scripting"
 import { expandIPv6, fetchIPInfo, IPInfo } from "./ip"
 import { sameIP, withTimeout } from "./geo"
 
@@ -29,6 +29,11 @@ export interface LookupResult {
 const PRIMARY_TIMEOUT_MS = 5000
 const SECONDARY_TIMEOUT_MS = 4500
 const REPUTATION_TIMEOUT_MS = 6000
+
+function requestSignal(signal: AbortSignal | undefined, timeout: number): AbortSignal {
+  const deadline = AbortSignal.timeout(timeout)
+  return signal ? AbortSignal.any([signal, deadline]) : deadline
+}
 
 export function validIPAddress(value: string): boolean {
   if (!value || value.length > 45) return false
@@ -81,17 +86,17 @@ function mapIPWhoToIPInfo(data: IPWhoData, ip: string): IPInfo {
   }
 }
 
-async function queryIPWho(ip: string): Promise<IPWhoData | null> {
+async function queryIPWho(ip: string, signal?: AbortSignal): Promise<IPWhoData | null> {
   try {
     return await withTimeout(async () => {
       const response = await fetch(`https://ipwho.is/${encodeURIComponent(ip)}`, {
-        timeout: Math.ceil(SECONDARY_TIMEOUT_MS / 1000),
+        timeout: Math.ceil(SECONDARY_TIMEOUT_MS / 1000), signal: requestSignal(signal, SECONDARY_TIMEOUT_MS),
       })
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       return await response.json() as IPWhoData
     }, SECONDARY_TIMEOUT_MS, "ipwho.is 请求超时")
   } catch (error) {
-    console.log("[IP检测] ipwho.is 补充查询失败", error)
+    if (!signal?.aborted) console.log("[IP检测] ipwho.is 补充查询失败", error)
     return null
   }
 }
@@ -146,19 +151,19 @@ export function parseProxyCheck(data: Record<string, any>, ip: string): LookupRe
   }
 }
 
-async function queryReputation(ip: string): Promise<LookupResult["reputation"]> {
+async function queryReputation(ip: string, signal?: AbortSignal): Promise<LookupResult["reputation"]> {
   try {
     const data = await withTimeout(async () => {
       // v3 默认返回完整检测结果，不再使用 v2 的 asn/risk/vpn 参数。
       const response = await fetch(`https://proxycheck.io/v3/${encodeURIComponent(ip)}`, {
-        timeout: Math.ceil(REPUTATION_TIMEOUT_MS / 1000),
+        timeout: Math.ceil(REPUTATION_TIMEOUT_MS / 1000), signal: requestSignal(signal, REPUTATION_TIMEOUT_MS),
       })
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       return await response.json() as Record<string, any>
     }, REPUTATION_TIMEOUT_MS, "proxycheck 请求超时")
     return parseProxyCheck(data, ip)
   } catch (error) {
-    console.log("[IP检测] proxycheck 查询失败", error)
+    if (!signal?.aborted) console.log("[IP检测] proxycheck 查询失败", error)
     return null
   }
 }
@@ -197,18 +202,18 @@ export function assembleLookupResult(
   return { info, infoSource: info ? primaryMatches ? "ip-api.com" : "ipwho.is" : undefined, connection, alternateLocation, reputation }
 }
 
-export async function lookupAddress(address: string, withReputation = false): Promise<LookupResult> {
+export async function lookupAddress(address: string, withReputation = false, signal?: AbortSignal): Promise<LookupResult> {
   const ip = address.trim()
   if (!validIPAddress(ip)) throw new Error("请输入有效的 IPv4 或 IPv6 地址")
 
   const [primary, whoData, reputation] = await Promise.all([
-    withTimeout(() => fetchIPInfo(ip), PRIMARY_TIMEOUT_MS, "ip-api.com 请求超时")
+    withTimeout(() => fetchIPInfo(ip, requestSignal(signal, PRIMARY_TIMEOUT_MS)), PRIMARY_TIMEOUT_MS, "ip-api.com 请求超时")
       .catch((error) => {
-        console.log("[IP检测] 主源 ip-api.com 查询失败", error)
+        if (!signal?.aborted) console.log("[IP检测] 主源 ip-api.com 查询失败", error)
         return null
       }),
-    queryIPWho(ip),
-    withReputation ? queryReputation(ip) : Promise.resolve<LookupResult["reputation"]>(null),
+    queryIPWho(ip, signal),
+    withReputation ? queryReputation(ip, signal) : Promise.resolve<LookupResult["reputation"]>(null),
   ])
   return assembleLookupResult(ip, primary, whoData, reputation)
 }

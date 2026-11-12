@@ -42,11 +42,12 @@ export function localAddressHint(ip: string): string {
 }
 
 export function parseDomesticExit(text: string): NetworkReport["domesticExit"] {
-  const match = /IP[：:\s]*([\d.]+).*?来自于[：:\s]*(.+)/i.exec(text)
+  const match = /IP[：:\s]*([0-9a-f:.]+)(?=\s|，|,|$).*?来自于[：:\s]*(.+)/i.exec(text)
   const ip = match ? canonicalAddress(match[1]) : null
   if (!ip || !isPublicExitAddress(ip)) return null
   const parts = match![2].trim().split(/\s+/).filter(Boolean)
-  return { ip, location: parts.slice(0, -1).join(" · "), isp: parts.length > 1 ? parts[parts.length - 1] : "" }
+  return { ip, location: (parts.length > 1 ? parts.slice(0, -1) : parts).join(" · "),
+    isp: parts.length > 1 ? parts[parts.length - 1] : "" }
 }
 
 export function parseHTTPProtocol(text: string): { quic: NetworkReport["quic"]; httpProtocol: string } {
@@ -56,17 +57,20 @@ export function parseHTTPProtocol(text: string): { quic: NetworkReport["quic"]; 
   return { quic: "unknown", httpProtocol: "" }
 }
 
-type Probe = { status: number | null; ms: number | null; text: string }
+type Probe = { status: number | null; ms: number | null; text: string; bodyReadOK: boolean }
 async function probe(url: string, signal: AbortSignal, readBody = false): Promise<Probe> {
-  if (signal.aborted) return { status: null, ms: null, text: "" }
+  if (signal.aborted) return { status: null, ms: null, text: "", bodyReadOK: false }
   const controller = new AbortController()
   const timer = setTimeout(() => { try { controller.abort() } catch {} }, 6500)
   const started = Date.now()
+  let status: number | null = null
+  let ms: number | null = null
   try {
     const response = await fetch(`${url}${url.includes("?") ? "&" : "?"}_=${started}`, {
       timeout: 6.5, signal: AbortSignal.any([signal, controller.signal]), headers: { "Cache-Control": "no-cache" },
     })
-    const ms = Date.now() - started
+    status = response.status
+    ms = Date.now() - started
     let text = ""
     if (readBody) {
       // 仅读取判定所需的 HTML 开头，避免 12 个首页完整响应占用大量内存。
@@ -84,8 +88,8 @@ async function probe(url: string, signal: AbortSignal, readBody = false): Promis
         text += decoder.decode()
       } finally { await reader.cancel().catch(() => {}) }
     } else { await response.body.getReader().cancel().catch(() => {}) }
-    return { status: response.status, ms, text }
-  } catch { return { status: null, ms: null, text: "" } }
+    return { status, ms, text, bodyReadOK: true }
+  } catch { return { status, ms, text: "", bodyReadOK: false } }
   finally { clearTimeout(timer) }
 }
 async function latency(urls: string[], signal: AbortSignal): Promise<number | null> {
@@ -109,7 +113,7 @@ export async function diagnoseNetwork(contextIP: string | null, signal: AbortSig
   try { publish({ local: localNetworkFromInterfaces(Device.networkInterfaces()) }) } catch {}
 
   if (settings.snapshotURL && !signal.aborted) {
-    const remote = await readRemoteNetwork(settings, contextIP).catch(() => null)
+    const remote = await readRemoteNetwork(settings, contextIP, signal).catch(() => null)
     if (remote && reportMatchesIP(remote, contextIP || "")) {
       publish(remote)
       return remote
@@ -118,7 +122,7 @@ export async function diagnoseNetwork(contextIP: string | null, signal: AbortSig
   }
   if (signal.aborted) return report
   // 基线必须先于本轮服务请求，才可给新结果附加请求日志中的策略。
-  const baseline = await readSurgeBaseline(settings).catch(() => null)
+  const baseline = await readSurgeBaseline(settings, signal).catch(() => null)
   if (signal.aborted) return report
   const pathTask = Promise.all([
     probe("https://myip.ipip.net", signal, true).then(result => {
@@ -141,13 +145,15 @@ export async function diagnoseNetwork(contextIP: string | null, signal: AbortSig
       if (signal.aborted) return
       const services = report.services.slice()
       services[index] = { id: definition.id, name: definition.name, group: definition.group,
-        ...classifyService(result.status, result.text), status: result.status, ms: result.ms, policy: "" }
+        ...classifyService(result.status, result.text, result.bodyReadOK), status: result.status, ms: result.ms, policy: "" }
       publish({ services })
     }
   }
   await Promise.all([pathTask, ...Array.from({ length: 6 }, worker)])
   if (signal.aborted) return report
-  publish(await enrichWithSurge(report, settings, baseline).catch(() => report))
+  const enriched = await enrichWithSurge(report, settings, baseline, signal).catch(() => report)
+  if (signal.aborted) return report
+  publish(enriched)
   publish({ measuredAt: Date.now(), durationMs: Date.now() - started })
   return report
 }

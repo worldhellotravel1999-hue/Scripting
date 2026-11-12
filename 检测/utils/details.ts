@@ -8,6 +8,23 @@ function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() && value.trim() !== "—" ? value.trim() : null
 }
 
+/** 页面与共享快照使用同一组同址归属信息。 */
+export function networkIdentity(
+  info: IPInfo | null | undefined,
+  pure: IPPureReport | null | undefined,
+  connection: LookupResult["connection"] | undefined,
+): { asn: string; organization: string } {
+  const primaryAS = text(info?.as)
+  const primaryASN = primaryAS?.match(/\bAS\d+\b/i)?.[0] || ""
+  const primaryOrganization = primaryASN && primaryAS
+    ? text(primaryAS.replace(/\bAS\d+\b/i, "").trim()) : null
+  return {
+    asn: text(pure?.asn) || primaryASN || text(connection?.asn) || "",
+    organization: text(pure?.organization) || text(info?.asname) || text(connection?.organization)
+      || text(info?.isp) || primaryOrganization || "",
+  }
+}
+
 /** ASN 下方已经出现的网络名称不再重复列出。 */
 export function networkDetails(info: IPInfo | null | undefined, displayedNetwork: string): DetailRow[] {
   const seen = new Set([displayedNetwork.trim().toLowerCase()])
@@ -63,7 +80,8 @@ export function networkTypeLabel(value: string | null | undefined): string | nul
     business: "商业网络", residential: "住宅网络", wireless: "无线网络", mobile: "移动网络",
     hosting: "托管机房", education: "教育网络", government: "政府网络", military: "军事网络",
   }
-  return labels[value.toLowerCase()] || value
+  const key = value.toLowerCase()
+  return Object.prototype.hasOwnProperty.call(labels, key) ? labels[key] : value
 }
 
 /** 使用 UTC 展示数据库记录时间，避免与归属时区或本机检测时间混淆。 */

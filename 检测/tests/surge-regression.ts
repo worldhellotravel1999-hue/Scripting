@@ -121,7 +121,7 @@ o("QUIC block not active node", () => merge({ mode: "rule" }, [logs[3]]).surge?.
 o("membership alone not policy path", () => merge({ mode: "rule" }, [{ id: 11, policyName: "本轮节点" }]).surge?.policy === "")
 o("no protocol from name", () => merge({ mode: "proxy" }, [{ id: 11, policyName: "JP-Trojan" }], 10, {}).surge?.protocol === "")
 o("metadata conflicts unknown", () => merge({ mode: "rule" }, [logs[2]], 10, { a: [{ name: "本轮节点", type: "Trojan" }], b: [{ name: "本轮节点", type: "VMess" }] }).surge?.protocol === "")
-o("new policy label", () => merge({ mode: "rule" }).services[0].policy === "本轮日志观测 · 本轮节点")
+o("new policy label", () => merge({ mode: "rule" }).services[0].policy === "同期同域日志 · 本轮节点")
 o("no baseline clears old policy", () => merge({ mode: "rule" }, logs, null).services.every(row => row.policy === ""))
 o("no matching request clears old policy", () => merge({ mode: "rule" }).services[1].policy === "")
 o("remote report not bound to device logs", () => applySurgeObservation(parsed, { mode: "rule" }, groups, logs, 10).services[0].policy === "上游快照 · 媒体组")

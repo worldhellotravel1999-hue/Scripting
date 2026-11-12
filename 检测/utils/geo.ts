@@ -1,4 +1,4 @@
-import { fetch } from "scripting"
+import { AbortSignal, fetch } from "scripting"
 import { canonicalAddress, formatIPLocation } from "./ip"
 
 export interface GeoRow {
@@ -37,9 +37,10 @@ export function countryName(code: string): string {
   catch { return code.toUpperCase() }
 }
 
-async function request(url: string, plain = false): Promise<any> {
+async function request(url: string, plain = false, signal?: AbortSignal): Promise<any> {
   return withTimeout(async () => {
-    const response = await fetch(url, { timeout: 6 })
+    const deadline = AbortSignal.timeout(6000)
+    const response = await fetch(url, { timeout: 6, signal: signal ? AbortSignal.any([signal, deadline]) : deadline })
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     return plain ? response.text() : response.json()
   })
@@ -71,12 +72,12 @@ export async function collectGeoRow(source: string, target: string, probe: boole
 }
 
 /** 三个地址库并行查询；Cloudflare / Bilibili 只观测当前请求，不接受目标 IP。 */
-export async function fetchGeoReport(ip: string, currentExit: boolean): Promise<GeoReport> {
+export async function fetchGeoReport(ip: string, currentExit: boolean, signal?: AbortSignal): Promise<GeoReport> {
   const target = ip.trim()
   const encoded = encodeURIComponent(target)
   const [cloudflare, ip2, dbip, ipinfo, bili] = await Promise.all([
     currentExit ? collectGeoRow("Cloudflare", target, true, async () => {
-      const raw = await request("https://www.cloudflare.com/cdn-cgi/trace", true) as string
+      const raw = await request("https://www.cloudflare.com/cdn-cgi/trace", true, signal) as string
       const values = Object.fromEntries(raw.trim().split("\n").map(line => {
         const split = line.indexOf("=")
         return [line.slice(0, split), line.slice(split + 1).trim()]
@@ -84,23 +85,23 @@ export async function fetchGeoReport(ip: string, currentExit: boolean): Promise<
       return { ip: text(values.ip), country: "", code: text(values.loc), region: "", city: "" }
     }) : Promise.resolve(empty("Cloudflare", "仅支持当前出口", "unsupported")),
     collectGeoRow("IP2Location", target, false, async () => {
-      const data = await request(`https://api.ip2location.io/?ip=${encoded}`)
+      const data = await request(`https://api.ip2location.io/?ip=${encoded}`, false, signal)
       if (data.error) throw new Error("数据源不可用")
       return { ip: text(data.ip), country: text(data.country_name), code: text(data.country_code),
         region: text(data.region_name), city: text(data.city_name) }
     }),
     collectGeoRow("DB-IP", target, false, async () => {
-      const data = await request(`https://api.db-ip.com/v2/free/${encoded}`)
+      const data = await request(`https://api.db-ip.com/v2/free/${encoded}`, false, signal)
       return { ip: text(data.ipAddress), country: text(data.countryName), code: text(data.countryCode),
         region: text(data.stateProv), city: text(data.city) }
     }),
     collectGeoRow("IPInfo.io", target, false, async () => {
-      const data = await request(`https://ipinfo.io/${encoded}/json`)
+      const data = await request(`https://ipinfo.io/${encoded}/json`, false, signal)
       return { ip: text(data.ip), country: "", code: text(data.country),
         region: text(data.region), city: text(data.city) }
     }),
     currentExit ? collectGeoRow("Bilibili", target, true, async () => {
-      const data = await request("https://api.bilibili.com/x/web-interface/zone")
+      const data = await request("https://api.bilibili.com/x/web-interface/zone", false, signal)
       if (data.code !== 0 || !data.data) throw new Error("数据源不可用")
       const zone = data.data
       return { ip: text(zone.addr), country: text(zone.country), code: "",

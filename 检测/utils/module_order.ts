@@ -5,7 +5,6 @@ export const PAGE_MODULES = [
 
 export type PageModuleID = typeof PAGE_MODULES[number]
 export type PageModule = { id: PageModuleID }
-export type ModuleDestination = { position: "before"; itemID: string } | { position: "end" }
 const ORDER_KEY = "report-ip.page.module-order.v1"
 const known = new Set<string>(PAGE_MODULES)
 
@@ -65,17 +64,3 @@ export function moveModuleOrder(
   return current.map(id => visibleSet.has(id) ? remaining[index++] : id)
 }
 
-/** iOS 27 原生回调按 ID 指定源和移动后的目标。 */
-export function moveModuleDifference(
-  order: readonly PageModuleID[], visible: readonly PageModuleID[], sources: readonly string[], destination: ModuleDestination,
-): PageModuleID[] {
-  const current = normalizeModuleOrder(order)
-  const shown = current.filter(id => visible.includes(id))
-  if (!sources.length || new Set(sources).size !== sources.length
-    || sources.some(id => !shown.includes(id as PageModuleID))) return current
-  if (destination.position === "before" && (!shown.includes(destination.itemID as PageModuleID)
-    || sources.includes(destination.itemID))) return current
-  const indices = sources.map(id => shown.indexOf(id as PageModuleID)).sort((a, b) => a - b)
-  const offset = destination.position === "end" ? shown.length : shown.indexOf(destination.itemID as PageModuleID)
-  return moveModuleOrder(current, shown, indices, offset)
-}
