@@ -32,6 +32,7 @@ import {
 } from "../core/appstore"
 import {
   addTranslationHistory,
+  clearTranslationHistory,
   getTranslationHistory,
   type TranslationHistoryItem,
 } from "../core/search-history"
@@ -642,6 +643,8 @@ function AppSearchSection(props: {
   const queryRef = useRef("")
   const searchOpenRef = useRef(props.searchOpen)
   searchOpenRef.current = props.searchOpen
+  const inputVisibleRef = useRef(props.inputVisible)
+  inputVisibleRef.current = props.inputVisible
   const historyScrollTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const swapRef = useRef(props.swapDescriptions)
   swapRef.current = props.swapDescriptions
@@ -821,7 +824,7 @@ function AppSearchSection(props: {
     const key = `${app.appid}-${app.selectionId}`
     for (const delay of [140, 560]) {
       safeTimeout(() => {
-        if (!isSelected(app)) return
+        if (!isSelected(app) || (searchOpenRef.current && inputVisibleRef.current)) return
         props.onScrollToApp?.(key)
       }, delay)
     }
@@ -849,7 +852,7 @@ function AppSearchSection(props: {
     if (app.priceExpanded || app.releaseNotesExpanded || app.descriptionExpanded || app.iconExpanded || app.appravenExpanded) {
       for (const delay of [140, 560]) {
         safeTimeout(() => {
-          if (!mountedRef.current) return
+          if (!mountedRef.current || (searchOpenRef.current && inputVisibleRef.current)) return
           if (neighbor && !isSelected(neighbor)) return
           const fallbackKey = searchOpenRef.current ? "app-search-card" : "appstore-content"
           props.onScrollToApp?.(nextTargetKey || fallbackKey)
@@ -946,7 +949,7 @@ function AppSearchSection(props: {
     if (historyScrollTimerRef.current !== undefined) clearTimeout(historyScrollTimerRef.current)
     historyScrollTimerRef.current = safeTimeout(() => {
       historyScrollTimerRef.current = undefined
-      if (isSelected(scrollTarget)) props.onScrollToApp?.(key)
+      if (isSelected(scrollTarget) && !(searchOpenRef.current && inputVisibleRef.current)) props.onScrollToApp?.(key)
     }, 120)
     // 历史记录不保存正文，拉取详情获得更新/说明
     if (target.releaseNotes === undefined || target.description === undefined) {
@@ -981,9 +984,18 @@ function AppSearchSection(props: {
       clipShape={{ type: "rect", cornerRadius: 24, style: "continuous" }}
       animation={{ animation: PANEL_SPRING, value: pickedSignature }}
     >
-      {props.searchOpen ? (
-        <VStack alignment="leading" spacing={14} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
-          {props.inputVisible ? (
+      {/* 固定搜索控件槽位，关闭搜索时只收起控件，避免已展开的译文子树换位。 */}
+      <VStack
+        key="app-search-controls"
+        alignment="leading"
+        spacing={14}
+        frame={{ maxWidth: "infinity", alignment: "leading" as any, height: props.searchOpen ? undefined : 0 }}
+        opacity={props.searchOpen ? 1 : 0}
+        allowsHitTesting={props.searchOpen}
+        accessibilityHidden={!props.searchOpen}
+        clipped
+      >
+          {props.searchOpen && props.inputVisible ? (
             <AnimatedSection index={0}>
               <VStack alignment="leading" spacing={10}>
                 <HStack
@@ -1014,7 +1026,7 @@ function AppSearchSection(props: {
               </VStack>
             </AnimatedSection>
           ) : null}
-          {props.inputVisible && (props.historyCount || 0) > 0 ? (
+          {props.searchOpen && props.inputVisible && (props.historyCount || 0) > 0 ? (
             <AnimatedSection index={1}>
               <TranslationHistoryPanel
                 foregroundStyle={props.foregroundStyle}
@@ -1079,8 +1091,7 @@ function AppSearchSection(props: {
               </HStack>
             </AnimatedSection>
           ) : null}
-        </VStack>
-      ) : null}
+      </VStack>
 
       {/* 已选应用的译文（最多六个，只显示译文不显示原文；打开搜索/历史记录时不与历史记录同屏显示，关闭搜索后仍保留） */}
       <VStack
@@ -1098,10 +1109,10 @@ function AppSearchSection(props: {
         // 渲染期写入最近一次槽位结果，供 slotCancelled 轮询查询（见其注释）。
         slotsCacheRef.current.set(app.selectionId, slots)
         return (
-        <VStack key={`${app.appid}-${app.selectionId}`} alignment="leading" spacing={12} frame={{ maxWidth: "infinity", alignment: "leading" as any }} transition={APP_BLOCK_TRANSITION}>
+        <VStack key={`search-app-${app.appid}-${app.selectionId}`} alignment="leading" spacing={12} frame={{ maxWidth: "infinity", alignment: "leading" as any }} transition={APP_BLOCK_TRANSITION}>
           {index > 0 || (props.searchOpen && (searching || results.length > 0 || !!searchError)) ? <CardDivider /> : null}
-          {/* 应用头部 */}
-          <HStack spacing={12} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
+          {/* 将滚动目标绑定在固定高度的头部，避免双译文展开后定位到整张长卡。 */}
+          <HStack key={`${app.appid}-${app.selectionId}`} spacing={12} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
             <DownIconBadge
               imageUrl={app.artworkUrl}
               size={SEARCH_ICON_SIZE}
@@ -1374,6 +1385,8 @@ function AppStoreContent(props: {
   const scrollProxyRef = useRef<ScrollViewProxy>()
   /** 分享按钮长按识别后，松手可能再补出一次点按：接下来 ~0.7s 内吞掉，避免误跳转。 */
   const shareTapGuardRef = useRef(false)
+  /** 搜索按钮长按后吞掉系统可能补发的点按，避免清空历史后又打开搜索。 */
+  const searchTapGuardRef = useRef(false)
   /**
    * 折叠后把对应应用区滚回视口顶部：内容高度骤减时 ScrollView 会停在旧偏移
    * 形成过度滚动空白；scrollTo 会一次性夹紧偏移，避免需要手动点击回弹。
@@ -1576,10 +1589,10 @@ function AppStoreContent(props: {
                 </Button>
               ) : null}
 {props.identity ? (
-                <Button
-                  buttonStyle="borderless"
-                  disabled={loading}
-                  action={() => {
+                <ZStack
+                  contentShape="rect"
+                  onTapGesture={() => {
+                    if (loading || searchTapGuardRef.current) return
                     refreshHistoryCount()
                     setSearchInputVisible(true)
                     setSearchOpen(true)
@@ -1587,9 +1600,19 @@ function AppStoreContent(props: {
                       if (mountedRef.current && searchOpenRef.current) scrollToApp("app-search-card")
                     }, delay)
                   }}
+                  onLongPressGesture={{
+                    minDuration: 450,
+                    perform: () => {
+                      if (loading) return
+                      searchTapGuardRef.current = true
+                      safeTimeout(() => { searchTapGuardRef.current = false }, 700)
+                      clearTranslationHistory()
+                      refreshHistoryCount()
+                    },
+                  }}
                 >
                   <Image systemName="magnifyingglass" font={18} foregroundStyle={{ light: "#000000", dark: "#FFFFFF" }} frame={{ width: 36, height: 36 }} background={{ style: { light: "rgba(142, 142, 147, 0.22)", dark: "rgba(142, 142, 147, 0.28)" }, shape: "circle" }} />
-                </Button>
+                </ZStack>
               ) : null}
               {props.identity ? (
                 <Button buttonStyle="borderless" disabled={loading} action={() => {
