@@ -242,7 +242,8 @@ function titleSegment(title: string) {
   return { index: -1, text, leading: "", trailing: "", block: -2 }
 }
 
-function assetListHTML(assets: GitHubReleaseInfo["assets"]) {
+/** 资产区内部 HTML；页面加载完成后也可通过 __lingoAssets 注入。 */
+export function githubAssetsHTML(assets: GitHubReleaseInfo["assets"]) {
   if (!assets.length) return ""
   const rows = assets.map((asset) => `
       <li class="asset-row">
@@ -252,12 +253,17 @@ function assetListHTML(assets: GitHubReleaseInfo["assets"]) {
         </a>
         ${asset.size ? `<span class="asset-size">${escapeHTML(asset.size)}</span>` : ""}
       </li>`).join("")
-  return `
-    <section class="assets">
-      <h2>Assets</h2>
-      <ul class="asset-list">${rows}
-      </ul>
-    </section>`
+  return `<h2>Assets</h2><ul class="asset-list">${rows}</ul>`
+}
+
+function assetListHTML(release: GitHubReleaseInfo) {
+  const content = githubAssetsHTML(release.assets)
+  if (content) return `<section class="assets" id="lingo-assets">${content}</section>`
+  // 正文先到、资产稍后到：留一个隐藏占位，loadFile 后由 __lingoAssets 填。
+  if (release.assetsPromise) {
+    return `<section class="assets" id="lingo-assets" hidden><h2>Assets</h2><ul class="asset-list"></ul></section>`
+  }
+  return ""
 }
 
 const STYLE = `
@@ -657,6 +663,13 @@ const SCRIPT = `
     return true;
   };
   window.__lingoCount = nodes.length;
+  window.__lingoAssets = function (html) {
+    var host = document.getElementById('lingo-assets');
+    if (!host || typeof html !== 'string') return false;
+    host.innerHTML = html;
+    host.hidden = false;
+    return true;
+  };
   window.__lingoReady = true;
 })();
 `
@@ -771,7 +784,7 @@ ${avatarURL ? `<link rel="preload" as="image" href="${escapeHTML(avatarURL)}">` 
       : isReadme
         ? bodyHTML || `<article class="markdown-body"><p class="empty">此仓库未提供 README 正文。</p></article>`
         : `<article class="markdown-body">${bodyHTML || `<p class="empty">此版本未提供发布说明。</p>`}</article>`}
-    ${isReadme || isProfile ? "" : assetListHTML(release.assets)}
+    ${isReadme || isProfile ? "" : assetListHTML(release)}
     <p class="view-on"><a href="${escapeHTML(release.htmlUrl)}">View on GitHub →</a></p>
   </main>
   <script>${SCRIPT}</script>

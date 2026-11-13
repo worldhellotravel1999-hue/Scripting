@@ -15,15 +15,25 @@ export type GitHubReleaseIdentity = {
 
 const GITHUB_HOST = "https://github.com"
 
+const GITHUB_URL_PATTERN = /(?:(?:https?):\/\/)?(?:www\.)?github\.com\/[^\s<>"'“”‘’「」『』《》]+/gi
+
 function githubURLFromInput(input: string) {
   const raw = String(input || "").replace(/[\u200B-\u200D\u2060\uFEFF]/g, "").trim()
   if (!raw) return ""
   // 分享文本里常带中文引号、书名号或句末标点；GitHub 链接本身不含这些字符。
-  const match = raw.match(/(?:(?:https?):\/\/)?(?:www\.)?github\.com\/[^\s<>"'“”‘’「」『』《》]+/i)
-  if (!match) return ""
-  return String(match[0] || "")
-    .replace(/[\])}>.,;!，。；！、）】」』》]+$/g, "")
-    .trim()
+  // 必须从主机名边界开始匹配：`notgithub.com`、`foo.github.com` 里的
+  // `github.com` 子串不能被误截成一个“合法”链接。
+  GITHUB_URL_PATTERN.lastIndex = 0
+  let match: RegExpExecArray | null
+  while ((match = GITHUB_URL_PATTERN.exec(raw)) !== null) {
+    const start = match.index
+    const before = start > 0 ? raw[start - 1] : ""
+    if (before && /[A-Za-z0-9_.-]/.test(before)) continue
+    return String(match[0] || "")
+      .replace(/[\])}>.,;!，。；！、）】」』》]+$/g, "")
+      .trim()
+  }
+  return ""
 }
 
 export function encodeGitHubTagPath(tag: string) {
@@ -56,12 +66,13 @@ export function parseGitHubReleaseURL(input: string): GitHubReleaseIdentity | nu
   if (profileMatch) {
     const login = profileMatch[1]
     const reserved = new Set([
-      "about", "account", "actions", "api", "apps", "assets", "codespaces", "collections",
-      "contact", "copilot", "customer-stories", "dashboard", "education", "enterprise", "events",
-      "explore", "features", "gist", "gists", "issues", "join", "login", "marketplace", "mobile",
-      "new", "notifications", "organizations", "orgs", "pricing", "pull_requests", "raw", "readme",
-      "resources", "search", "security", "settings", "site", "solutions", "sponsors", "team",
-      "topics", "trending", "users",
+      "about", "account", "actions", "api", "apps", "assets", "blog", "changelog", "codespaces",
+      "collections", "contact", "copilot", "customer-stories", "dashboard", "discussions", "education",
+      "enterprise", "events", "explore", "features", "gist", "gists", "issues", "join", "login",
+      "logout", "marketplace", "mobile", "new", "notifications", "organizations", "orgs", "pricing",
+      "privacy", "pull_requests", "pulls", "raw", "readme", "resources", "search", "security",
+      "sessions", "settings", "signup", "site", "solutions", "sponsors", "stars", "status", "support",
+      "team", "terms", "topics", "trending", "users", "watching",
     ])
     if (!reserved.has(login.toLowerCase())) {
       return { owner: login, repo: "", url: `${GITHUB_HOST}/${login}`, mode: "profile" }

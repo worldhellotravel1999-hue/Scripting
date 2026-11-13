@@ -1,5 +1,5 @@
 import { Script } from "scripting"
-import { translateLines } from "../core/translate"
+import { alignGooglePieces, translateLines } from "../core/translate"
 import { markGoogleEngineBlocked } from "../core/google_engine"
 
 /**
@@ -28,6 +28,12 @@ function check(name: string, ok: boolean, detail = "") {
 }
 
 async function main() {
+  // 谷歌批量返回「行数刚好但中间有空行」时，空片段必须是 null，不能回退
+  // 原文；否则 commit 会把该行标记成已完成，系统引擎不会再补翻。
+  const aligned = alignGooglePieces(["第一行", "", "第三行"], 3)
+  check("空谷歌片段应留给系统补翻", aligned.length === 3 && aligned[1] === null, JSON.stringify(aligned))
+  check("谷歌行数不一致应退回逐行", alignGooglePieces(["只有一行"], 2).length === 0, "未退回")
+
   const options = { sourceLanguageCode: "auto", targetLanguageCode: "zh-Hans" }
   const first = await translateLines(MIXED, options)
   first.forEach((value, index) => {

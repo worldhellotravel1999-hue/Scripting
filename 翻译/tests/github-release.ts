@@ -1,4 +1,4 @@
-import { Script } from "scripting"
+import { fetch, Script } from "scripting"
 import {
   getGitHubRelease,
   parseGitHubReleaseURL,
@@ -66,6 +66,13 @@ function checkURLs() {
     "https://github.com/electron/electron/pull/3",
     "https://example.com/electron/electron/releases/tag/v1",
     "https://github.com/electron/electron/releases/download/v1/a.ipa",
+    // 主机名边界：这些字符串里虽然含 github.com，但不是 GitHub 主机。
+    "https://notgithub.com/electron/electron/releases/tag/v1",
+    "https://foo.github.com/electron/electron/releases/tag/v1",
+    "notgithub.com/electron/electron/releases/tag/v1",
+    // GitHub 顶层保留路由不应被当成用户名/组织主页。
+    "https://github.com/pulls",
+    "https://github.com/discussions",
   ]) {
     assert(parseGitHubReleaseURL(invalid) === null, `非 Release 链接被接受：${invalid}`)
   }
@@ -134,6 +141,21 @@ async function run() {
   assert(latestIdentity, "latest URL 解析失败")
   const latest = await getGitHubRelease(latestIdentity)
   assert(latest.tag.length > 0 && latest.isLatest, `latest 未解析到具体 tag：${latest.tag}`)
+  // `/releases/latest` 指向最新稳定版，不是 Atom 第一条（Electron 的
+  // Atom 首条可能是 nightly）。API 可同时核对稳定 tag；限流时跳过。
+  const latestApi = await fetch(
+    "https://api.github.com/repos/electron/electron/releases/latest",
+    { timeout: 15, headers: { Accept: "application/vnd.github+json" } },
+  )
+  if (latestApi.ok) {
+    const payload = await latestApi.json() as { tag_name?: unknown }
+    if (typeof payload.tag_name === "string" && payload.tag_name) {
+      assert(
+        latest.tag === payload.tag_name,
+        `latest 选版错误：脚本 ${latest.tag}，GitHub ${payload.tag_name}`,
+      )
+    }
+  }
 
   // Atom 只有最近 10 条，v29.0.0 必须走 Release 页面回退。
   const oldIdentity = parseGitHubReleaseURL("https://github.com/electron/electron/releases/tag/v29.0.0")

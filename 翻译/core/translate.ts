@@ -57,6 +57,8 @@ export type TranslateTextOptions = {
   onProgress?: (value: string) => void
   /** 翻译完成后回报实际使用的引擎与耗时（系统翻译界面诊断用）。 */
   onEngineResolved?: (info: { engine: EngineKind; durationMs: number }) => void
+  /** 部分行未拿到译文、已回退原文时回报（截图结果页用）。 */
+  onPartialFailure?: (missing: number, total: number) => void
   isCancelled?: () => boolean
 }
 
@@ -633,6 +635,20 @@ export async function translateText(text: string, options: TranslateTextOptions 
 /** 单行超过谷歌单请求上限时，该行独占一组、交给 translateText 自己的分片竞速。 */
 type LineGroup = { indices: number[]; text: string; oversize: boolean }
 
+/**
+ * 把谷歌返回的换行译文对齐到原行。空片段返回 null（不是原文）：调用方必须
+ * 让它保持 pending，交给并行的系统引擎补翻；若在这里用原文占位，commit 会
+ * 把该行标记为已完成，系统阶段就再也看不到它了。
+ * 行数不一致时返回空数组，表示该组要退回逐行请求。
+ */
+export function alignGooglePieces(pieces: string[], count: number): (string | null)[] {
+  if (pieces.length !== count) return []
+  return pieces.map((piece) => {
+    const value = String(piece || "").trim()
+    return value ? value : null
+  })
+}
+
 /** 把待译行按序打包成 ≤ GOOGLE_CHUNK_LENGTH 的组（相邻行用 \n 合并一次请求）。 */
 function packLineGroups(sources: string[], pending: number[]): LineGroup[] {
   const groups: LineGroup[] = []
@@ -904,17 +920,23 @@ export async function translateLines(
               },
             })).replace(/\s*\n+\s*/g, " ").trim()
             const index = group.indices[0]
-            commit(index, value || sources[index], resolveSource(group.text), resolvedEngine)
+            // Empty output must stay pending so the system stage can retry it.
+            if (value) commit(index, value, resolveSource(group.text), resolvedEngine)
             continue
           }
           const source = resolveSource(group.text)
           const value = (await translateGoogleChunk(group.text, source, targetLanguageCode)).trim()
-          googleRequestSucceeded = true
-          const pieces = value.split("\n")
-          if (pieces.length === group.indices.length) {
+          const aligned = alignGooglePieces(value.split("\n"), group.indices.length)
+          if (aligned.length) {
+            // Empty pieces stay pending so the system stage can retry them.
+            let committed = false
             group.indices.forEach((index, position) => {
-              commit(index, pieces[position].trim() || sources[index], source, "google")
+              const piece = aligned[position]
+              if (!piece) return
+              commit(index, piece, source, "google")
+              committed = true
             })
+            if (committed) googleRequestSucceeded = true
           } else {
             // 换行数对不上：该组退回逐行请求，行与行一一对应优先于请求数。
             // 2026-10-19 修复：旧实现用 Promise.all，任何一行失败都会让整组
@@ -927,7 +949,7 @@ export async function translateLines(
                   sources[index], lineSource, targetLanguageCode,
                 )).replace(/\s*\n+\s*/g, " ").trim()
                 if (translated) googleRequestSucceeded = true
-                return { index, lineSource, line: translated || sources[index] }
+                return { index, lineSource, line: translated }
               } catch (error) {
                 if (options.isCancelled?.()) throw error
                 return { index, lineSource, line: "" }
@@ -1020,7 +1042,7 @@ export async function translateLines(
         ? lastError
         : new Error(`截图翻译有 ${missing.length} 行未完成，请重试。`)
     }
-    console.log(`[screen] ${missing.length}/${pending.length} 行翻译失败，已回退原文`)
+    try { options.onPartialFailure?.(missing.length, pending.length) } catch {}
   }
   return results.map((value, index) => value ?? sources[index])
 }

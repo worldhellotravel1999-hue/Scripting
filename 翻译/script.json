@@ -1,50 +1,50 @@
 {
-  "name" : "翻译",
+  "contributors" : [
+
+  ],
+  "version" : "2.4.90",
+  "localizedNames" : {
+    "es" : "Adult",
+    "ja" : "Adult",
+    "en" : "Adult",
+    "it" : "Adult",
+    "zh" : "Adult",
+    "ko" : "Adult",
+    "ru" : "Adult",
+    "pt" : "Adult",
+    "de" : "Adult",
+    "fr" : "Adult"
+  },
   "permissions" : null,
   "entry" : "index.tsx",
-  "remoteDefinitionId" : null,
+  "runInApp" : false,
   "intentInputTypes" : [
     "URLs",
     "Texts",
     "Images"
   ],
-  "contributors" : [
-
-  ],
-  "description" : "App Store 与 GitHub README/Release 翻译工具，支持仓库主页和 README 文件链接。",
-  "remoteResource" : {
-    "autoUpdateInterval" : 3600,
-    "hash" : "7660de84371f81a94825c175c36c3512",
-    "url" : "https:\/\/github.com\/worldhellotravel1999-hue\/Scripting\/tree\/main\/翻译"
-  },
-  "runInApp" : false,
-  "localizedNames" : {
-    "pt" : "Adult",
-    "fr" : "Adult",
-    "zh" : "Adult",
-    "it" : "Adult",
-    "en" : "Adult",
-    "es" : "Adult",
-    "ru" : "Adult",
-    "ja" : "Adult",
-    "de" : "Adult",
-    "ko" : "Adult"
-  },
-  "icon" : "network",
-  "localizedDescriptions" : {
-    "en" : "Translate App Store descriptions and GitHub READMEs/releases from repository or README links.",
-    "fr" : "Un espace de traduction simple utilisant uniquement System Translate.",
-    "zh" : "翻译 App Store 说明，以及 GitHub 仓库 README 和 Release。",
-    "ja" : "内蔵の System Translate のみを使う、シンプルな翻訳ワークスペース。",
-    "de" : "Ein fokussierter Übersetzungsbereich, der nur System Translate verwendet.",
-    "it" : "Uno spazio di traduzione che usa solo System Translate integrato.",
-    "ru" : "Простое рабочее пространство перевода только со встроенным System Translate.",
-    "ko" : "내장 System Translate만 사용하는 간결한 번역 작업 공간입니다.",
-    "es" : "Un espacio de traducción que utiliza solo System Translate integrado.",
-    "pt" : "Um espaço de tradução que usa apenas o System Translate integrado."
-  },
+  "name" : "翻译",
   "author" : null,
+  "description" : "App Store 与 GitHub README\/Release 翻译工具，支持仓库主页和 README 文件链接。",
+  "icon" : "network",
   "iconImage" : "",
   "color" : "rgba(28, 140, 255, 1)",
-  "version" : "2.4.70"
+  "localizedDescriptions" : {
+    "ja" : "App Store の説明と GitHub の README／リリースを翻訳します。",
+    "zh" : "翻译 App Store 说明，以及 GitHub 仓库 README 和 Release。",
+    "en" : "Translate App Store descriptions and GitHub READMEs\/releases from repository or README links.",
+    "pt" : "Traduza descrições da App Store e READMEs\/releases do GitHub.",
+    "it" : "Traduci le descrizioni dell'App Store e i README\/release di GitHub.",
+    "de" : "App-Store-Beschreibungen und GitHub-READMEs\/Releases übersetzen.",
+    "ru" : "Перевод описаний App Store и README\/релизов GitHub.",
+    "ko" : "App Store 설명과 GitHub README\/릴리스를 번역합니다.",
+    "fr" : "Traduisez les descriptions App Store et les README\/versions GitHub.",
+    "es" : "Traduce descripciones de App Store y READMEs\/versiones de GitHub."
+  },
+  "remoteDefinitionId" : null,
+  "remoteResource" : {
+    "url" : "https:\/\/github.com\/worldhellotravel1999-hue\/Scripting\/tree\/main\/翻译",
+    "hash" : "be37fcf98272f981e7611a1dd5d0728c",
+    "autoUpdateInterval" : 3600
+  }
 }

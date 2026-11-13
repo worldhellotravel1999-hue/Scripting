@@ -47,6 +47,24 @@ async function main() {
   ])
   check("行首 · 短行不被过滤", filtered.length === 1, `${filtered.length}`)
 
+  // 双栏同高：左右两栏各一行，垂直位置相同但水平相隔很远，不能合并成一行。
+  const columns = buildOCRBlocks([
+    cand("Left column item", box(0.05, 0.5, 0.35, 0.05)),
+    cand("Right column item", box(0.60, 0.5, 0.35, 0.05)),
+  ])
+  const columnRows = mergeLineBlocksForTest(columns)
+  console.log(`双栏同高：${columnRows.length} 行 → ${JSON.stringify(columnRows.map((row) => row.text))}`)
+  check("双栏同高不应合并", columnRows.length === 2, `${columnRows.length}`)
+  check(
+    "双栏文本不应互相拼接",
+    columnRows.every((row) => !row.text.includes("Left column item Right column item")),
+    columnRows.map((row) => row.text).join(" | "),
+  )
+
+  // Vision 偶尔不返回 boundingBox：文本仍必须参与翻译/纯文本输出。
+  const noBox = buildOCRBlocks([{ content: "Text without a bounding box", confidence: 0.4 }])
+  check("无框 OCR 文本不应被丢弃", noBox.length === 1 && noBox[0]?.text === "Text without a bounding box", JSON.stringify(noBox))
+
   if (failures.length) {
     console.log(`行合并回归失败 ${failures.length} 项：\n- ${failures.join("\n- ")}`)
     Script.exit("failed")

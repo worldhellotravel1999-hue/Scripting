@@ -1,4 +1,4 @@
-import { fetch } from "scripting"
+import { AbortController, fetch, type AbortSignal } from "scripting"
 import { parseHTML } from "./linkedom"
 import { getGitHubReadme } from "./github-readme"
 import { getGitHubProfile } from "./github-profile"
@@ -43,6 +43,8 @@ export type GitHubReleaseInfo = {
   htmlUrl: string
   isLatest: boolean
   assets: GitHubReleaseAsset[]
+  /** 页面先呈现后仍可异步补入的资产列表（慢网络不阻塞正文）。 */
+  assetsPromise?: Promise<GitHubReleaseAsset[]>
 }
 
 type AtomEntry = {
@@ -55,9 +57,22 @@ type AtomEntry = {
   url: string
 }
 
+type ReleasePage = {
+  tag: string
+  title: string
+  bodyHtml: string
+  publishedAt?: string
+  author?: string
+  avatarUrl?: string
+  ownerAvatarUrl?: string
+  isLatest: boolean
+}
+
 const GITHUB_HOST = "https://github.com"
 const FETCH_TIMEOUT = 20
 const ASSET_TIMEOUT = 10
+const LATEST_TAG_TIMEOUT = 4
+const ASSET_WAIT_MS = 600
 
 function decodeXmlEntities(value: string) {
   return String(value || "").replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (whole, body: string) => {
@@ -154,6 +169,29 @@ async function fetchAtom(owner: string, repo: string) {
   return await response.text()
 }
 
+/**
+ * GitHub 的 `/releases/latest` 指向最新**非预发布**版本，而 Atom 第一条
+ * 可能是 nightly / beta（Electron 就长期如此）。API 体积小、响应快，用它
+ * 先确定稳定 tag，再复用 Atom 的正文；API 限流时回退到 `/releases/latest`
+ * 页面本身解析出的重定向 tag。
+ */
+async function fetchLatestStableTag(owner: string, repo: string): Promise<string> {
+  const response = await fetch(
+    `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/releases/latest`,
+    {
+      method: "GET",
+      timeout: LATEST_TAG_TIMEOUT,
+      debugLabel: "Lingo GitHub Latest Release",
+      headers: { Accept: "application/vnd.github+json" },
+    },
+  )
+  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  const payload = await response.json() as { tag_name?: unknown }
+  const tag = typeof payload?.tag_name === "string" ? payload.tag_name.trim() : ""
+  if (!tag) throw new Error("GitHub latest release returned no tag")
+  return tag
+}
+
 function findAtomEntry(entries: AtomEntry[], tag?: string) {
   if (!entries.length) return null
   if (!tag) return entries[0]
@@ -193,14 +231,14 @@ function bodyHtmlFromFragment(fragment: string) {
   return String(node?.innerHTML || "")
 }
 
-async function fetchReleasePage(identity: GitHubReleaseIdentity) {
+async function fetchReleasePage(identity: GitHubReleaseIdentity, signal?: AbortSignal) {
   const tag = identity.tag || ""
   const pageURL = tag
     ? `${GITHUB_HOST}/${identity.owner}/${identity.repo}/releases/tag/${encodeGitHubTagPath(tag)}`
     : `${GITHUB_HOST}/${identity.owner}/${identity.repo}/releases/latest`
   const response = await fetch(
     pageURL,
-    { method: "GET", timeout: FETCH_TIMEOUT, debugLabel: "Lingo GitHub Release Page" },
+    { method: "GET", timeout: FETCH_TIMEOUT, debugLabel: "Lingo GitHub Release Page", signal },
   )
   if (!response.ok) throw new Error(`无法读取 GitHub Release（HTTP ${response.status}）。`)
   const html = await response.text()
@@ -292,6 +330,72 @@ async function fetchAssets(owner: string, repo: string, tag: string): Promise<Gi
   }
 }
 
+function releaseFromAtom(
+  identity: GitHubReleaseIdentity,
+  entry: AtomEntry,
+  assets: GitHubReleaseAsset[],
+  isLatest: boolean,
+  assetsPromise?: Promise<GitHubReleaseAsset[]>,
+): GitHubReleaseInfo {
+  return {
+    owner: identity.owner,
+    repo: identity.repo,
+    tag: entry.tag,
+    title: entry.title,
+    bodyHtml: entry.bodyHtml,
+    publishedAt: entry.updated,
+    author: entry.author,
+    avatarUrl: entry.avatarUrl,
+    ownerAvatarUrl: githubAvatarURL(identity.owner),
+    htmlUrl: `${GITHUB_HOST}/${identity.owner}/${identity.repo}/releases/tag/${encodeGitHubTagPath(entry.tag)}`,
+    isLatest,
+    assets,
+    assetsPromise,
+  }
+}
+
+function releaseFromPage(
+  identity: GitHubReleaseIdentity,
+  page: ReleasePage,
+  tag: string,
+  assets: GitHubReleaseAsset[],
+  assetsPromise?: Promise<GitHubReleaseAsset[]>,
+): GitHubReleaseInfo {
+  return {
+    owner: identity.owner,
+    repo: identity.repo,
+    tag,
+    title: page.title || tag,
+    bodyHtml: page.bodyHtml,
+    publishedAt: page.publishedAt,
+    author: page.author,
+    avatarUrl: page.avatarUrl,
+    ownerAvatarUrl: page.ownerAvatarUrl || githubAvatarURL(identity.owner),
+    htmlUrl: tag
+      ? `${GITHUB_HOST}/${identity.owner}/${identity.repo}/releases/tag/${encodeGitHubTagPath(tag)}`
+      : `${GITHUB_HOST}/${identity.owner}/${identity.repo}/releases/latest`,
+    isLatest: identity.mode !== "tag" || page.isLatest,
+    assets,
+    assetsPromise,
+  }
+}
+
+/** 资产区不是正文：最多等一小段；慢请求交给页面加载后的异步注入。 */
+function waitForAssets(promise: Promise<GitHubReleaseAsset[]>): Promise<GitHubReleaseAsset[]> {
+  return new Promise<GitHubReleaseAsset[]>((resolve) => {
+    let settled = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const finish = (assets: GitHubReleaseAsset[]) => {
+      if (settled) return
+      settled = true
+      if (timer !== undefined) clearTimeout(timer)
+      resolve(assets)
+    }
+    timer = setTimeout(() => finish([]), ASSET_WAIT_MS)
+    promise.then(finish, () => finish([]))
+  })
+}
+
 export async function getGitHubRelease(identity: GitHubReleaseIdentity): Promise<GitHubReleaseInfo> {
   if (identity.mode === "profile") {
     const profile = await getGitHubProfile(identity)
@@ -312,60 +416,107 @@ export async function getGitHubRelease(identity: GitHubReleaseIdentity): Promise
   if (identity.mode === "repository" || identity.mode === "readme") {
     return getGitHubReadme(identity)
   }
-  const atomPromise = fetchAtom(identity.owner, identity.repo)
+
+  const owner = identity.owner
+  const repo = identity.repo
+  const atomPromise = fetchAtom(owner, repo)
     .then(parseAtom)
     .catch(() => [] as AtomEntry[])
-
-  let entry: AtomEntry | null = null
-  let assets: GitHubReleaseAsset[] = []
-  try {
-    const entries = await atomPromise
-    entry = findAtomEntry(entries, identity.tag)
-    if (entry) {
-      assets = await fetchAssets(identity.owner, identity.repo, entry.tag)
-      return {
-        owner: identity.owner,
-        repo: identity.repo,
-        tag: entry.tag,
-        title: entry.title,
-        bodyHtml: entry.bodyHtml,
-        publishedAt: entry.updated,
-        author: entry.author,
-        avatarUrl: entry.avatarUrl,
-        ownerAvatarUrl: githubAvatarURL(identity.owner),
-        htmlUrl: `${GITHUB_HOST}/${identity.owner}/${identity.repo}/releases/tag/${encodeGitHubTagPath(entry.tag)}`,
-        isLatest: identity.mode !== "tag" || (!!entries[0] && entries[0].tag === entry.tag),
-        assets,
-      }
-    }
-  } catch {}
-
-  // Atom 只有最近 10 条；老版本直接抓 Release 页面。
-  const pagePromise = fetchReleasePage(identity)
+  // Start the page request immediately. An Atom miss used to add a full 20s
+  // timeout before the page request even started, so weak networks waited
+  // twice for the same release. The page is only consumed if Atom cannot
+  // answer; failures are swallowed because it is an optional fallback.
+  const pageController = new AbortController()
+  const pagePromise = fetchReleasePage(identity, pageController.signal).catch(() => null)
   const tagAssetPromise = identity.tag
-    ? fetchAssets(identity.owner, identity.repo, identity.tag)
+    ? fetchAssets(owner, repo, identity.tag)
     : Promise.resolve([] as GitHubReleaseAsset[])
-  const page = await pagePromise
-  const tag = identity.tag || page.tag || ""
-  const pageAssets = tag
-    ? (identity.tag ? await tagAssetPromise : await fetchAssets(identity.owner, identity.repo, tag))
-    : []
-  return {
-    owner: identity.owner,
-    repo: identity.repo,
-    tag,
-    title: page.title || tag,
-    bodyHtml: page.bodyHtml,
-    publishedAt: page.publishedAt,
-    author: page.author,
-    avatarUrl: page.avatarUrl,
-    ownerAvatarUrl: page.ownerAvatarUrl || githubAvatarURL(identity.owner),
-    htmlUrl: tag
-      ? `${GITHUB_HOST}/${identity.owner}/${identity.repo}/releases/tag/${encodeGitHubTagPath(tag)}`
-      : `${GITHUB_HOST}/${identity.owner}/${identity.repo}/releases/latest`,
-    isLatest: identity.mode !== "tag" || page.isLatest,
-    assets: pageAssets,
+
+  const pageOrThrow = async () => {
+    const page = await pagePromise
+    if (!page) throw new Error("无法读取 GitHub Release，请检查链接或网络后重试。")
+    return page
   }
+
+  if (identity.mode === "latest") {
+    // `/releases/latest` means the latest stable release, not “newest Atom
+    // entry”. Electron's Atom feed starts with a nightly while /latest points
+    // at a stable tag; selecting the first entry showed the wrong release.
+    // API 通常远快于整页；若它被限流/变慢，页面解析出的 tag 同样权威，
+    // 谁先给出非空 tag 就用谁，避免稳定版判定把正文再拖 4~10 秒。
+    const pageTagPromise = pagePromise.then((page) => {
+      if (page?.tag) return page.tag
+      return new Promise<string>(() => {})
+    }).catch(() => "")
+    const latestTag = await Promise.race([
+      fetchLatestStableTag(owner, repo).catch(() => ""),
+      pageTagPromise,
+    ])
+    if (latestTag) {
+      const assetsPromise = fetchAssets(owner, repo, latestTag)
+      const entries = await atomPromise
+      const entry = findAtomEntry(entries, latestTag)
+      if (entry) {
+        pageController.abort()
+        const assets = await waitForAssets(assetsPromise)
+        return releaseFromAtom(identity, entry, assets, true, assetsPromise)
+      }
+      const [page, latestAssets] = await Promise.all([pageOrThrow(), waitForAssets(assetsPromise)])
+      const pageTag = page.tag || latestTag
+      let pageAssets = latestAssets
+      let pageAssetsPromise = assetsPromise
+      if (pageTag !== latestTag) {
+        pageAssetsPromise = fetchAssets(owner, repo, pageTag)
+        pageAssets = await waitForAssets(pageAssetsPromise)
+      }
+      return releaseFromPage(identity, page, pageTag, pageAssets, pageAssetsPromise)
+    }
+    // API unavailable (rate limit/offline): the page redirect is authoritative.
+    const page = await pageOrThrow()
+    const tag = page.tag || ""
+    const assetsPromise = tag
+      ? fetchAssets(owner, repo, tag)
+      : Promise.resolve([] as GitHubReleaseAsset[])
+    const assets = await waitForAssets(assetsPromise)
+    return releaseFromPage(identity, page, tag, assets, assetsPromise)
+  }
+
+  if (identity.mode === "tag") {
+    const entries = await atomPromise
+    const entry = findAtomEntry(entries, identity.tag)
+    if (entry) {
+      pageController.abort()
+      const assets = await waitForAssets(tagAssetPromise)
+      return releaseFromAtom(
+        identity,
+        entry,
+        assets,
+        !!entries[0] && entries[0].tag === entry.tag,
+        tagAssetPromise,
+      )
+    }
+    // Atom only keeps the latest 10 releases; older tags use the page fallback.
+    const page = await pageOrThrow()
+    const assets = await waitForAssets(tagAssetPromise)
+    return releaseFromPage(identity, page, identity.tag || page.tag, assets, tagAssetPromise)
+  }
+
+  // `/releases` and any other list-style entry: newest Atom entry, page fallback.
+  const entries = await atomPromise
+  const entry = findAtomEntry(entries, identity.tag)
+  if (entry) {
+    pageController.abort()
+    const assetsPromise = fetchAssets(owner, repo, entry.tag)
+    const assets = await waitForAssets(assetsPromise)
+    return releaseFromAtom(identity, entry, assets, true, assetsPromise)
+  }
+  const page = await pageOrThrow()
+  const tag = page.tag || ""
+  const assetsPromise = tag
+    ? fetchAssets(owner, repo, tag)
+    : Promise.resolve([] as GitHubReleaseAsset[])
+  const assets = await waitForAssets(assetsPromise)
+  return releaseFromPage(identity, page, tag, assets, assetsPromise)
 }
 
 /** 页面标题里的日期（GitHub 风格）。 */

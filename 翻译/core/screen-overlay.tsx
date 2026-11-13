@@ -14,6 +14,8 @@ export type ScreenOverlayResult = {
   image: UIImage
   text: string
   lines: ScreenOverlayLine[]
+  /** 未拿到译文、已回退原文的行数（结果页提示用）。 */
+  untranslated?: number
 }
 
 type Rect = { x: number; y: number; width: number; height: number }
@@ -38,17 +40,28 @@ function mergeLineBlocks(blocks: OCRBlock[]): OCRBlock[] {
     // 但「同一行」必须收得很紧：相邻两行的垂直缝隙通常也有 0.5~0.8 个行高，
     // 只按缝隙阈值会把上下两条更新日志误并成一条（实测 10 块→9 行）。
     // 因此只在「后半块以标点开头」或「两块左右紧邻」时才合并。
+    const text = block.text.trim()
+    const continuation = /^[，。；：、！？,.;:!?）)\]】》」』]/.test(text)
     const row = rows.find((candidate) => {
       const overlap = Math.min(candidate.top + candidate.height, top + height)
         - Math.max(candidate.top, top)
-      if (overlap > 0.4 * Math.min(candidate.height, height)) return true
+      if (overlap > 0.4 * Math.min(candidate.height, height)) {
+        // 垂直重叠也可能来自双栏同高：左右两栏各有一行，垂直位置相同却
+        // 水平相隔很远。只按垂直重叠合并会把两栏拼成一行，覆盖框横跨
+        // 中间空白并盖住两边内容。这里再要求水平重叠或紧邻。
+        const rowLeft = Math.min(...candidate.items.map((item) => item.box!.x))
+        const rowRight = Math.max(...candidate.items.map((item) => item.box!.x + item.box!.width))
+        const blockRight = box.x + box.width
+        const xOverlap = Math.min(rowRight, blockRight) - Math.max(rowLeft, box.x)
+        const xGap = Math.max(rowLeft - blockRight, box.x - rowRight, 0)
+        return xOverlap > 0 || xGap <= (continuation ? 0.08 : 0.03)
+      }
       const gap = Math.max(candidate.top, top) - Math.min(candidate.top + candidate.height, top + height)
       // 缝隙既要小于 0.22 倍行高，也要小于 1.2% 页高：长截图一屏几十行时
       // 行高只有 1~2%，只看相对比例会把相邻两条误并（实测 10 块 → 9 行）。
       const gapLimit = Math.min(Math.min(candidate.height, height) * 0.22, 0.012)
       if (gap > gapLimit) return false
       const rightEdge = Math.max(...candidate.items.map((item) => item.box!.x + item.box!.width))
-      const continuation = /^[，。；：、！？,.;:!?）)\]】》」』]/.test(block.text.trim())
       const adjacent = box.x >= rightEdge - 0.12 && box.x <= rightEdge + 0.03
       return continuation || adjacent
     })
@@ -189,7 +202,14 @@ export async function translateScreenOverlay(
 
   // 一次批量翻译全部行（旧行为是逐行串行 translateText，截图一多就要
   // 等 N 个请求 + N 次原生排队，是截图翻译慢的根因）。
-  const translations = await translateLines(blocks.map((block) => block.text), options)
+  let untranslated = 0
+  const translations = await translateLines(blocks.map((block) => block.text), {
+    ...options,
+    onPartialFailure: (missing, total) => {
+      untranslated = missing
+      try { options.onPartialFailure?.(missing, total) } catch {}
+    },
+  })
   const lines: ScreenOverlayLine[] = blocks.map((block, index) => ({
     source: block.text,
     translated: (translations[index] ?? "").trim() || block.text,
@@ -199,9 +219,9 @@ export async function translateScreenOverlay(
   if (!text) throw new Error("未识别到文字，请确认截图清晰且包含可识别文本。")
 
   try {
-    return { image: await renderCoverImage(image, lines), text, lines }
+    return { image: await renderCoverImage(image, lines), text, lines, untranslated }
   } catch {
-    return { image, text, lines }
+    return { image, text, lines, untranslated }
   }
 }
 
@@ -314,6 +334,12 @@ async function renderCoverImage(image: UIImage, lines: ScreenOverlayLine[]): Pro
   }
   // 全部行的底色采样共用同一次像素缓冲读取（原逐行 pixelColor 每次都可能重新解码整图）。
   const pixels = readPixelBuffer(image)
+  // 按原图的 scale 栅格化：1x 输出会把 2x/3x 截图的像素密度砍掉一半以上，
+  // 结果页放大查看时文字发虚。Canvas 尺寸仍以点为单位，ImageRenderer 的
+  // scale 决定实际像素数。
+  const renderScale = image.scale && Number.isFinite(image.scale) && image.scale > 0
+    ? image.scale
+    : 1
   const cover = await ImageRenderer.toUIImage(
     <Canvas
       frame={{ width, height }}
@@ -349,7 +375,7 @@ async function renderCoverImage(image: UIImage, lines: ScreenOverlayLine[]): Pro
         }
       }}
     />,
-    { scale: 1 },
+    { scale: renderScale },
   )
   return cover ?? image
 }

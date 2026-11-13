@@ -67,7 +67,10 @@ function stripListMarker(text: string): string {
  */
 export function buildOCRBlocks(candidates: OCRCandidate[]): OCRBlock[] {
   const blocks = candidates.map(makeBlock).filter(block => {
-    if (!block.box || /(?:https?:\/\/|www\.)\S+/i.test(block.text)) return false
+    // Vision 偶尔返回没有有效 boundingBox 的候选。它们不能画回原图，但仍然是
+    // 可翻译文本；丢弃会让纯文本结果和覆盖行数一起少内容。保留无框块，
+    // 渲染层会跳过它们，只参与文本输出。
+    if (/(?:https?:\/\/|www\.)\S+/i.test(block.text)) return false
     const cleanText = block.text.trim()
     if (!cleanText) return false
     // 行首列表符号不参与噪声判定（正文里的 · 分隔符仍保留原样）。

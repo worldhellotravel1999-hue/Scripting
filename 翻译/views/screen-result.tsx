@@ -264,6 +264,7 @@ export function ScreenTranslationResult(props: ScreenTranslationResultProps) {
   const [coverImage, setCoverImage] = useState<UIImage | null>(null)
   const [lines, setLines] = useState<CopyLine[]>([])
   const [errorMessage, setErrorMessage] = useState("")
+  const [untranslated, setUntranslated] = useState(0)
   const [showOriginal, setShowOriginal] = useState(false)
   const [toast, setToast] = useState(false)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -285,6 +286,7 @@ export function ScreenTranslationResult(props: ScreenTranslationResultProps) {
         if (!alive) return
         setCoverImage(result.image)
         setLines(Array.isArray(result.lines) ? result.lines : [])
+        setUntranslated(Math.max(0, result.untranslated || 0))
         setStatus("done")
       },
       (reason) => {
@@ -350,6 +352,22 @@ export function ScreenTranslationResult(props: ScreenTranslationResultProps) {
             </Text>
           ) : null}
         </ScrollView>
+        {status === "done" && untranslated > 0 ? (
+          <VStack
+            frame={{ maxWidth: "infinity", maxHeight: "infinity", alignment: "bottomLeading" as any }}
+            padding={{ leading: 14, bottom: 14 }}
+          >
+            <Text
+              font="caption"
+              foregroundStyle="secondaryLabel"
+              padding={{ horizontal: 10, vertical: 6 }}
+              background={{ style: { light: "rgba(255,255,255,0.94)", dark: "rgba(28,28,30,0.94)" }, shape: "capsule" }}
+              clipShape="capsule"
+            >
+              {`${untranslated} 行未能翻译，已保留原文`}
+            </Text>
+          </VStack>
+        ) : null}
       </ZStack>
     </NavigationStack>
   )

@@ -23,7 +23,7 @@ import {
   parseGitHubReleaseURL,
   type GitHubReleaseInfo,
 } from "../core/github"
-import { prepareGitHubReleasePage, type PreparedGitHubPage } from "../core/github-page"
+import { githubAssetsHTML, prepareGitHubReleasePage, type PreparedGitHubPage } from "../core/github-page"
 import { githubPageDirectory, githubPageFile } from "../core/github-page-file"
 import {
   githubTranslationCacheKey,
@@ -575,6 +575,40 @@ export function GitHubReleaseContent(props: { url: string; onClose: () => void }
       })
     return () => { active = false }
   }, [prepared, release, targetLanguage, translationToken, preferences.defaultSourceLanguageCode, translationHost])
+
+  // 资产区可能比正文晚到：页面已经显示后，把慢请求的结果补进占位区，
+  // 不让下载列表把正文/翻译的首帧拖到超时。
+  useEffect(() => {
+    const assetsPromise = release?.assetsPromise
+    if (!assetsPromise || !pageReady) return
+    let active = true
+    let attempts = 0
+    const apply = () => {
+      if (!active) return
+      if (!controller.isAttached) {
+        if (attempts < 12) {
+          attempts += 1
+          safeTimeout(apply, 150)
+        }
+        return
+      }
+      assetsPromise.then((assets) => {
+        if (!active || !assets.length) return
+        const html = githubAssetsHTML(assets)
+        if (!html) return
+        const script = `if (typeof window.__lingoAssets !== "function") return false; window.__lingoAssets(${JSON.stringify(html)}); return true`
+        controller.evaluateJavaScript(script).then((applied) => {
+          if (!active || applied !== false) return
+          if (attempts < 16) {
+            attempts += 1
+            safeTimeout(apply, 150)
+          }
+        }, () => {})
+      }, () => {})
+    }
+    apply()
+    return () => { active = false }
+  }, [release, pageReady, controller])
 
   useEffect(() => {
     if (!pageReady || !prepared) return

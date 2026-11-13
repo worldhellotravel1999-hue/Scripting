@@ -343,7 +343,7 @@ export function TranslationCard(props: TranslationCardProps) {
   const readOnly = !!props.readOnly
   const compact = !!props.compact
   const translationOnly = !!props.translationOnly
-  // System Translate is the only engine in this reduced build.
+  // Google's fast path races the native System Translate fallback in core/translate.
   const autoTranslate = props.autoTranslate === true
   const translationEnabled = props.translationEnabled !== false
   const normalizedTargets = targetCodes(props.targetLanguages)
@@ -472,8 +472,8 @@ export function TranslationCard(props: TranslationCardProps) {
       }
     }))
 
-    // Native Translation sessions are not reliably re-entrant, so targets
-    // always run serially through the single built-in System Translate engine.
+    // Targets run serially (native Translation sessions are not reliably
+    // re-entrant); each target still uses core/translate's Google/System race.
     const translateOne = async (languageCode: string) => {
       if (sourceLanguage !== "auto" && sourceLanguage === languageCode) {
         return {

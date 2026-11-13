@@ -27,6 +27,16 @@ async function main() {
   console.log(`overlay ${Math.round(overlay.image.width)}x${Math.round(overlay.image.height)} lines=${overlay.lines.length}`)
   if (overlay.lines.length !== blocks.length) failures.push("覆盖行数与 OCR 块数不一致")
   if (Math.round(overlay.image.width) !== Math.round(image.width)) failures.push("覆盖图宽度与原图不一致")
+  // 点尺寸相同不代表像素密度相同：2x 截图若按 1x 栅格化会丢一半分辨率。
+  const sourcePixels = image.getPixelData()
+  const overlayPixels = overlay.image.getPixelData()
+  if (sourcePixels && overlayPixels) {
+    if (overlayPixels.width !== sourcePixels.width || overlayPixels.height !== sourcePixels.height) {
+      failures.push(`覆盖图像素尺寸不一致：${overlayPixels.width}x${overlayPixels.height} != ${sourcePixels.width}x${sourcePixels.height}`)
+    }
+  } else {
+    failures.push("无法读取覆盖图或原图像素数据")
+  }
   if (failures.length) {
     console.log(`screen-overlay-check 失败 ${failures.length} 项：\n- ${failures.join("\n- ")}`)
     Script.exit("failed")
