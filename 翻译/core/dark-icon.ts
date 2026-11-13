@@ -88,6 +88,8 @@ let _bgRefLum = 0
 let _bgRefR = -1
 let _bgRefG = -1
 let _bgRefB = -1
+/** 「外圈刷黑」的主体保护图：亮色连通块里不贴画布边的那些（图案），1 = 绝不刷黑 */
+let _bgProtect: Uint8Array | null = null
 /** 对调时的图案色（= 全图主体色经 glyphTune，渲染前算一次） */
 let _swapFgR = 255
 let _swapFgG = 255
@@ -104,6 +106,7 @@ function applyOptions(options?: DarkIconOptions) {
   _keepBg = options?.keepBg === true
   // 上一次渲染的泛洪图不能留到下一次（只有「外圈刷黑」才会重算）
   _bgReach = null
+  _bgProtect = null
 }
 
 function clampNum(v: number, lo: number, hi: number) {
@@ -118,19 +121,108 @@ const SWAP_BG = 5
 const BGBLACK_TOL = 40
 /** 「外圈刷黑」泛洪：相邻像素每通道最大差 ≤ 这个值才算「同一片平滑底色」。
  *  底色渐变每步只有 1~3 级；但**图案自己也可能是平滑渐变**，单靠「步长小」会把整块图案也泛进去 ✗
- *  —— 所以泛洪同时要求「离底色 ≤ BGBLACK_TOL」（彩色扇区那一步色差 ≥80，进不来） */
+ *  —— 所以泛洪同时要求「颜色在底色色域内」。图案本身由 LUT 主体判定兜底（见 transformRows）。 */
 const BGBLACK_STEP = 20
 /** 外圈底色「色域」的宽容量：以四边采样带的每通道 min/max 为准，再各放宽这么多，
  *  用来吸收 JPEG 噪声与渐变边角的最深值 */
 const BG_RANGE_SLACK = 18
+
+/** 亮色阈值（感知亮度）：≥ 这个值算「亮色」 */
+const BRIGHT_LUM = 165
+/** 亮色连通块「贴画布边」的判定：贴边像素数 > 周长 × 这个比例 → 算底色（白底 / 亮边框）而不是图案 */
+const BRIGHT_BORDER_SHARE = 0.1
+/** 「外圈刷黑」时，离画布边不到这个比例的一圈直接算底色，不再走 LUT 主体判定。
+ *  多色渐变图标（Instagram）的边圈颜色离「四角参考色连线」很远，LUT 会误判成主体，
+ *  于是在外圈留下一圈彩色框；边圈本身就是「外圈」，刷黑它不会伤到图案。 */
+const BGBLACK_EDGE_BAND = 0.035
+
+/** 「外圈刷黑」的主体保护图：**亮色的连通块**里，不贴画布边的那些（图案）。
+ *  为什么不用 LUT 判主体：很多图标的亮边框/高光会把近白色带进背景参考色，
+ *  于是白 logo（Discord 的白幽灵、Facebook 的白 f）被 LUT 当成底色 → 整个图标被刷黑。
+ *  换成几何判据：底色一定与画布外沿相连（白底、渐变色边、亮边框都贴边），
+ *  而图案是被底色包住的。只看亮色块还避开了暗色/彩色图案（那个交给 LUT 兜底）。 */
+function buildBrightProtect(px: Uint8Array, width: number, height: number): Uint8Array | null {
+  const n = width * height
+  const bright = new Uint8Array(n)
+  let any = false
+  for (let p = 0; p < n; p++) {
+    const i = p * 4
+    if (px[i + 3] < 128) continue
+    if (0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2] >= BRIGHT_LUM) {
+      bright[p] = 1
+      any = true
+    }
+  }
+  if (!any) return null
+  const label = new Int32Array(n).fill(-1)
+  const stack = new Int32Array(n)
+  const borderCount: number[] = []
+  let comps = 0
+  for (let s = 0; s < n; s++) {
+    if (!bright[s] || label[s] >= 0) continue
+    const id = comps++
+    let sp = 0
+    stack[sp++] = s
+    label[s] = id
+    let bc = 0
+    while (sp > 0) {
+      const p = stack[--sp]
+      const x = p % width
+      const y = (p - x) / width
+      if (x === 0 || x === width - 1 || y === 0 || y === height - 1) bc++
+      if (x > 0) {
+        const q = p - 1
+        if (bright[q] && label[q] < 0) {
+          label[q] = id
+          stack[sp++] = q
+        }
+      }
+      if (x < width - 1) {
+        const q = p + 1
+        if (bright[q] && label[q] < 0) {
+          label[q] = id
+          stack[sp++] = q
+        }
+      }
+      if (y > 0) {
+        const q = p - width
+        if (bright[q] && label[q] < 0) {
+          label[q] = id
+          stack[sp++] = q
+        }
+      }
+      if (y < height - 1) {
+        const q = p + width
+        if (bright[q] && label[q] < 0) {
+          label[q] = id
+          stack[sp++] = q
+        }
+      }
+    }
+    borderCount.push(bc)
+  }
+  const limit = 2 * (width + height) * BRIGHT_BORDER_SHARE
+  const protect = new Uint8Array(n)
+  let hit = false
+  for (let p = 0; p < n; p++) {
+    const id = label[p]
+    if (id < 0) continue
+    if (borderCount[id] <= limit) {
+      protect[p] = 1
+      hit = true
+    }
+  }
+  return hit ? protect : null
+}
 
 /** 从画布四边出发、沿「属于外圈底色（每通道落在四边采样带的色域内）且相邻色差 ≤ stepMax」的像素泛洪，
  *  标出与外界连通的那片底色。返回 1/0 图（长度 width*height）。全透明像素当墙。
  *
  *  ⚠ 为什么不用「离底色均值 ≤ tol」：底色常是一整片渐变（信息图标就是 5af074 → 27c040 的绿渐变），
  *  离均值能差 70+，泛洪半路就被挡住 → 外圈只刷黑了最外几像素。
- *  改用「四边采样带的每通道色域」后，渐变整片都落在自己的色域里（刷得完），
- *  而白气泡 / 饱和图案的通道值会跑出色域 → 依旧挡住。 */
+ *  改用「四边采样带的每通道色域」后，渐变整片都落在自己的色域里（刷得完）。
+ *  代价：图案贴边时（Facebook 的白 f 顶到底边）它的颜色也会进色域，
+ *  所以刷黑前还要过一道 LUT 主体判定（transformRows 里 `lut[key] < 60`），图案像素不会被刷。 */
 function reachFromEdge(
   px: Uint8Array,
   width: number,
@@ -880,6 +972,8 @@ function transformRows(
   const bgMin = Math.min(_bgRefR, _bgRefG, _bgRefB)
   const bgSat = bgMax > 0 ? (bgMax - bgMin) / bgMax : 0
   const shadowOn = !_swap && _bgRefLum > 0 && bgSat < SHADOW_BG_SAT_MAX
+  const edgeX = Math.max(1, Math.round(width * BGBLACK_EDGE_BAND))
+  const edgeY = Math.max(1, Math.round(height * BGBLACK_EDGE_BAND))
   const shadowDarkBg = _bgRefLum < DARK_BG_MAX
   const shadowLo = shadowDarkBg ? _bgRefLum : _bgRefLum * SHADOW_DARK_LO
   const shadowHi = shadowDarkBg ? _bgRefLum * SHADOW_LUM_K + SHADOW_LUM_ADD : _bgRefLum * SHADOW_DARK_HI
@@ -940,12 +1034,28 @@ function transformRows(
       //（掩码能盖住泛洪因色差停下而漏掉的稍深底色，如投影/底座）；
       // 其余像素直接 continue 跳出整条处理链路：不参与 LUT 权重混合，所以图案边缘不会被压暗
       if (_swapKeepArt) {
+        const p0 = y * width + x
         const inMask = bgMask ? bgMask[maskRow + (x >> MASK_SHIFT)] === 1 : false
-        const reach = _bgReach ? _bgReach[y * width + x] === 1 : false
+        const reach = _bgReach ? _bgReach[p0] === 1 : false
         if (inMask || reach) {
-          px[i] = SWAP_BG
-          px[i + 1] = SWAP_BG
-          px[i + 2] = SWAP_BG
+          // 兜底（两层）：
+          //  · 亮色图案（不贴边的亮色连通块）在 _bgProtect 里，一个像素都不动 ——
+          //    它们本来就是被底色包住的，即使泛洪/掩码漏吃进来也不刷
+          //  · 暗色/彩色图案交给 LUT：颜色被明确判成主体（w ≥ 0.5）就不刷
+          //    亮色像素不看 LUT：白底 / 亮边框这类贴边亮块本身就是底色，但也会被 LUT 当主体
+          const l0 = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2]
+          let deny = _bgProtect ? _bgProtect[p0] === 1 : false
+          const nearBorder =
+            x < edgeX || x >= width - edgeX || y < edgeY || y >= height - edgeY
+          if (!deny && !nearBorder && l0 < BRIGHT_LUM) {
+            const key0 = ((px[i] >> 3) << 10) | ((px[i + 1] >> 3) << 5) | (px[i + 2] >> 3)
+            deny = lut[key0] >= 128
+          }
+          if (!deny) {
+            px[i] = SWAP_BG
+            px[i + 1] = SWAP_BG
+            px[i + 2] = SWAP_BG
+          }
         }
         continue
       }
@@ -1542,6 +1652,8 @@ async function renderDarkIconNow(
       _bgRefB >= 0 ? _bgRefB : 255,
       BGBLACK_TOL,
     )
+    // 主体保护：亮色连通块里不贴画布边的那些（图案）绝不刷黑
+    _bgProtect = buildBrightProtect(plan.orig, width, height)
   }
   if (plan.lut) {
     // 区域生长：把与四边平滑连通的整块区域（含渐变远端）都算底色

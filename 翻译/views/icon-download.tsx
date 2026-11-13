@@ -1,4 +1,4 @@
-import { Button, Canvas, HStack, Image, ImageRenderer, ProgressView, Rectangle, RoundedRectangle, ScrollView, Text, TextField, VStack, ZStack, useEffect, useRef, useState } from "scripting"
+import { Button, Canvas, Capsule, HStack, Image, ImageRenderer, ProgressView, Rectangle, RoundedRectangle, ScrollView, Text, TextField, VStack, ZStack, useEffect, useRef, useState } from "scripting"
 import { safeTimeout } from "../core/guarded"
 import { normalizeIconCanvas, prepareDarkIcon, renderDarkIcon, type DarkIconOptions, type DarkIconPlan } from "../core/dark-icon"
 
@@ -103,12 +103,22 @@ function darkOptionsOf(key: string): DarkIconOptions {
   return { bgBlack: Number(parts[1]) === 1, keepBg: Number(parts[2]) === 1 }
 }
 
+/** 列表里可能已经缓存过的小图（≤256 且与传入 URL 一致）：先用它秒显预览，再升级到 256 透明图 */
+function cachedSmallArtworkUrl(url: string | null | undefined): string | undefined {
+  if (!url) return undefined
+  const match = url.match(/\/(\d+)x\d+(?:bb|bf)\.\w+/)
+  if (!match) return undefined
+  return Number(match[1]) <= 256 ? url : undefined
+}
+
 /** 图标面板：小预览 + 尺寸 + 外观（原图/暗色模拟）+ 圆角/直角 + 保存到相册（仅展开时挂载）。 */
 export function IconDownloadPanel(props: {
   url: string | null | undefined
   title: string
 }) {
   const [source, setSource] = useState<UIImage | null>(null)
+  /** 列表缓存的低清小图：先秒显，256 透明图到了就替换 */
+  const [quickPreview, setQuickPreview] = useState<UIImage | null>(null)
   const [failed, setFailed] = useState(false)
   const [busy, setBusy] = useState(false)
   const [px, setPx] = useState(512)
@@ -133,6 +143,11 @@ export function IconDownloadPanel(props: {
   const planCacheRef = useRef<Map<number, DarkIconPlan>>(new Map())
   const previewBusyRef = useRef(false)
   const previewKeyRef = useRef("")
+  /** 1024 原图：与 256 预览并行下载，仅供导出；不阻塞面板显示 */
+  const fullSourceRef = useRef<UIImage | null>(null)
+  const fullPromiseRef = useRef<Promise<UIImage | null> | null>(null)
+  /** 256 透明预览是否已就绪（避免低清小图反过来覆盖高清图） */
+  const hasSharpRef = useRef(false)
 
   /** 当前参数快照：async 渲染回来时用它判断是否过期 */
   const darkKey = `${appearance === "dark" ? "d" : "l"}|${darkBgBlack ? 1 : 0}|${darkKeepBg ? 1 : 0}`
@@ -150,25 +165,67 @@ export function IconDownloadPanel(props: {
     ? Math.min(4096, customPx)
     : px
 
-  // 挂载时下载原图（1024 透明 PNG）
+  // 预览与导出分开下载：256 预览先到先用，1024 原图并行在后台下，互不阻塞
   useEffect(() => {
     let cancelled = false
-    ;(async () => {
-      const u = iconArtworkUrl(props.url, 1024)
-      if (!u) {
-        setFailed(true)
-        return
-      }
+    setSource(null)
+    setQuickPreview(null)
+    setFailed(false)
+    hasSharpRef.current = false
+    fullSourceRef.current = null
+    fullPromiseRef.current = null
+
+    const previewUrl = iconArtworkUrl(props.url, 256)
+    const fullUrl = iconArtworkUrl(props.url, 1024)
+    if (!previewUrl && !fullUrl) {
+      setFailed(true)
+      return
+    }
+
+    // 1024 原图（导出用）同时开跑，不挡左侧预览
+    const fullTask = (async (): Promise<UIImage | null> => {
+      if (!fullUrl) return null
       try {
-        const img = await UIImage.fromURL(u)
-        if (!cancelled) {
-          if (img) setSource(img)
-          else setFailed(true)
-        }
+        const img = await UIImage.fromURL(fullUrl)
+        if (!cancelled && img) fullSourceRef.current = img
+        return img
       } catch {
-        if (!cancelled) setFailed(true)
+        return null
       }
     })()
+    fullPromiseRef.current = fullTask
+
+    // 列表里已缓存过的小图（100/256bb）：先秒显，不参与算法；256 透明图到了再替换
+    const quickUrl = cachedSmallArtworkUrl(props.url)
+    if (quickUrl) {
+      UIImage.fromURL(quickUrl)
+        .then((img) => {
+          if (!cancelled && img && !hasSharpRef.current) setQuickPreview(img)
+        })
+        .catch(() => {})
+    }
+
+    // 256 预览（小图快）：失败再等 1024 兜底
+    ;(async () => {
+      const small = previewUrl ? await UIImage.fromURL(previewUrl).catch(() => null) : null
+      if (cancelled) return
+      if (small) {
+        hasSharpRef.current = true
+        setSource(small)
+        setQuickPreview(null)
+        return
+      }
+      const big = await fullTask
+      if (cancelled) return
+      if (big) {
+        hasSharpRef.current = true
+        setSource(big)
+        setQuickPreview(null)
+      } else {
+        setFailed(true)
+      }
+    })()
+
     return () => {
       cancelled = true
     }
@@ -231,6 +288,23 @@ export function IconDownloadPanel(props: {
     }
   }
 
+  /** 导出优先用 1024 原图；还没下完就等它，失败再退回 256 预览 */
+  async function fullImage(): Promise<UIImage | null> {
+    if (fullSourceRef.current) return fullSourceRef.current
+    const task = fullPromiseRef.current
+    if (task) {
+      // 网络卡住时不无限等：8s 后先用 256 预览兜底（原图若稍后到达仍会缓存）
+      const img = await Promise.race([
+        task,
+        new Promise<UIImage | null>((resolve) => {
+          safeTimeout(() => resolve(null), 8000)
+        }),
+      ])
+      if (img) return img
+    }
+    return source
+  }
+
   /** 导出用的暗色成品：先 prepare 对应尺寸（按尺寸缓存），再按当前参数渲染 */
   async function darkImageFor(targetPx: number): Promise<UIImage | null> {
     const planPx = Math.min(DARK_MAX_PX, Math.max(DARK_PREVIEW_PX, targetPx))
@@ -240,11 +314,12 @@ export function IconDownloadPanel(props: {
     }
     let plan = planCacheRef.current.get(planPx)
     if (!plan) {
-      if (!source) return null
+      const base = await fullImage()
+      if (!base) return null
       const normalized =
-        (await normalizeIconCanvas(source, planPx)) ??
-        source.preparingThumbnail({ width: planPx, height: planPx }) ??
-        source
+        (await normalizeIconCanvas(base, planPx)) ??
+        base.preparingThumbnail({ width: planPx, height: planPx }) ??
+        base
       const prepared = await prepareDarkIcon(normalized)
       if (!prepared) return null
       plan = prepared
@@ -291,7 +366,7 @@ export function IconDownloadPanel(props: {
     setBusy(true)
     if (effectActive) setDarkProgress(0)
     try {
-      const src = effectActive ? await darkImageFor(effectivePx) : source
+      const src = effectActive ? await darkImageFor(effectivePx) : await fullImage()
       if (!src) {
         setFeedback({ format, ok: false })
         return
@@ -356,6 +431,7 @@ export function IconDownloadPanel(props: {
     )
   }
 
+  const previewSource = source ?? quickPreview
   const darkPending = effectActive && !darkPreview
 
   return (
@@ -369,7 +445,7 @@ export function IconDownloadPanel(props: {
         {/* 预览：小尺寸棋盘格透明背景，所见即所得（暗色时显示模拟结果） */}
         {failed ? (
           <Text font="caption" foregroundStyle="systemRed">图标加载失败</Text>
-        ) : !source ? (
+        ) : !previewSource ? (
           <ProgressView />
         ) : (
           <ZStack frame={{ width: 64, height: 64 }} clipShape={{ type: "rect", cornerRadius: 10 }}>
@@ -387,7 +463,7 @@ export function IconDownloadPanel(props: {
               }}
             />
             <Image
-              image={effectActive && darkPreview ? darkPreview : source}
+              image={effectActive && darkPreview ? darkPreview : previewSource}
               resizable={true}
               scaleToFill={true}
               frame={{ width: 56, height: 56 }}
@@ -489,32 +565,47 @@ export function IconDownloadPanel(props: {
                   原图
                 </Text>
               </MiniPill>
-              <MiniPill selected={appearance === "dark"} onTap={() => setAppearance("dark")}>
-                <Image
-                  systemName="moon"
-                  font="caption2"
-                  foregroundStyle={appearance === "dark" ? "#0a84ff" : "secondaryLabel"}
+              {/* 暗色 + 两个效果用虚线胶囊包成一组，边距贴近图标 */}
+              <HStack
+                spacing={5}
+                padding={{ horizontal: 4, vertical: 3 }}
+                background={
+                  <Capsule
+                    fill={{ light: "rgba(120,120,128,0.05)", dark: "rgba(120,120,128,0.10)" }}
+                    stroke={{
+                      shapeStyle: { light: "rgba(120,120,128,0.50)", dark: "rgba(170,170,180,0.55)" },
+                      strokeStyle: { lineWidth: 1, dash: [4, 3] },
+                    }}
+                  />
+                }
+              >
+                <MiniPill selected={appearance === "dark"} onTap={() => setAppearance("dark")}>
+                  <Image
+                    systemName="moon"
+                    font="caption2"
+                    foregroundStyle={appearance === "dark" ? "#0a84ff" : "secondaryLabel"}
+                  />
+                  <Text
+                    font="caption"
+                    fontWeight={appearance === "dark" ? "semibold" : undefined}
+                    foregroundStyle={appearance === "dark" ? "#0a84ff" : "secondaryLabel"}
+                    lineLimit={1}
+                    fixedSize={{ horizontal: true, vertical: false }}
+                  >
+                    暗色
+                  </Text>
+                </MiniPill>
+                <ModeChip
+                  selected={darkBgBlack}
+                  label="外圈刷黑"
+                  onTap={() => pickBgMode("bgBlack", !darkBgBlack)}
                 />
-                <Text
-                  font="caption"
-                  fontWeight={appearance === "dark" ? "semibold" : undefined}
-                  foregroundStyle={appearance === "dark" ? "#0a84ff" : "secondaryLabel"}
-                  lineLimit={1}
-                  fixedSize={{ horizontal: true, vertical: false }}
-                >
-                  暗色
-                </Text>
-              </MiniPill>
-              <ModeChip
-                selected={darkBgBlack}
-                label="外圈刷黑"
-                onTap={() => pickBgMode("bgBlack", !darkBgBlack)}
-              />
-              <ModeChip
-                selected={darkKeepBg}
-                label="灰色遮罩"
-                onTap={() => pickBgMode("keepBg", !darkKeepBg)}
-              />
+                <ModeChip
+                  selected={darkKeepBg}
+                  label="灰色遮罩"
+                  onTap={() => pickBgMode("keepBg", !darkKeepBg)}
+                />
+              </HStack>
             </HStack>
           </ScrollView>
         </VStack>
