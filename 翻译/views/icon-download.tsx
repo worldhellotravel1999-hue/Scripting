@@ -1,4 +1,4 @@
-import { Button, Canvas, HStack, Image, ImageRenderer, ProgressView, Rectangle, RoundedRectangle, ScrollView, Slider, Spacer, Text, TextField, VStack, ZStack, useEffect, useRef, useState } from "scripting"
+import { Button, Canvas, HStack, Image, ImageRenderer, ProgressView, Rectangle, RoundedRectangle, ScrollView, Text, TextField, VStack, ZStack, useEffect, useRef, useState } from "scripting"
 import { safeTimeout } from "../core/guarded"
 import { normalizeIconCanvas, prepareDarkIcon, renderDarkIcon, type DarkIconOptions, type DarkIconPlan } from "../core/dark-icon"
 
@@ -18,6 +18,9 @@ function iconArtworkUrl(url: string | null | undefined, size: number): string | 
 
 const CAPSULE_BG = { style: { light: "rgba(120,120,128,0.12)", dark: "rgba(120,120,128,0.18)" } as const, shape: "capsule" as const }
 const CAPSULE_BG_SELECTED = { style: { light: "rgba(10,132,255,0.16)", dark: "rgba(10,132,255,0.30)" } as const, shape: "capsule" as const }
+/** 效果开关选中态：淡绿色胶囊底 + 实心绿圆 */
+const EFFECT_BG_SELECTED = { style: { light: "rgba(52,199,89,0.16)", dark: "rgba(52,199,89,0.26)" } as const, shape: "capsule" as const }
+const EFFECT_GREEN = "#34c759"
 
 /** 图标胶囊（与「更新」「说明」「链接」同一行，同款式样）：
  *  点击展开/收起下方的图标面板；箭头与「更新/说明」一致用 180° 旋转过渡。
@@ -60,25 +63,25 @@ function MiniPill(props: { selected?: boolean; disabled?: boolean; onTap: () => 
   )
 }
 
-/** 暗色微调里的互斥模式芯片（颜色对调 / 外圈刷黑 / 灰色谆罩） */
+/** 效果芯片（外圈刷黑 / 灰色遮罩，互斥）：统一的圆形指示，选中 = 淡绿底 + 实心绿圆 */
 function ModeChip(props: { selected: boolean; label: string; onTap: () => void }) {
   return (
     <Button buttonStyle="plain" action={props.onTap}>
       <HStack
         spacing={4}
         padding={{ horizontal: 9, vertical: 6 }}
-        background={props.selected ? CAPSULE_BG_SELECTED : CAPSULE_BG}
+        background={props.selected ? EFFECT_BG_SELECTED : CAPSULE_BG}
         clipShape="capsule"
       >
         <Image
-          systemName={props.selected ? "checkmark.circle.fill" : "circle"}
+          systemName={props.selected ? "circle.fill" : "circle"}
           font="caption2"
-          foregroundStyle={props.selected ? "#0a84ff" : "tertiaryLabel"}
+          foregroundStyle={props.selected ? EFFECT_GREEN : "tertiaryLabel"}
         />
         <Text
           font="caption"
           fontWeight={props.selected ? "semibold" : undefined}
-          foregroundStyle={props.selected ? "#0a84ff" : "secondaryLabel"}
+          foregroundStyle={props.selected ? EFFECT_GREEN : "secondaryLabel"}
         >
           {props.label}
         </Text>
@@ -87,54 +90,17 @@ function ModeChip(props: { selected: boolean; label: string; onTap: () => void }
   )
 }
 
-/** 一行紧凑滑块（标签 + 当前值 + 滑杆） */
-function TuningSlider(props: {
-  label: string
-  valueText: string
-  min: number
-  max: number
-  value: number
-  onChanged: (value: number) => void
-}) {
-  return (
-    <VStack spacing={2} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
-      <HStack spacing={6}>
-        <Text font="caption" foregroundStyle="secondaryLabel">{props.label}</Text>
-        <Spacer />
-        <Text font="caption2" foregroundStyle="tertiaryLabel">{props.valueText}</Text>
-      </HStack>
-      <Slider
-        min={props.min}
-        max={props.max}
-        value={props.value}
-        onChanged={(value) => props.onChanged(Math.round(value))}
-        label={<Text>{props.label}</Text>}
-      />
-    </VStack>
-  )
-}
-
 const PRESETS = [256, 512, 1024]
-/** 暗色预览边长：256 足够 56pt 预览清晰，单次重渲 ~80ms，拖滑块跟手 */
+/** 暗色预览边长：256 足够 56pt 预览清晰，单次重渲 ~80ms */
 const DARK_PREVIEW_PX = 256
 /** 算法准备阶段的上限：App Store 图标最高 1024，再大没意义 */
 const DARK_MAX_PX = 1024
 
-/** 暗色微调默认值 */
-const DARK_DEFAULTS = { gray: 28, fade: 18, lift: 85, grad: 0 }
-
-/** 把「参数快照 key」还原成算法参数（key 用于异步渲染时丢弃过期结果） */
+/** 把「参数快照 key」还原成算法参数（key 用于异步渲染时丢弃过期结果）
+ *  key = 外观 | 外圈刷黑 | 灰色遮罩；外观只用于区分缓存，不参与算法参数。 */
 function darkOptionsOf(key: string): DarkIconOptions {
-  const [g, f, l, grad, sw, kb, bb] = key.split("|").map(Number)
-  return {
-    bgGray: g,
-    bgFade: f / 100,
-    glyphLift: l / 100,
-    bgGrad: (grad / 100) * 0.6,
-    swap: sw === 1,
-    keepBg: kb === 1,
-    bgBlack: bb === 1,
-  }
+  const parts = key.split("|")
+  return { bgBlack: Number(parts[1]) === 1, keepBg: Number(parts[2]) === 1 }
 }
 
 /** 图标面板：小预览 + 尺寸 + 外观（原图/暗色模拟）+ 圆角/直角 + 保存到相册（仅展开时挂载）。 */
@@ -154,18 +120,9 @@ export function IconDownloadPanel(props: {
 
   /** 外观：light = 原图；dark = 暗色（本地模拟） */
   const [appearance, setAppearance] = useState<"light" | "dark">("light")
-  /** 暗色微调面板是否展开 */
-  const [tuningOpen, setTuningOpen] = useState(false)
-  /** 微调参数（与「App Store 工具」暗色图标一致） */
-  const [darkGray, setDarkGray] = useState(DARK_DEFAULTS.gray)
-  const [darkFade, setDarkFade] = useState(DARK_DEFAULTS.fade)
-  const [darkLift, setDarkLift] = useState(DARK_DEFAULTS.lift)
-  const [darkGrad, setDarkGrad] = useState(DARK_DEFAULTS.grad)
-  const [darkSwap, setDarkSwap] = useState(false)
+  /** 暗色模式（互斥）：外圈刷黑 / 灰色遮罩；其余参数用算法默认值 */
   const [darkKeepBg, setDarkKeepBg] = useState(false)
   const [darkBgBlack, setDarkBgBlack] = useState(false)
-  /** 「颜色对调」只在「中间图形近白 + 外面彩色」的图标上可用 */
-  const [swapOk, setSwapOk] = useState(false)
   /** 暗色预览（256px），以及导出时的进度 */
   const [darkPreview, setDarkPreview] = useState<UIImage | null>(null)
   const [darkProgress, setDarkProgress] = useState<number | null>(null)
@@ -176,13 +133,16 @@ export function IconDownloadPanel(props: {
   const planCacheRef = useRef<Map<number, DarkIconPlan>>(new Map())
   const previewBusyRef = useRef(false)
   const previewKeyRef = useRef("")
-  const appearanceRef = useRef<"light" | "dark">("light")
-  appearanceRef.current = appearance
 
   /** 当前参数快照：async 渲染回来时用它判断是否过期 */
-  const darkKey = `${darkGray}|${darkFade}|${darkLift}|${darkGrad}|${darkSwap ? 1 : 0}|${darkKeepBg ? 1 : 0}|${darkBgBlack ? 1 : 0}`
+  const darkKey = `${appearance === "dark" ? "d" : "l"}|${darkBgBlack ? 1 : 0}|${darkKeepBg ? 1 : 0}`
   const darkKeyRef = useRef(darkKey)
   darkKeyRef.current = darkKey
+
+  /** 是否需要走图像处理：暗色模拟，或原图叠加了外圈刷黑/灰色遮罩 */
+  const effectActive = appearance === "dark" || darkBgBlack || darkKeepBg
+  const effectActiveRef = useRef(effectActive)
+  effectActiveRef.current = effectActive
 
   /** 有效尺寸：自定义输入（1–4096）优先，否则用预设 */
   const customPx = parseInt(customText, 10)
@@ -226,8 +186,6 @@ export function IconDownloadPanel(props: {
     previewPlanRef.current = null
     previewKeyRef.current = ""
     planCacheRef.current.clear()
-    setSwapOk(false)
-    setDarkSwap(false)
     setDarkPreview(null)
     if (!source) return
     ;(async () => {
@@ -236,31 +194,23 @@ export function IconDownloadPanel(props: {
       const plan = await prepareDarkIcon(normalized)
       if (!alive || !plan) return
       previewPlanRef.current = plan
-      setSwapOk(plan.swapOk)
-      if (!plan.swapOk) setDarkSwap(false)
-      if (appearanceRef.current === "dark") void renderPreview()
+      if (effectActiveRef.current) void renderPreview()
     })()
     return () => {
       alive = false
     }
   }, [source])
 
-  /** 微调参数变化：重渲预览（内部串行、自动追到最新参数） */
+  /** 外观或模式变化：需要时重渲预览（内部串行、自动追到最新参数） */
   useEffect(() => {
-    if (appearanceRef.current !== "dark") return
+    if (!effectActive) return
     void renderPreview()
-  }, [darkGray, darkFade, darkLift, darkGrad, darkSwap, darkKeepBg, darkBgBlack])
-
-  /** 切到暗色：计划就绪后出预览 */
-  useEffect(() => {
-    if (appearance !== "dark") return
-    void renderPreview()
-  }, [appearance])
+  }, [appearance, darkKeepBg, darkBgBlack])
 
   /** 256px 预览：同一时刻只串行跑一个渲染；参数变了就继续追 */
   async function renderPreview() {
     const plan = previewPlanRef.current
-    if (!plan || previewBusyRef.current) return
+    if (!plan || previewBusyRef.current || !effectActiveRef.current) return
     previewBusyRef.current = true
     try {
       while (true) {
@@ -330,26 +280,8 @@ export function IconDownloadPanel(props: {
     }
   }
 
-  /** 单胶囊切换原图/暗色（同「圆角」按钮）；切回原图时收起微调 */
-  function toggleAppearance() {
-    const next = appearance === "light" ? "dark" : "light"
-    setAppearance(next)
-    if (next === "light") setTuningOpen(false)
-  }
-
-  /** 微调常驻：原图下点开时自动切到暗色（参数只作用于暗色），再点收起 */
-  function toggleTuning() {
-    if (tuningOpen) {
-      setTuningOpen(false)
-      return
-    }
-    if (appearance !== "dark") setAppearance("dark")
-    setTuningOpen(true)
-  }
-
-  /** 三个「底色处理」开关互斥：颜色对调 / 外圈刷黑 / 灰色遮罩 */
-  function pickBgMode(mode: "swap" | "bgBlack" | "keepBg", on: boolean) {
-    setDarkSwap(mode === "swap" ? on : false)
+  /** 两个「底色处理」开关互斥：外圈刷黑 / 灰色遮罩 */
+  function pickBgMode(mode: "bgBlack" | "keepBg", on: boolean) {
     setDarkBgBlack(mode === "bgBlack" ? on : false)
     setDarkKeepBg(mode === "keepBg" ? on : false)
   }
@@ -357,9 +289,9 @@ export function IconDownloadPanel(props: {
   async function save(format: IconFormat) {
     if (!source || busy) return
     setBusy(true)
-    if (appearance === "dark") setDarkProgress(0)
+    if (effectActive) setDarkProgress(0)
     try {
-      const src = appearance === "dark" ? await darkImageFor(effectivePx) : source
+      const src = effectActive ? await darkImageFor(effectivePx) : source
       if (!src) {
         setFeedback({ format, ok: false })
         return
@@ -372,7 +304,8 @@ export function IconDownloadPanel(props: {
       const safeTitle =
         props.title.replace(/[\\/:*?"<>|]/g, "_").replace(/\s+/g, "_") || "app_icon"
       const ext = format === "png" ? "png" : format === "jpeg" ? "jpg" : "heic"
-      const fileName = `${safeTitle}_${effectivePx}px${appearance === "dark" ? "_dark" : ""}.${ext}`
+      const variant = appearance === "dark" ? "_dark" : darkBgBlack ? "_black" : darkKeepBg ? "_mask" : ""
+      const fileName = `${safeTitle}_${effectivePx}px${variant}.${ext}`
       const path = FileManager.temporaryDirectory.replace(/\/$/, "") + "/" + fileName
       if (format === "heic") {
         // HEIF 走 ImageIO（保留透明圆角）
@@ -423,11 +356,7 @@ export function IconDownloadPanel(props: {
     )
   }
 
-  /** 背景明度滑块的十六进制显示 */
-  const darkGrayHex = `#${[darkGray, darkGray, darkGray]
-    .map((v) => Math.round(v).toString(16).padStart(2, "0"))
-    .join("")}`.toUpperCase()
-  const darkPending = appearance === "dark" && !darkPreview
+  const darkPending = effectActive && !darkPreview
 
   return (
     <VStack
@@ -458,7 +387,7 @@ export function IconDownloadPanel(props: {
               }}
             />
             <Image
-              image={appearance === "dark" && darkPreview ? darkPreview : source}
+              image={effectActive && darkPreview ? darkPreview : source}
               resizable={true}
               scaleToFill={true}
               frame={{ width: 56, height: 56 }}
@@ -541,93 +470,53 @@ export function IconDownloadPanel(props: {
             {savePill("jpeg", "JPG")}
             {savePill("heic", "HEIF")}
           </HStack>
-          {/* 外观 + 微调 + 三个模式同在第三行：横向可滑，窄屏也保持一行 */}
+          {/* 第三行：原图 / 暗色 两颗独立按钮；暗色下再显示外圈刷黑/灰色遮罩 */}
           <ScrollView axes="horizontal" scrollIndicator="never" frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
             <HStack spacing={6}>
-              <MiniPill onTap={toggleAppearance}>
+              <MiniPill selected={appearance === "light"} onTap={() => setAppearance("light")}>
                 <Image
-                  systemName={appearance === "light" ? "sun.max" : "moon"}
+                  systemName="sun.max"
                   font="caption2"
-                  foregroundStyle="secondaryLabel"
-                />
-                <Text font="caption" foregroundStyle="secondaryLabel">
-                  {appearance === "light" ? "原图" : "暗色"}
-                </Text>
-              </MiniPill>
-              <MiniPill selected={tuningOpen} onTap={toggleTuning}>
-                <Image
-                  systemName="slider.horizontal.3"
-                  font="caption2"
-                  foregroundStyle={tuningOpen ? "#0a84ff" : "secondaryLabel"}
+                  foregroundStyle={appearance === "light" ? "#0a84ff" : "secondaryLabel"}
                 />
                 <Text
                   font="caption"
-                  fontWeight={tuningOpen ? "semibold" : undefined}
-                  foregroundStyle={tuningOpen ? "#0a84ff" : "secondaryLabel"}
+                  fontWeight={appearance === "light" ? "semibold" : undefined}
+                  foregroundStyle={appearance === "light" ? "#0a84ff" : "secondaryLabel"}
+                  lineLimit={1}
+                  fixedSize={{ horizontal: true, vertical: false }}
                 >
-                  {tuningOpen ? "收起" : "微调"}
+                  原图
                 </Text>
               </MiniPill>
-              {appearance === "dark" && tuningOpen ? (
-                <>
-                  {swapOk ? (
-                    <ModeChip
-                      selected={darkSwap}
-                      label="颜色对调"
-                      onTap={() => pickBgMode("swap", !darkSwap)}
-                    />
-                  ) : null}
-                  <ModeChip
-                    selected={darkBgBlack}
-                    label="外圈刷黑"
-                    onTap={() => pickBgMode("bgBlack", !darkBgBlack)}
-                  />
-                  <ModeChip
-                    selected={darkKeepBg}
-                    label="灰色遮罩"
-                    onTap={() => pickBgMode("keepBg", !darkKeepBg)}
-                  />
-                </>
-              ) : null}
+              <MiniPill selected={appearance === "dark"} onTap={() => setAppearance("dark")}>
+                <Image
+                  systemName="moon"
+                  font="caption2"
+                  foregroundStyle={appearance === "dark" ? "#0a84ff" : "secondaryLabel"}
+                />
+                <Text
+                  font="caption"
+                  fontWeight={appearance === "dark" ? "semibold" : undefined}
+                  foregroundStyle={appearance === "dark" ? "#0a84ff" : "secondaryLabel"}
+                  lineLimit={1}
+                  fixedSize={{ horizontal: true, vertical: false }}
+                >
+                  暗色
+                </Text>
+              </MiniPill>
+              <ModeChip
+                selected={darkBgBlack}
+                label="外圈刷黑"
+                onTap={() => pickBgMode("bgBlack", !darkBgBlack)}
+              />
+              <ModeChip
+                selected={darkKeepBg}
+                label="灰色遮罩"
+                onTap={() => pickBgMode("keepBg", !darkKeepBg)}
+              />
             </HStack>
           </ScrollView>
-          {/* 暗色微调：只有四个滑块；模式按钮已并到上一行 */}
-          {appearance === "dark" && tuningOpen ? (
-            <VStack spacing={10} frame={{ maxWidth: "infinity", alignment: "leading" as any }}>
-              <TuningSlider
-                label="背景明度"
-                valueText={darkGrayHex}
-                min={0}
-                max={42}
-                value={darkGray}
-                onChanged={setDarkGray}
-              />
-              <TuningSlider
-                label="背景灰化"
-                valueText={`${darkFade}%`}
-                min={0}
-                max={60}
-                value={darkFade}
-                onChanged={setDarkFade}
-              />
-              <TuningSlider
-                label="主体提亮"
-                valueText={`${darkLift}%`}
-                min={0}
-                max={130}
-                value={darkLift}
-                onChanged={setDarkLift}
-              />
-              <TuningSlider
-                label="背景渐变"
-                valueText={`${darkGrad}%`}
-                min={0}
-                max={100}
-                value={darkGrad}
-                onChanged={setDarkGrad}
-              />
-            </VStack>
-          ) : null}
         </VStack>
       </HStack>
     </VStack>
