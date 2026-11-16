@@ -1,15 +1,1 @@
-import { Navigation, Script } from "scripting"
-import IPPage from "./page"
-import { flushWidgetReload } from "./utils/widget_reload"
-
-async function run() {
-  try {
-    await Navigation.present(<IPPage />)
-  } catch (error) {
-    console.error("[IP检测] 页面呈现失败", error)
-  } finally {
-    try { await flushWidgetReload() }
-    finally { Script.exit() }
-  }
-}
-void run()
+aW1wb3J0IHsgTmF2aWdhdGlvbiwgU2NyaXB0IH0gZnJvbSAic2NyaXB0aW5nIgppbXBvcnQgSVBQYWdlIGZyb20gIi4vcGFnZSIKaW1wb3J0IHsgZmx1c2hXaWRnZXRSZWxvYWQgfSBmcm9tICIuL3V0aWxzL3dpZGdldF9yZWxvYWQiCgphc3luYyBmdW5jdGlvbiBydW4oKSB7CiAgdHJ5IHsKICAgIGF3YWl0IE5hdmlnYXRpb24ucHJlc2VudCg8SVBQYWdlIC8+KQogIH0gY2F0Y2ggKGVycm9yKSB7CiAgICBjb25zb2xlLmVycm9yKCJbSVDmo4DmtYtdIOmhtemdouWRiOeOsOWksei0pSIsIGVycm9yKQogIH0gZmluYWxseSB7CiAgICB0cnkgeyBhd2FpdCBmbHVzaFdpZGdldFJlbG9hZCgpIH0KICAgIGZpbmFsbHkgeyBTY3JpcHQuZXhpdCgpIH0KICB9Cn0Kdm9pZCBydW4oKQo=
