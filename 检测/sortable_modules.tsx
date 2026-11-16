@@ -17,11 +17,14 @@ export function SortableModules({ modules, manual, initialOrder, onOrderChange }
   const shown = visibleModuleOrder(order.value, manual, available)
   const items: PageModule[] = shown.map(id => ({ id }))
   const visibility = `${manual}|${available.join("|")}`
-  const currentVisibility = useRef(visibility)
-  currentVisibility.current = visibility
+  // 提交后才能代表“当前布局”；渲染期赋值会让守卫恒等，永远拦不住旧拖拽会话。
+  const committedVisibility = useRef(visibility)
 
   // 只依赖可用项签名，避免内容更新或排序本身重置拖拽。
-  useEffect(() => { active.setValue(null) }, [visibility])
+  useEffect(() => {
+    committedVisibility.current = visibility
+    active.setValue(null)
+  }, [visibility])
 
   function commit(next: PageModuleID[]) {
     if (next.every((id, index) => id === order.value[index])) return
@@ -33,7 +36,7 @@ export function SortableModules({ modules, manual, initialOrder, onOrderChange }
 
   function move(indices: number[], newOffset: number) {
     // 可见集合刚改变时，拒绝旧拖拽会话按旧索引提交。
-    if (visibility !== currentVisibility.current) return
+    if (visibility !== committedVisibility.current) return
     commit(moveModuleOrder(order.value, shown, indices, newOffset))
   }
   function build(item: PageModule) {

@@ -464,6 +464,7 @@ function ipInfoFromSnapshot(snapshot: WidgetSnapshot): IPInfo {
   }
 }
 
+/** 导出给预览与测试复用；主都通过 presentIPWidget 放行。 */
 export async function getWidgetProps(): Promise<WidgetProps> {
   const widgetSize = Widget.displaySize ?? { width: 338, height: 354 }
   const layout = layoutMetrics(Widget.family, widgetSize)
@@ -517,10 +518,6 @@ export async function getWidgetProps(): Promise<WidgetProps> {
     mapImage,
     mapSize,
   }
-}
-
-export async function renderIPWidget() {
-  return <WidgetView {...await getWidgetProps()} />
 }
 
 async function presentIPWidget() {

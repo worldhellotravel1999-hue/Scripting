@@ -10,7 +10,7 @@ import type { PageModuleID } from "../utils/module_order"
 const titles: Record<PageModuleID, string> = {
   overview: "IP · ASN", location: "位置", attributes: "IP 属性", ippure: "IPPure 系数",
   cloudflare: "Cloudflare 系数", proxycheck: "proxycheck 风险", leak: "泄露检测",
-  network: "网络诊断", media: "流媒体连通性", ai: "AI 服务连通性", settings: "网络诊断设置",
+  network: "网络诊断 · 测速", media: "流媒体连通性", ai: "AI 服务连通性", settings: "网络诊断设置",
 }
 
 /** 使用真实排序与系数分区；只用内存数据，resolve 模拟评分异步到达。 */

@@ -1,7 +1,7 @@
 import { Script } from "scripting"
 import {
-  classifyService, isFreshReport, parseNetworkReport, pendingServices,
-  reportMatchesIP, serviceCounts,
+  classifyService, extractServiceRegionCode, isFreshReport, parseNetworkReport, pendingServices,
+  reportMatchesIP, serviceCounts, serviceStateLabel, serviceStateParts,
 } from "../utils/network_model"
 import type { NetworkReport, ServiceResult } from "../utils/network_model"
 import { localAddressHint, localNetworkFromInterfaces, parseDomesticExit, parseHTTPProtocol } from "../utils/network"
@@ -36,7 +36,7 @@ const INFO: IPInfo = {
 }
 function serviceFixture(patch: Partial<ServiceResult> = {}): ServiceResult {
   return { id: "netflix", name: "Netflix", group: "media", state: "reachable", status: 200,
-    ms: 42, detail: "HTTP 200 · 页面可访问", policy: "", ...patch }
+    ms: 42, detail: "HTTP 200 · 页面可访问", regionCode: "", policy: "", ...patch }
 }
 function reportFixture(patch: Partial<NetworkReport> = {}): NetworkReport {
   return {
@@ -61,6 +61,29 @@ function address(value: string, family: "IPv4" | "IPv6", isInternal = false) {
 }
 
 async function run() {
+  // 服务地区只能来自明确字段；普通 country 文案和非法值不进入显示。
+  check("明确服务字段提取地区代码", () => extractServiceRegionCode('{"countryCode":"us","title":"Welcome"}') === "US"
+    && extractServiceRegionCode('<div data-region-code="jp"></div>') === "JP"
+    && extractServiceRegionCode('loc=gb\nhttp=http/2\n') === "GB")
+  check("按服务优先提取地区代码", () => extractServiceRegionCode('{"requestCountry":{"id":"sg"}}', "netflix") === "SG"
+    && extractServiceRegionCode('{"VRegion":"sg","VGeo":"row"}', "tiktok") === "SG"
+    && extractServiceRegionCode('{"INNERTUBE_CONTEXT_GL":"hk","INNERTUBE_CONTEXT_HL":"zh-HK"}', "youtube") === "HK"
+    && extractServiceRegionCode('{&amp;#34;currentTerritory&amp;#34;:&amp;#34;SG&amp;#34;}', "prime") === "SG")
+  check("没有可靠服务字段时不猜地区", () => extractServiceRegionCode('{"locale":"zh-CN","market":"JP","region_jp":true}', "spotify") === ""
+    && extractServiceRegionCode('{"countryCode":"US"}', "gemini") === ""
+    && extractServiceRegionCode('{"countryCode":"SG"}', "deepseek") === ""
+    && extractServiceRegionCode('<html>loc=us</html>', "chatgpt") === ""
+     && extractServiceRegionCode("loc=us\n", "chatgpt", true) === "US"
+     && extractServiceRegionCode('<meta name="region" content="cn">', "deepseek") === "CN")
+  check("普通文案不伪造地区代码", () => extractServiceRegionCode("country: United States, locale: en-US") === ""
+    && extractServiceRegionCode('{"regionCode":"VA"}') === "")
+  check("所有有证据的状态都显示地区代码", () => serviceStateLabel("reachable", "us") === "可用 · US"
+    && serviceStateLabel("restricted", "US") === "受限 · US"
+    && serviceStateLabel("failed", "jp") === "失败 · JP"
+    && serviceStateLabel("unknown", "gb") === "未知 · GB"
+    && serviceStateLabel("reachable", "USA") === "可用"
+    && serviceStateParts("restricted", "us").code === "US")
+
   // HTTP 状态与页面内容：限制、错误、未知不能混入“可访问”计数。
   for (const status of [401, 403, 407, 429, 451]) {
     check(`HTTP ${status} 即使正文正常也受限`, () => {
@@ -212,6 +235,11 @@ async function run() {
       && parsed.network?.measuredAt === report.measuredAt && parsed.network.httpProtocol === "HTTP/2"
       && service(parsed.network).state === "reachable"
   })
+  check("服务地区代码随共享快照保留", () => {
+    const withRegion = reportFixture({ services: [serviceFixture({ regionCode: "US" })] })
+    const parsed = parseWidgetSnapshot(buildWidgetSnapshot(widgetInput(withRegion)))
+    return service(parsed?.network || null).regionCode === "US"
+  })
   check("builder manual 即使同址也剔除设备网络", () => {
     const manual = buildWidgetSnapshot(widgetInput(report, true))
     return manual.manual === true && manual.network === null && manual.ip === IP
@@ -344,6 +372,8 @@ async function run() {
     const parsed = parseNetworkReport({ ...report, services: [serviceFixture({ detail: "x".repeat(1000), policy: "y".repeat(1000) })] })
     return service(parsed).detail.length <= 250 && service(parsed).policy.length <= 250
   })
+  check("脏地区代码被清空", () => service(parseNetworkReport({ ...report,
+    services: [serviceFixture({ regionCode: "USA" })] })).regionCode === "")
   check("数组形式 state 不经字符串强转混入服务模型", () => {
     const parsed = parseNetworkReport({ ...report, services: [{ ...serviceFixture(), state: ["reachable"] }] })
     if (!parsed) return true

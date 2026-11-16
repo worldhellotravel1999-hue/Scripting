@@ -1,8 +1,19 @@
 import { canonicalAddress } from "./ip"
+import { normalizeServiceRegionCode, normalizeServiceRegionSource } from "./network_region"
+import type { ServiceRegionSource } from "./network_region"
+export { extractServiceRegionCode, normalizeServiceRegionCode } from "./network_region"
 
 export type ServiceState = "reachable" | "restricted" | "failed" | "unknown"
 export type ServiceGroup = "media" | "ai"
-export interface ServiceDefinition { id: string; name: string; group: ServiceGroup; url: string }
+export interface ServiceDefinition {
+  id: string
+  name: string
+  group: ServiceGroup
+  url: string
+  /** 官方公开 trace/配置探针；只补服务地区信号，来源独立记录，不代表账户国家。 */
+  regionURL?: string
+  regionKind?: "trace" | "config"
+}
 export interface ServiceResult {
   id: string
   name: string
@@ -11,6 +22,9 @@ export interface ServiceResult {
   status: number | null
   ms: number | null
   detail: string
+  /** 仅来自服务响应或明确的服务级快照字段；不根据 IP 归属、节点名猜地区。 */
+  regionCode: string
+  regionSource?: ServiceRegionSource
   /** 仅来自本轮请求日志或上游快照，不根据节点名猜地区。 */
   policy: string
 }
@@ -50,23 +64,26 @@ export interface NetworkReport {
 export const SERVICES: ServiceDefinition[] = [
   { id: "netflix", name: "Netflix", group: "media", url: "https://www.netflix.com/title/81215567" },
   { id: "disney", name: "Disney+", group: "media", url: "https://www.disneyplus.com/" },
-  { id: "spotify", name: "Spotify", group: "media", url: "https://open.spotify.com/" },
+  { id: "spotify", name: "Spotify", group: "media", url: "https://open.spotify.com/",
+    regionURL: "https://spclient.wg.spotify.com/signup/public/v1/account?validate=1", regionKind: "config" },
   { id: "tiktok", name: "TikTok", group: "media", url: "https://www.tiktok.com/" },
   { id: "youtube", name: "YouTube", group: "media", url: "https://www.youtube.com/" },
   { id: "prime", name: "Prime Video", group: "media", url: "https://www.primevideo.com/" },
-  { id: "chatgpt", name: "ChatGPT", group: "ai", url: "https://chatgpt.com/" },
-  { id: "claude", name: "Claude", group: "ai", url: "https://claude.ai/" },
+  { id: "chatgpt", name: "ChatGPT", group: "ai", url: "https://chatgpt.com/", regionURL: "https://chatgpt.com/cdn-cgi/trace" },
+  { id: "claude", name: "Claude", group: "ai", url: "https://claude.ai/", regionURL: "https://claude.ai/cdn-cgi/trace" },
   { id: "gemini", name: "Gemini", group: "ai", url: "https://gemini.google.com/" },
   { id: "deepseek", name: "DeepSeek", group: "ai", url: "https://chat.deepseek.com/" },
-  { id: "grok", name: "Grok", group: "ai", url: "https://grok.com/" },
-  { id: "perplexity", name: "Perplexity", group: "ai", url: "https://www.perplexity.ai/" },
+  { id: "grok", name: "Grok", group: "ai", url: "https://grok.com/", regionURL: "https://grok.com/cdn-cgi/trace" },
+  { id: "perplexity", name: "Perplexity", group: "ai", url: "https://www.perplexity.ai/", regionURL: "https://www.perplexity.ai/cdn-cgi/trace" },
 ]
 export const EMPTY_LOCAL: LocalNetwork = {
   kind: "未知", ipv4: "", ipv6: "", tunnel: null, interfaces: [], gateway: "", dns: "",
 }
 export function pendingServices(): ServiceResult[] {
-  return SERVICES.map(({ id, name, group }) => ({ id, name, group, state: "unknown", status: null, ms: null, detail: "未检测", policy: "" }))
+  return SERVICES.map(({ id, name, group }) => ({ id, name, group, state: "unknown", status: null, ms: null,
+    detail: "未检测", regionCode: "", policy: "" }))
 }
+
 export function classifyService(status: number | null, body = "", bodyReadOK = true): { state: ServiceState; detail: string } {
   if (status == null) return { state: "unknown", detail: "连接失败或超时" }
   if ([401, 403, 407, 429, 451].includes(status)) return { state: "restricted", detail: `HTTP ${status} · 认证、限流或访问限制` }
@@ -81,8 +98,13 @@ export function classifyService(status: number | null, body = "", bodyReadOK = t
   if (status >= 300 && status < 400) return { state: "unknown", detail: `HTTP ${status} · 重定向未完成` }
   return { state: "failed", detail: `HTTP ${status} · 请求未成功` }
 }
-export function serviceStateLabel(state: ServiceState): string {
-  return { reachable: "可访问", restricted: "受限", failed: "失败", unknown: "未知" }[state]
+export function serviceStateParts(state: ServiceState, regionCode = ""): { label: string; code: string } {
+  const label = { reachable: "可用", restricted: "受限", failed: "失败", unknown: "未知" }[state]
+  return { label, code: normalizeServiceRegionCode(regionCode) }
+}
+export function serviceStateLabel(state: ServiceState, regionCode = ""): string {
+  const parts = serviceStateParts(state, regionCode)
+  return parts.code ? `${parts.label} · ${parts.code}` : parts.label
 }
 export function latencyLabel(value: number | null | undefined): string {
   return value == null ? "—" : `${Math.round(value)} ms`
@@ -93,7 +115,9 @@ export function quicLabel(report: Pick<NetworkReport, "quic" | "httpProtocol"> |
 }
 export function serviceCounts(services: ServiceResult[], group: ServiceGroup) {
   const rows = services.filter(row => row.group === group)
-  return { total: 6, reachable: rows.filter(row => row.state === "reachable").length,
+  // 分母取服务定义数量：调用方可能只传入已返回的条目，仍需显示“x/6”。
+  return { total: SERVICES.filter(service => service.group === group).length,
+    reachable: rows.filter(row => row.state === "reachable").length,
     restricted: rows.filter(row => row.state === "restricted").length,
     failed: rows.filter(row => row.state === "failed").length }
 }
@@ -125,7 +149,10 @@ export function parseNetworkReport(raw: unknown): NetworkReport | null {
     const contradicted = row.state === "reachable" && (status == null || status < 200 || status >= 300)
     const state = contradicted ? classifyService(status).state : row.state as ServiceState
     return { ...base, state, status, ms: ms(row.ms),
-      detail: contradicted ? classifyService(status).detail : text(row.detail), policy: text(row.policy) }
+      detail: contradicted ? classifyService(status).detail : text(row.detail),
+      regionCode: normalizeServiceRegionCode(row.regionCode),
+      regionSource: normalizeServiceRegionCode(row.regionCode) ? normalizeServiceRegionSource(row.regionSource) : "",
+      policy: text(row.policy) }
   })
   return {
     version: 1, measuredAt: value.measuredAt, contextIP: canonicalAddress(text(value.contextIP)), source: value.source,

@@ -1,4 +1,5 @@
-import { AbortController, AbortSignal, Device, fetch } from "scripting"
+import { AbortSignal, Device } from "scripting"
+import { probe } from "./network_probe"
 import { canonicalAddress, isPublicExitAddress } from "./ip"
 import { EMPTY_LOCAL, SERVICES, classifyService, pendingServices, reportMatchesIP } from "./network_model"
 import type { LocalNetwork, NetworkReport } from "./network_model"
@@ -57,41 +58,6 @@ export function parseHTTPProtocol(text: string): { quic: NetworkReport["quic"]; 
   return { quic: "unknown", httpProtocol: "" }
 }
 
-type Probe = { status: number | null; ms: number | null; text: string; bodyReadOK: boolean }
-async function probe(url: string, signal: AbortSignal, readBody = false): Promise<Probe> {
-  if (signal.aborted) return { status: null, ms: null, text: "", bodyReadOK: false }
-  const controller = new AbortController()
-  const timer = setTimeout(() => { try { controller.abort() } catch {} }, 6500)
-  const started = Date.now()
-  let status: number | null = null
-  let ms: number | null = null
-  try {
-    const response = await fetch(`${url}${url.includes("?") ? "&" : "?"}_=${started}`, {
-      timeout: 6.5, signal: AbortSignal.any([signal, controller.signal]), headers: { "Cache-Control": "no-cache" },
-    })
-    status = response.status
-    ms = Date.now() - started
-    let text = ""
-    if (readBody) {
-      // 仅读取判定所需的 HTML 开头，避免 12 个首页完整响应占用大量内存。
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let bytes = 0
-      try {
-        while (bytes < 160_000) {
-          const chunk = await reader.read()
-          if (chunk.done || !chunk.value) break
-          const slice = chunk.value.subarray(0, 160_000 - bytes)
-          text += decoder.decode(slice, { stream: true })
-          bytes += slice.length
-        }
-        text += decoder.decode()
-      } finally { await reader.cancel().catch(() => {}) }
-    } else { await response.body.getReader().cancel().catch(() => {}) }
-    return { status, ms, text, bodyReadOK: true }
-  } catch { return { status, ms, text: "", bodyReadOK: false } }
-  finally { clearTimeout(timer) }
-}
 async function latency(urls: string[], signal: AbortSignal): Promise<number | null> {
   const results = await Promise.all(urls.map(url => probe(url, signal)))
   const times = results.filter(item => item.status != null && item.status >= 200 && item.status < 300 && item.ms != null).map(item => item.ms!)
@@ -141,12 +107,23 @@ export async function diagnoseNetwork(contextIP: string | null, signal: AbortSig
     while (!signal.aborted && cursor < SERVICES.length) {
       const index = cursor++
       const definition = SERVICES[index]
-      const result = await probe(definition.url, signal, true)
+      const result = await probe(definition.url, signal, true, definition.id)
       if (signal.aborted) return
       const services = report.services.slice()
       services[index] = { id: definition.id, name: definition.name, group: definition.group,
-        ...classifyService(result.status, result.text, result.bodyReadOK), status: result.status, ms: result.ms, policy: "" }
+        ...classifyService(result.status, result.text, result.bodyReadOK), status: result.status, ms: result.ms,
+        regionCode: result.regionCode, regionSource: result.regionSource, policy: "" }
       publish({ services })
+      if (!result.regionCode && definition.regionURL) {
+        const regionProbe = await probe(definition.regionURL, signal, true, definition.id, definition.regionKind || "trace")
+        if (signal.aborted) return
+        if (regionProbe.regionCode) {
+          // 只补地区；trace 的 200 不能覆盖首页 403/429 的受限状态。
+          const updated = report.services.slice()
+          updated[index] = { ...updated[index], regionCode: regionProbe.regionCode, regionSource: regionProbe.regionSource }
+          publish({ services: updated })
+        }
+      }
     }
   }
   await Promise.all([pathTask, ...Array.from({ length: 6 }, worker)])

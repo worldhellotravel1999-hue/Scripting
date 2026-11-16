@@ -10,7 +10,7 @@ async function run() {
     Script.exit({ completed: !controller.signal.aborted, durationMs: report.durationMs,
       local: { kind: report.local.kind, hasIPv4: !!report.local.ipv4, hasIPv6: !!report.local.ipv6, tunnel: report.local.tunnel },
       domesticExitReceived: !!report.domesticExit, latency: report.latency, quic: report.quic,
-      services: report.services.map(row => ({ id: row.id, state: row.state, status: row.status, ms: row.ms })) })
+      services: report.services.map(row => ({ id: row.id, state: row.state, status: row.status, ms: row.ms, regionCode: row.regionCode, regionSource: row.regionSource })) })
   } catch (error) { Script.exit({ error: String(error) }) }
   finally { clearTimeout(timer) }
 }

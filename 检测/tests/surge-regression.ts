@@ -59,6 +59,7 @@ p("old success stays unknown", () => parsed.services[0].state === "unknown" && p
 p("old failure unknown", () => parsed.services[1].state === "unknown" && parsed.services[1].status === null)
 p("fixed catalogue", () => parsed.services.length === 12 && parsed.services[0].name === "Netflix")
 p("service upstream label", () => parsed.services[0].policy === "上游快照 · 媒体组")
+p("service region code", () => parsed.services[0].regionCode === "US" && parsed.services[1].regionCode === "")
 p("no geography risk imports", () => !JSON.stringify(parsed).includes("不得导入") && !("risk" in parsed) && !("cc" in parsed.services[0]) && !("domesticExit" in parsed))
 p("bad services reject", () => parse({ media: [null] }) === null && parse({ ai: [{ id: "chatgpt", ok: "true" }] }) === null)
 p("duplicate services reject", () => parse({ media: [{ id: "netflix", ok: true }, { id: "netflix", ok: false }] }) === null)

@@ -1,7 +1,7 @@
 import { Circle, HStack, Image, Link, Path, Rectangle, Script, Spacer, Text, VStack, Widget, ZStack, modifiers } from "scripting"
 import type { Color, VirtualNode } from "scripting"
 import { formatIPAddress, formatIPLocation } from "./utils/ip"
-import { isFreshReport, latencyLabel, reportMatchesIP, SERVICES, serviceStateLabel } from "./utils/network_model"
+import { isFreshReport, latencyLabel, reportMatchesIP, SERVICES, serviceStateParts } from "./utils/network_model"
 import type { NetworkReport, ServiceGroup, ServiceState } from "./utils/network_model"
 import type { WidgetSnapshot } from "./utils/widget_sync"
 
@@ -102,11 +102,14 @@ function riskLabel(snapshot: NetworkSnapshot): string {
   return risk == null ? "风险未知" : `${snapshot.riskSource === "IPPure" ? "IPPure " : ""}风险 ${risk}%`
 }
 function groupStates(report: NetworkReport | null, group: ServiceGroup) {
-  return SERVICES.filter(service => service.group === group).map(service => ({ ...service,
-    state: report?.services.find(row => row.id === service.id && row.group === group)?.state ?? "unknown" as ServiceState }))
+  return SERVICES.filter(service => service.group === group).map(service => {
+    const result = report?.services.find(row => row.id === service.id && row.group === group)
+    return { ...service, state: result?.state ?? "unknown" as ServiceState, regionCode: result?.regionCode ?? "" }
+  })
 }
 function countLabel(report: NetworkReport, group: ServiceGroup): string {
-  return `${groupStates(report, group).filter(row => row.state === "reachable").length}/6`
+  const total = SERVICES.filter(service => service.group === group).length
+  return `${groupStates(report, group).filter(row => row.state === "reachable").length}/${total}`
 }
 function h3Label(report: NetworkReport | null): string {
   return !report || report.quic === "unknown" ? "H3 未知" : report.quic === "h3" ? "H3 已观测" : "未观测 H3"
@@ -123,7 +126,7 @@ export function NetworkWidgetSummary({ snapshot, refreshMinutes = 15, width, now
   const report = state.report
   return <VStack alignment="leading" spacing={compact ? 1 : 2} frame={{ width, alignment: "leading" }}>
     <Text font={compact ? 8 : 9} foregroundStyle={C.teal} lineLimit={1} minScaleFactor={0.75}>
-      {report ? `可访问  媒体 ${countLabel(report, "media")}  ·  AI ${countLabel(report, "ai")}` : pendingLabel(state)}
+      {report ? `可用  媒体 ${countLabel(report, "media")}  ·  AI ${countLabel(report, "ai")}` : pendingLabel(state)}
     </Text>
     {report ? <Text font={compact ? 8 : 9} foregroundStyle={C.sub} lineLimit={1} minScaleFactor={0.7}>
       {`国内 ${latencyLabel(report.latency.domestic)}  ·  国际 ${latencyLabel(report.latency.overseas)}`}
@@ -227,22 +230,27 @@ function Metrics({ report, width }: { report: NetworkReport | null; width: numbe
 function ServiceColumn({ report, group, width, height }: { report: NetworkReport | null; group: ServiceGroup; width: number; height: number }): VirtualNode {
   const items = groupStates(report, group)
   const headerHeight = 19
-  const rowHeight = Math.max(14, (height - headerHeight) / 6)
+  const rowHeight = Math.max(14, (height - headerHeight) / Math.max(1, SERVICES.filter(service => service.group === group).length))
   const iconSize = width > 190 ? 18 : 14
   return <VStack alignment="leading" spacing={0} frame={{ width, height, alignment: "topLeading" }}>
     <HStack spacing={3} frame={{ width, height: headerHeight }}>
       <Text font={10.5} fontWeight="semibold" foregroundStyle={C.text}>{group === "media" ? "流媒体" : "AI 服务"}</Text>
       <Spacer />
-      <Text font={8.5} foregroundStyle={C.teal}>{report ? `${countLabel(report, group)} 可访问` : "待检测"}</Text>
+      <Text font={8.5} foregroundStyle={C.teal}>{report ? `${countLabel(report, group)} 可用` : "待检测"}</Text>
     </HStack>
     {items.map(item => {
       const appearance = stateAppearance(item.state)
+      const state = serviceStateParts(item.state, item.regionCode)
       return <HStack key={item.id} spacing={5} frame={{ width, height: rowHeight, alignment: "leading" }}>
         <BrandIcon id={item.id} size={iconSize} />
         <Text font={width > 190 ? 11 : 9.5} fontWeight="medium" foregroundStyle={C.text}
           frame={{ maxWidth: "infinity", alignment: "leading" }} lineLimit={1} minScaleFactor={0.65}>{item.name}</Text>
         <Image systemName={appearance.icon} font={8} foregroundStyle={appearance.color} widgetAccentedRenderingMode="fullColor" />
-        <Text font={7.5} foregroundStyle={appearance.color} lineLimit={1}>{serviceStateLabel(item.state)}</Text>
+        <HStack spacing={2}>
+          <Text font={7.5} foregroundStyle={appearance.color} lineLimit={1} minScaleFactor={0.55}>{state.label}</Text>
+          <Text font={7.5} fontDesign="monospaced" foregroundStyle={state.code ? C.blue : C.sub}
+            frame={{ width: 16 }} lineLimit={1} minScaleFactor={0.8}>{state.code || "—"}</Text>
+        </HStack>
       </HStack>
     })}
   </VStack>
@@ -301,7 +309,7 @@ function MediumWidget(props: NetworkWidgetProps & { snapshot: NetworkSnapshot; s
         <Text font={9} foregroundStyle={riskTint(props.snapshot)} lineLimit={1} minScaleFactor={0.65}>
           {[riskLabel(props.snapshot), props.snapshot.accessType, flagLabel(props.snapshot)].filter(Boolean).join(" · ")}</Text>
         <Text font={8.5} foregroundStyle={C.sub} lineLimit={1} minScaleFactor={0.7}>
-          {report ? `媒体 ${countLabel(report, "media")}  ·  AI ${countLabel(report, "ai")} 可访问` : pendingLabel(props.state)}</Text>
+          {report ? `媒体 ${countLabel(report, "media")}  ·  AI ${countLabel(report, "ai")} 可用` : pendingLabel(props.state)}</Text>
       </VStack>
       <MapTile image={props.mapImage} width={mapWidth} height={height - 56} />
     </HStack>
@@ -339,7 +347,7 @@ function SmallWidget(props: NetworkWidgetProps & { snapshot: NetworkSnapshot; st
     </HStack>
     <Rectangle fill={C.line} frame={{ width, height: 1 }} />
     <Text font={8.5} foregroundStyle={C.text} lineLimit={1} minScaleFactor={0.75}>
-      {report ? `可访问  媒体 ${countLabel(report, "media")} · AI ${countLabel(report, "ai")}` : pendingLabel(props.state)}</Text>
+      {report ? `可用  媒体 ${countLabel(report, "media")} · AI ${countLabel(report, "ai")}` : pendingLabel(props.state)}</Text>
     <Text font={8} foregroundStyle={C.sub} lineLimit={1} minScaleFactor={0.7}>
       {report ? `国内 ${latencyLabel(report.latency.domestic)} · 国际 ${latencyLabel(report.latency.overseas)}` : "国内 — · 国际 —"}</Text>
     <Text font={7.5} foregroundStyle={props.state.stale ? C.amber : C.sub} lineLimit={1} minScaleFactor={0.7}>

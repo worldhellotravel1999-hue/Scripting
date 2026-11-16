@@ -1,46 +1,46 @@
 {
-  "icon" : "antenna.radiowaves.left.and.right",
-  "entry" : "index.tsx",
   "description" : "推荐Fast & Lightweight — Simple, efficient, and easy to use.",
   "localizedNames" : {
-    "es" : "",
-    "pt" : "",
-    "en" : "",
-    "ru" : "",
-    "zh" : "",
-    "de" : "",
-    "it" : "",
     "ja" : "",
-    "fr" : ""
+    "pt" : "",
+    "fr" : "",
+    "it" : "",
+    "ru" : "",
+    "en" : "",
+    "es" : "",
+    "zh" : "",
+    "de" : ""
   },
-  "permissions" : null,
+  "icon" : "antenna.radiowaves.left.and.right",
+  "remoteDefinitionId" : null,
+  "entry" : "index.tsx",
+  "version" : "1.2.0",
+  "localizedDescriptions" : {
+    "ja" : "",
+    "fr" : "",
+    "es" : "",
+    "zh" : "",
+    "it" : "",
+    "en" : "",
+    "pt" : "",
+    "ru" : "",
+    "de" : ""
+  },
+  "author" : null,
   "contributors" : [
 
   ],
-  "localizedDescriptions" : {
-    "fr" : "",
-    "de" : "",
-    "it" : "",
-    "ru" : "",
-    "en" : "",
-    "es" : "",
-    "zh" : "",
-    "ja" : "",
-    "pt" : ""
-  },
-  "name" : "Report ip",
-  "author" : null,
   "intentInputTypes" : [
 
   ],
   "remoteResource" : {
+    "url" : "https:\/\/github.com\/worldhellotravel1999-hue\/Scripting\/tree\/main\/检测",
     "hash" : "ef5703caf9727a385344f8ee32c836cf",
-    "autoUpdateInterval" : null,
-    "url" : "https:\/\/github.com\/worldhellotravel1999-hue\/Scripting\/tree\/main\/检测"
+    "autoUpdateInterval" : null
   },
-  "version" : "1.0.0",
+  "color" : "rgba(174, 109, 216, 1)",
   "iconImage" : "",
   "runInApp" : false,
-  "remoteDefinitionId" : null,
-  "color" : "rgba(174, 109, 216, 1)"
+  "permissions" : null,
+  "name" : "Report ip"
 }

@@ -1,5 +1,5 @@
 import { Button, Image, SecureField, TextField, VStack, useRef, useState } from "scripting"
-import { ACCENT, Band, Note, Row, animate } from "./theme"
+import { ACCENT, Band, CODE, Note, Row, animate } from "./theme"
 import { getNetworkSettings, getSurgeKey, networkSettingsError, saveNetworkSettings, setSurgeKey } from "./utils/network_settings"
 import type { NetworkSettings } from "./utils/network_settings"
 
@@ -84,33 +84,42 @@ export function NetworkSettingsPanel({ onSaved }: { onSaved: () => void }) {
 
   function toggle() {
     if (expanded && !save("all")) return
-    animate(() => setExpanded(current => !current))
+    animate(() => setExpanded(current => !current), Animation.spring({ duration: 0.34, bounce: 0.1 }))
   }
 
   return <Band title="网络诊断设置" icon="slider.horizontal.3" hint="可选" shaded
     accessory={<Button action={toggle} buttonStyle="plain" accessibilityLabel={expanded ? "收起网络诊断设置" : "展开网络诊断设置"}>
       <Image systemName={expanded ? "chevron.up" : "chevron.down"} font={13} foregroundStyle={ACCENT.blue}
-        frame={{ width: 34, height: 34 }} />
+        frame={{ width: 34, height: 34 }}
+        contentTransition="symbolEffectReplace"
+        scaleEffect={expanded ? 1.06 : 1}
+        animation={{ animation: Animation.snappy({ duration: 0.24 }), value: expanded }} />
     </Button>}>
-    {expanded ? <VStack alignment="leading" spacing={0} frame={{ maxWidth: "infinity", alignment: "leading" }}>
+    {expanded ? <VStack alignment="leading" spacing={0} frame={{ maxWidth: "infinity", alignment: "leading" }}
+      transition={Transition.opacity().combined(Transition.offset({ x: 0, y: 8 }))}>
       <Row label="有效期"><TextField title="缓存有效期（分钟）" value={draft.refreshMinutes}
         onChanged={input => change("refreshMinutes", input)} onBlur={() => save()}
-        prompt="15" font={13} keyboardType="numberPad" /></Row>
+        prompt="15" font={13} fontDesign="monospaced" foregroundStyle={CODE.number}
+         textFieldStyle="plain" keyboardType="numberPad" /></Row>
       <Note text="默认 15 分钟，可设置 5–240 分钟。小组件按此周期申请重绘并标记过期；点击小组件打开脚本重新检测，实际调度由 iOS 决定。" />
       <Row label="快照 URL"><TextField title="快照 URL" value={draft.snapshotURL}
         onChanged={input => change("snapshotURL", input)} onSubmit={() => save()} onBlur={() => save()}
-        prompt="可选 HTTP(S) 地址" font={13}
+        prompt="可选 HTTP(S) 地址" font={13} fontDesign="monospaced" foregroundStyle={CODE.input}
+         textFieldStyle="plain"
         keyboardType="URL" textInputAutocapitalization="never" autocorrectionDisabled /></Row>
       <Row label="Surge 地址"><TextField title="Surge 地址" value={draft.surgeHost}
         onChanged={input => change("surgeHost", input)} onSubmit={() => save()} onBlur={() => save()}
-        prompt="127.0.0.1" font={13}
+        prompt="127.0.0.1" font={13} fontDesign="monospaced" foregroundStyle={CODE.input}
+         textFieldStyle="plain"
         keyboardType="asciiCapable" textInputAutocapitalization="never" autocorrectionDisabled /></Row>
       <Row label="Surge 端口"><TextField title="Surge 端口" value={draft.surgePort}
         onChanged={input => change("surgePort", input)} onBlur={() => save()}
-        prompt="6171" font={13} keyboardType="numberPad" /></Row>
+        prompt="6171" font={13} fontDesign="monospaced" foregroundStyle={CODE.number}
+         textFieldStyle="plain" keyboardType="numberPad" /></Row>
       <Row label="Surge 密钥"><SecureField title="Surge API 密钥" value={keyInput}
         onChanged={changeKey} onSubmit={() => save("key")} onBlur={() => save("key")}
-        prompt="可选 Surge API 密钥" font={13} textInputAutocapitalization="never" autocorrectionDisabled /></Row>
+        prompt="可选 Surge API 密钥" font={13} fontDesign="monospaced" foregroundStyle={CODE.input}
+         textFieldStyle="plain" textInputAutocapitalization="never" autocorrectionDisabled /></Row>
       <Note text="快照和 Surge API 均为可选；填写快照 URL 后读取快照，配置密钥后读取 Surge API。密钥仅存于本机 Keychain。" />
       {message ? <Note text={message} /> : null}
     </VStack> : <Note text="可配置结果有效期、Surge 快照与 API；未配置时使用本机诊断。" />}

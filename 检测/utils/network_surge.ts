@@ -1,7 +1,7 @@
 import { AbortSignal, fetch } from "scripting"
 import type { Response } from "scripting"
 import { canonicalAddress } from "./ip"
-import { EMPTY_LOCAL, SERVICES, pendingServices } from "./network_model"
+import { EMPTY_LOCAL, SERVICES, normalizeServiceRegionCode, pendingServices } from "./network_model"
 import type { NetworkReport, ServiceResult, SurgeSummary } from "./network_model"
 import { getSurgeKey, isNetworkSnapshotURL, isSurgeHost, normalizeNetworkSettings } from "./network_settings"
 import type { NetworkSettings } from "./network_settings"
@@ -75,8 +75,9 @@ function snapshotServices(data: Record<string, unknown>): ServiceResult[] {
     const item = value(raw)
     if (!item || typeof item.ok !== "boolean") return base
     const policy = /QUIC-BLOCK/i.test(text(item.policy, 500)) ? "" : label(item.policy, 80)
+    const regionCode = normalizeServiceRegionCode(item.cc) || normalizeServiceRegionCode(item.regionCode)
     return { ...base, detail: item.ok ? "上游报告可达 · 未提供 HTTP 状态" : "上游未报告可达 · 未提供 HTTP 状态",
-      policy: policy ? `上游快照 · ${policy}` : "" }
+      regionCode, regionSource: regionCode ? "snapshot" : "", policy: policy ? `上游快照 · ${policy}` : "" }
   })
 }
 
