@@ -1,1 +1,44 @@
-aW1wb3J0IHsgU2Nyb2xsVmlldywgVGV4dCwgVlN0YWNrIH0gZnJvbSAic2NyaXB0aW5nIgppbXBvcnQgdHlwZSB7IFZpcnR1YWxOb2RlIH0gZnJvbSAic2NyaXB0aW5nIgppbXBvcnQgeyBBQ0NFTlQsIEZsYWdSb3csIE5vdGUsIFJpc2tTY2FsZSwgU1VSRkFDRSB9IGZyb20gIi4uL3RoZW1lIgppbXBvcnQgeyBzaG91bGRTaG93Umlza1NjYWxlIH0gZnJvbSAiLi4vdXRpbHMvZmxhZ3MiCgpmdW5jdGlvbiBDYXJkKHsgdGl0bGUsIGhpbnQsIGNoaWxkcmVuIH06IHsKICB0aXRsZTogc3RyaW5nOyBoaW50OiBzdHJpbmc7IGNoaWxkcmVuOiBWaXJ0dWFsTm9kZSB8IFZpcnR1YWxOb2RlW10KfSkgewogIHJldHVybiA8VlN0YWNrIGFsaWdubWVudD0ibGVhZGluZyIgc3BhY2luZz17MTB9IHBhZGRpbmc9e3sgaG9yaXpvbnRhbDogMTYsIHZlcnRpY2FsOiAxNSB9fQogICAgZnJhbWU9e3sgbWF4V2lkdGg6ICJpbmZpbml0eSIsIGFsaWdubWVudDogImxlYWRpbmciIH19IGJhY2tncm91bmQ9e1NVUkZBQ0V9CiAgICBjbGlwU2hhcGU9e3sgdHlwZTogInJlY3QiLCBjb3JuZXJSYWRpdXM6IDE4IH19PgogICAgPFZTdGFjayBhbGlnbm1lbnQ9ImxlYWRpbmciIHNwYWNpbmc9ezB9IGZyYW1lPXt7IG1heFdpZHRoOiAiaW5maW5pdHkiLCBhbGlnbm1lbnQ6ICJsZWFkaW5nIiB9fT4KICAgICAgPFRleHQgZm9udD17MTZ9IGZvbnRXZWlnaHQ9ImJvbGQiPnt0aXRsZX08L1RleHQ+CiAgICAgIDxUZXh0IGZvbnQ9ezEwfSBmb3JlZ3JvdW5kU3R5bGU9InNlY29uZGFyeUxhYmVsIj57aGludH08L1RleHQ+CiAgICA8L1ZTdGFjaz4KICAgIHtjaGlsZHJlbn0KICA8L1ZTdGFjaz4KfQoKZXhwb3J0IGRlZmF1bHQgZnVuY3Rpb24gUHJldmlld0ZsYWdzKCkgewogIHJldHVybiA8U2Nyb2xsVmlldyBiYWNrZ3JvdW5kPSIjRURGMUY2Ij4KICAgIDxWU3RhY2sgc3BhY2luZz17MTR9IHBhZGRpbmc9ezE2fSBmcmFtZT17eyBtYXhXaWR0aDogNTIwLCBhbGlnbm1lbnQ6ICJjZW50ZXIiIH19PgogICAgICA8Q2FyZCB0aXRsZT0i5ZG95Lit5Zy65pmvIiBoaW50PSLku4XpmLPmgKfpobkiPgogICAgICAgIDxGbGFnUm93IGxhYmVsPSLku6PnkIbmoIforrAiIGRlbGF5PXswfSAvPgogICAgICAgIDxGbGFnUm93IGxhYmVsPSJWUE4g5qCH6K6wIiBkZWxheT17NTV9IC8+CiAgICAgICAgPEZsYWdSb3cgbGFiZWw9IlRvciDlh7rlj6MiIGRlbGF5PXsxMTB9IGNvbG9yPXtBQ0NFTlQucGlua30gLz4KICAgICAgICA8RmxhZ1JvdyBsYWJlbD0i5Y+X5L615a6z5qCH6K6wIiBkZWxheT17MTY1fSBjb2xvcj17QUNDRU5ULnJlZH0gLz4KICAgICAgICA8Tm90ZSB0ZXh0PSLku4XliJflh7rlt7Llkb3kuK3pobnvvJvmnKrlkb3kuK3nmoQgVlBOIC8g5Yy/5ZCN5YyWIC8g54is6Jmr5LiN55Sf5oiQ5Lu75L2V6KGM44CCIiAvPgogICAgICA8L0NhcmQ+CgogICAgICA8Q2FyZCB0aXRsZT0i5pyq5ZG95Lit5Zy65pmvIiBoaW50PSLkuI3ljaDkvY0iPgogICAgICAgIDxUZXh0IGZvbnQ9ezEzfSBmb3JlZ3JvdW5kU3R5bGU9InNlY29uZGFyeUxhYmVsIj7kuIvmlrnmlYXmhI/kuI3muLLmn5Pku7vkvZXmoIforrDooYw8L1RleHQ+CiAgICAgICAgPE5vdGUgdGV4dD0i5Luj55CGIC8gVlBOIC8gVG9yIC8g5Yy/5ZCN5YyWIC8g54is6JmrIC8g5Y+X5L615a6z5Z2H5Li6IGZhbHNlIOaIliBudWxsIOaXtu+8jOaVtOWMuuS4uuepuuOAgiIgLz4KICAgICAgPC9DYXJkPgoKICAgICAgPENhcmQgdGl0bGU9InByb3h5Y2hlY2sg6aOO6ZmpIiBoaW50PSIwIOWIhumakOiXj+WIu+W6puadoSI+CiAgICAgICAge3Nob3VsZFNob3dSaXNrU2NhbGUoMCkgPyA8Umlza1NjYWxlIHZhbHVlPXswfSAvPgogICAgICAgICAgOiA8VGV4dCBmb250PXsxM30gZm9yZWdyb3VuZFN0eWxlPSJzZWNvbmRhcnlMYWJlbCI+MCDliIbvvJrkuI3muLLmn5PliLvluqbmnaHvvIzkuZ/kuI3mmL7npLrmloflrZfmj5DnpLo8L1RleHQ+fQogICAgICAgIDxOb3RlIHRleHQ9IuaXoOmjjumZqeaXtuaVtOadoeWIu+W6puS4jeWNoOS9je+8m+WPquacieato+WIhuaJjeaYvuekuiBSaXNrU2NhbGXjgIIiIC8+CiAgICAgIDwvQ2FyZD4KCiAgICA8L1ZTdGFjaz4KICA8L1Njcm9sbFZpZXc+Cn0K
+import { ScrollView, Text, VStack } from "scripting"
+import type { VirtualNode } from "scripting"
+import { ACCENT, FlagRow, Note, RiskScale, SURFACE } from "../theme"
+import { shouldShowRiskScale } from "../utils/flags"
+
+function Card({ title, hint, children }: {
+  title: string; hint: string; children: VirtualNode | VirtualNode[]
+}) {
+  return <VStack alignment="leading" spacing={10} padding={{ horizontal: 16, vertical: 15 }}
+    frame={{ maxWidth: "infinity", alignment: "leading" }} background={SURFACE}
+    clipShape={{ type: "rect", cornerRadius: 18 }}>
+    <VStack alignment="leading" spacing={0} frame={{ maxWidth: "infinity", alignment: "leading" }}>
+      <Text font={16} fontWeight="bold">{title}</Text>
+      <Text font={10} foregroundStyle="secondaryLabel">{hint}</Text>
+    </VStack>
+    {children}
+  </VStack>
+}
+
+export default function PreviewFlags() {
+  return <ScrollView background="#EDF1F6">
+    <VStack spacing={14} padding={16} frame={{ maxWidth: 520, alignment: "center" }}>
+      <Card title="命中场景" hint="仅阳性项">
+        <FlagRow label="代理标记" delay={0} />
+        <FlagRow label="VPN 标记" delay={55} />
+        <FlagRow label="Tor 出口" delay={110} color={ACCENT.pink} />
+        <FlagRow label="受侵害标记" delay={165} color={ACCENT.red} />
+        <Note text="仅列出已命中项；未命中的 VPN / 匿名化 / 爬虫不生成任何行。" />
+      </Card>
+
+      <Card title="未命中场景" hint="不占位">
+        <Text font={13} foregroundStyle="secondaryLabel">下方故意不渲染任何标记行</Text>
+        <Note text="代理 / VPN / Tor / 匿名化 / 爬虫 / 受侵害均为 false 或 null 时，整区为空。" />
+      </Card>
+
+      <Card title="proxycheck 风险" hint="0 分隐藏刻度条">
+        {shouldShowRiskScale(0) ? <RiskScale value={0} />
+          : <Text font={13} foregroundStyle="secondaryLabel">0 分：不渲染刻度条，也不显示文字提示</Text>}
+        <Note text="无风险时整条刻度不占位；只有正分才显示 RiskScale。" />
+      </Card>
+
+    </VStack>
+  </ScrollView>
+}

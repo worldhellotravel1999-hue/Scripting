@@ -1,1 +1,140 @@
-aW1wb3J0IHsgY2Fub25pY2FsQWRkcmVzcyB9IGZyb20gIi4vaXAiCmltcG9ydCB7IHBhcnNlTmV0d29ya1JlcG9ydCwgcmVwb3J0TWF0Y2hlc0lQIH0gZnJvbSAiLi9uZXR3b3JrX21vZGVsIgppbXBvcnQgdHlwZSB7IE5ldHdvcmtSZXBvcnQgfSBmcm9tICIuL25ldHdvcmtfbW9kZWwiCmltcG9ydCB0eXBlIHsgSVBJbmZvIH0gZnJvbSAiLi9pcCIKaW1wb3J0IHsgYWN0aXZlUmlza0ZsYWdzLCBoYXNLbm93blJpc2tGbGFncyB9IGZyb20gIi4vZmxhZ3MiCmltcG9ydCB7IGFjY2Vzc1R5cGVMYWJlbCwgbmV0d29ya0lkZW50aXR5IH0gZnJvbSAiLi9kZXRhaWxzIgppbXBvcnQgdHlwZSB7IElQUHVyZVJlcG9ydCB9IGZyb20gIi4vaXBwdXJlIgppbXBvcnQgdHlwZSB7IExvb2t1cFJlc3VsdCB9IGZyb20gIi4vbG9va3VwIgoKY29uc3QgV0lER0VUX1NOQVBTSE9UX0tFWSA9ICJpcC1kZXRlY3Rpb24ud2lkZ2V0LXNuYXBzaG90LnYxIgoKZXhwb3J0IHR5cGUgV2lkZ2V0Umlza1NvdXJjZSA9ICJwcm94eWNoZWNrIiB8ICJJUFB1cmUiIHwgImhldXJpc3RpYyIgfCBudWxsCgovKiog6aG16Z2i5b2T5YmN5pi+56S655qE5pWw5o2u5b+r54Wn77yb5bCP57uE5Lu25LyY5YWI6K+75a6D77yM6YG/5YWN6Ieq5bex5Y+m5p+l5LiA5Lu95Ye65Y+jIElQ44CCICovCmV4cG9ydCBpbnRlcmZhY2UgV2lkZ2V0U25hcHNob3QgewogIHZlcnNpb246IDEKICBzYXZlZEF0OiBudW1iZXIKICBpcDogc3RyaW5nCiAgY291bnRyeTogc3RyaW5nCiAgY291bnRyeUNvZGU6IHN0cmluZwogIHJlZ2lvbk5hbWU6IHN0cmluZwogIGNpdHk6IHN0cmluZwogIGlzcDogc3RyaW5nCiAgb3JnOiBzdHJpbmcKICBhczogc3RyaW5nCiAgbGF0OiBudW1iZXIgfCBudWxsCiAgbG9uOiBudW1iZXIgfCBudWxsCiAgcmlzazogbnVtYmVyIHwgbnVsbAogIHJpc2tTb3VyY2U6IFdpZGdldFJpc2tTb3VyY2UKICBhY2Nlc3NUeXBlOiBzdHJpbmcKICB2cG5TdGF0dXM6IHN0cmluZwogIG1hbnVhbDogYm9vbGVhbgogIG5ldHdvcms6IE5ldHdvcmtSZXBvcnQgfCBudWxsCn0KCmZ1bmN0aW9uIHRleHQodmFsdWU6IHVua25vd24pOiBzdHJpbmcgewogIHJldHVybiB0eXBlb2YgdmFsdWUgPT09ICJzdHJpbmciID8gdmFsdWUudHJpbSgpIDogIiIKfQoKZnVuY3Rpb24gY29vcmRpbmF0ZSh2YWx1ZTogdW5rbm93biwgbGltaXQ6IG51bWJlcik6IG51bWJlciB8IG51bGwgewogIHJldHVybiB0eXBlb2YgdmFsdWUgPT09ICJudW1iZXIiICYmIE51bWJlci5pc0Zpbml0ZSh2YWx1ZSkgJiYgTWF0aC5hYnModmFsdWUpIDw9IGxpbWl0ID8gdmFsdWUgOiBudWxsCn0KCmZ1bmN0aW9uIHBlcmNlbnRhZ2UodmFsdWU6IHVua25vd24pOiBudW1iZXIgfCBudWxsIHsKICByZXR1cm4gdHlwZW9mIHZhbHVlID09PSAibnVtYmVyIiAmJiBOdW1iZXIuaXNGaW5pdGUodmFsdWUpICYmIHZhbHVlID49IDAgJiYgdmFsdWUgPD0gMTAwID8gdmFsdWUgOiBudWxsCn0KCmZ1bmN0aW9uIHJpc2tTb3VyY2UodmFsdWU6IHVua25vd24pOiBXaWRnZXRSaXNrU291cmNlIHsKICByZXR1cm4gdmFsdWUgPT09ICJwcm94eWNoZWNrIiB8fCB2YWx1ZSA9PT0gIklQUHVyZSIgPyB2YWx1ZSA6IG51bGwKfQoKZXhwb3J0IGZ1bmN0aW9uIGJ1aWxkV2lkZ2V0U25hcHNob3QoaW5wdXQ6IHsKICBpcDogc3RyaW5nCiAgaW5mbzogSVBJbmZvIHwgbnVsbCB8IHVuZGVmaW5lZAogIGNvbm5lY3Rpb24/OiBMb29rdXBSZXN1bHRbImNvbm5lY3Rpb24iXQogIHJlcHV0YXRpb246IExvb2t1cFJlc3VsdFsicmVwdXRhdGlvbiJdCiAgcHVyZTogSVBQdXJlUmVwb3J0IHwgbnVsbCB8IHVuZGVmaW5lZAogIG1hbnVhbD86IGJvb2xlYW4KICBuZXR3b3JrPzogTmV0d29ya1JlcG9ydCB8IG51bGwKfSk6IFdpZGdldFNuYXBzaG90IHsKICBjb25zdCBpbmZvID0gaW5wdXQuaW5mbwogIGNvbnN0IHJlcHV0YXRpb24gPSBpbnB1dC5yZXB1dGF0aW9uCiAgY29uc3QgcHVyZSA9IGlucHV0LnB1cmUKICBjb25zdCBpZGVudGl0eSA9IG5ldHdvcmtJZGVudGl0eShpbmZvLCBwdXJlLCBpbnB1dC5jb25uZWN0aW9uKQogIGNvbnN0IHByb3h5ID0gcmVwdXRhdGlvbj8ucHJveHkgPz8gaW5mbz8ucHJveHkgPz8gbnVsbAogIGNvbnN0IGZsYWdzID0gYWN0aXZlUmlza0ZsYWdzKHJlcHV0YXRpb24sIHByb3h5KQogIGNvbnN0IGtub3duID0gaGFzS25vd25SaXNrRmxhZ3MocmVwdXRhdGlvbiwgcHJveHkpCiAgY29uc3QgcmlzayA9IHJlcHV0YXRpb24/LnJpc2sgPz8gcHVyZT8ucmlzayA/PyBudWxsCiAgY29uc3Qgc291cmNlOiBXaWRnZXRSaXNrU291cmNlID0gcmVwdXRhdGlvbj8ucmlzayAhPSBudWxsID8gInByb3h5Y2hlY2siIDogcHVyZT8ucmlzayAhPSBudWxsID8gIklQUHVyZSIgOiBudWxsCiAgY29uc3QgcmF3TGF0ID0gY29vcmRpbmF0ZShpbmZvPy5sYXQsIDkwKQogIGNvbnN0IHJhd0xvbiA9IGNvb3JkaW5hdGUoaW5mbz8ubG9uLCAxODApCiAgY29uc3QgaGFzUG9pbnQgPSByYXdMYXQgIT0gbnVsbCAmJiByYXdMb24gIT0gbnVsbAoKICByZXR1cm4gewogICAgdmVyc2lvbjogMSwKICAgIHNhdmVkQXQ6IERhdGUubm93KCksCiAgICBtYW51YWw6IGlucHV0Lm1hbnVhbCA9PT0gdHJ1ZSwKICAgIG5ldHdvcms6IHJlcG9ydE1hdGNoZXNJUChpbnB1dC5uZXR3b3JrID8/IG51bGwsIGlucHV0LmlwLCBpbnB1dC5tYW51YWwpID8gcGFyc2VOZXR3b3JrUmVwb3J0KGlucHV0Lm5ldHdvcmspIDogbnVsbCwKICAgIGlwOiBjYW5vbmljYWxBZGRyZXNzKGlucHV0LmlwKSB8fCBpbnB1dC5pcC50cmltKCksCiAgICBjb3VudHJ5OiB0ZXh0KGluZm8/LmNvdW50cnkpLAogICAgY291bnRyeUNvZGU6IHRleHQoaW5mbz8uY291bnRyeUNvZGUpLAogICAgcmVnaW9uTmFtZTogdGV4dChpbmZvPy5yZWdpb25OYW1lKSwKICAgIGNpdHk6IHRleHQoaW5mbz8uY2l0eSksCiAgICBpc3A6IHRleHQoaW5mbz8uaXNwKSwKICAgIG9yZzogaWRlbnRpdHkub3JnYW5pemF0aW9uIHx8IHRleHQoaW5mbz8ub3JnKSwKICAgIGFzOiBpZGVudGl0eS5hc24sCiAgICBsYXQ6IGhhc1BvaW50ID8gcmF3TGF0IDogbnVsbCwKICAgIGxvbjogaGFzUG9pbnQgPyByYXdMb24gOiBudWxsLAogICAgcmlzaywKICAgIHJpc2tTb3VyY2U6IHJpc2sgPT0gbnVsbCA/IG51bGwgOiBzb3VyY2UsCiAgICBhY2Nlc3NUeXBlOiBhY2Nlc3NUeXBlTGFiZWwoaW5mbywgcmVwdXRhdGlvbiwgcHVyZSksCiAgICB2cG5TdGF0dXM6IGZsYWdzLmxlbmd0aAogICAgICA/IGAke2ZsYWdzWzBdLnNob3J0fSR7ZmxhZ3MubGVuZ3RoID4gMSA/IGAgKyR7ZmxhZ3MubGVuZ3RoIC0gMX1gIDogIiJ9YAogICAgICA6IGtub3duID8gIuacquagh+iusCIgOiAi5pyq55+lIiwKICB9Cn0KCi8qKiDlhbzlrrnml6fniYjmnKzmiJbooqvlpJbpg6jmlLnlnY/nmoTlgLzvvJvku7vkvZXlhbPplK7lrZfmrrXlvILluLjpg73mlbTkvZPmi5Lnu53jgIIgKi8KZXhwb3J0IGZ1bmN0aW9uIHBhcnNlV2lkZ2V0U25hcHNob3QocmF3OiB1bmtub3duKTogV2lkZ2V0U25hcHNob3QgfCBudWxsIHsKICBpZiAoIXJhdyB8fCB0eXBlb2YgcmF3ICE9PSAib2JqZWN0IikgcmV0dXJuIG51bGwKICBjb25zdCBkYXRhID0gcmF3IGFzIFJlY29yZDxzdHJpbmcsIHVua25vd24+CiAgaWYgKGRhdGEudmVyc2lvbiAhPT0gMSkgcmV0dXJuIG51bGwKICBjb25zdCBpcCA9IGNhbm9uaWNhbEFkZHJlc3ModGV4dChkYXRhLmlwKSkKICBpZiAoIWlwKSByZXR1cm4gbnVsbAoKICAvLyDml6flv6vnhafkuK3nmoTlkK/lj5HlvI/liIbmlbDkuI3og73lvZPmiJDnnJ/lrp7mnaXmupDnmoTor4TliIblsZXnpLrjgIIKICBjb25zdCByaXNrID0gZGF0YS5yaXNrU291cmNlID09PSAiaGV1cmlzdGljIiA/IG51bGwgOiBwZXJjZW50YWdlKGRhdGEucmlzaykKICBjb25zdCBuZXR3b3JrID0gZGF0YS5tYW51YWwgPT09IHRydWUgPyBudWxsIDogcGFyc2VOZXR3b3JrUmVwb3J0KGRhdGEubmV0d29yaykKICBjb25zdCByYXdMYXQgPSBjb29yZGluYXRlKGRhdGEubGF0LCA5MCkKICBjb25zdCByYXdMb24gPSBjb29yZGluYXRlKGRhdGEubG9uLCAxODApCiAgY29uc3QgaGFzUG9pbnQgPSByYXdMYXQgIT0gbnVsbCAmJiByYXdMb24gIT0gbnVsbAogIHJldHVybiB7CiAgICB2ZXJzaW9uOiAxLAogICAgc2F2ZWRBdDogdHlwZW9mIGRhdGEuc2F2ZWRBdCA9PT0gIm51bWJlciIgJiYgTnVtYmVyLmlzRmluaXRlKGRhdGEuc2F2ZWRBdCkgPyBkYXRhLnNhdmVkQXQgOiAwLAogICAgbWFudWFsOiBkYXRhLm1hbnVhbCA9PT0gdHJ1ZSwKICAgIG5ldHdvcms6IHJlcG9ydE1hdGNoZXNJUChuZXR3b3JrLCBpcCkgPyBuZXR3b3JrIDogbnVsbCwKICAgIGlwLAogICAgY291bnRyeTogdGV4dChkYXRhLmNvdW50cnkpLAogICAgY291bnRyeUNvZGU6IHRleHQoZGF0YS5jb3VudHJ5Q29kZSksCiAgICByZWdpb25OYW1lOiB0ZXh0KGRhdGEucmVnaW9uTmFtZSksCiAgICBjaXR5OiB0ZXh0KGRhdGEuY2l0eSksCiAgICBpc3A6IHRleHQoZGF0YS5pc3ApLAogICAgb3JnOiB0ZXh0KGRhdGEub3JnKSwKICAgIGFzOiB0ZXh0KGRhdGEuYXMpLAogICAgbGF0OiBoYXNQb2ludCA/IHJhd0xhdCA6IG51bGwsCiAgICBsb246IGhhc1BvaW50ID8gcmF3TG9uIDogbnVsbCwKICAgIHJpc2ssCiAgICByaXNrU291cmNlOiByaXNrID09IG51bGwgPyBudWxsIDogcmlza1NvdXJjZShkYXRhLnJpc2tTb3VyY2UpLAogICAgYWNjZXNzVHlwZTogdGV4dChkYXRhLmFjY2Vzc1R5cGUpLAogICAgdnBuU3RhdHVzOiB0ZXh0KGRhdGEudnBuU3RhdHVzKSB8fCAi5pyq55+lIiwKICB9Cn0KCmV4cG9ydCBmdW5jdGlvbiBzYXZlV2lkZ2V0U25hcHNob3Qoc25hcHNob3Q6IFdpZGdldFNuYXBzaG90KTogYm9vbGVhbiB7CiAgcmV0dXJuIFN0b3JhZ2Uuc2V0KFdJREdFVF9TTkFQU0hPVF9LRVksIHNuYXBzaG90LCB7IHNoYXJlZDogdHJ1ZSB9KQp9CgpleHBvcnQgZnVuY3Rpb24gcmVhZFdpZGdldFNuYXBzaG90KCk6IFdpZGdldFNuYXBzaG90IHwgbnVsbCB7CiAgcmV0dXJuIHBhcnNlV2lkZ2V0U25hcHNob3QoU3RvcmFnZS5nZXQ8dW5rbm93bj4oV0lER0VUX1NOQVBTSE9UX0tFWSwgeyBzaGFyZWQ6IHRydWUgfSkpCn0K
+import { canonicalAddress } from "./ip"
+import { parseNetworkReport, reportMatchesIP } from "./network_model"
+import type { NetworkReport } from "./network_model"
+import type { IPInfo } from "./ip"
+import { activeRiskFlags, hasKnownRiskFlags } from "./flags"
+import { accessTypeLabel, networkIdentity } from "./details"
+import type { IPPureReport } from "./ippure"
+import type { LookupResult } from "./lookup"
+
+const WIDGET_SNAPSHOT_KEY = "ip-detection.widget-snapshot.v1"
+
+export type WidgetRiskSource = "proxycheck" | "IPPure" | "heuristic" | null
+
+/** 页面当前显示的数据快照；小组件优先读它，避免自己另查一份出口 IP。 */
+export interface WidgetSnapshot {
+  version: 1
+  savedAt: number
+  ip: string
+  country: string
+  countryCode: string
+  regionName: string
+  city: string
+  isp: string
+  org: string
+  as: string
+  lat: number | null
+  lon: number | null
+  risk: number | null
+  riskSource: WidgetRiskSource
+  accessType: string
+  vpnStatus: string
+  manual: boolean
+  network: NetworkReport | null
+}
+
+function text(value: unknown): string {
+  return typeof value === "string" ? value.trim() : ""
+}
+
+function coordinate(value: unknown, limit: number): number | null {
+  return typeof value === "number" && Number.isFinite(value) && Math.abs(value) <= limit ? value : null
+}
+
+function percentage(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100 ? value : null
+}
+
+function riskSource(value: unknown): WidgetRiskSource {
+  return value === "proxycheck" || value === "IPPure" ? value : null
+}
+
+export function buildWidgetSnapshot(input: {
+  ip: string
+  info: IPInfo | null | undefined
+  connection?: LookupResult["connection"]
+  reputation: LookupResult["reputation"]
+  pure: IPPureReport | null | undefined
+  manual?: boolean
+  network?: NetworkReport | null
+}): WidgetSnapshot {
+  const info = input.info
+  const reputation = input.reputation
+  const pure = input.pure
+  const identity = networkIdentity(info, pure, input.connection)
+  const proxy = reputation?.proxy ?? info?.proxy ?? null
+  const flags = activeRiskFlags(reputation, proxy)
+  const known = hasKnownRiskFlags(reputation, proxy)
+  const risk = reputation?.risk ?? pure?.risk ?? null
+  const source: WidgetRiskSource = reputation?.risk != null ? "proxycheck" : pure?.risk != null ? "IPPure" : null
+  const rawLat = coordinate(info?.lat, 90)
+  const rawLon = coordinate(info?.lon, 180)
+  const hasPoint = rawLat != null && rawLon != null
+
+  return {
+    version: 1,
+    savedAt: Date.now(),
+    manual: input.manual === true,
+    network: reportMatchesIP(input.network ?? null, input.ip, input.manual) ? parseNetworkReport(input.network) : null,
+    ip: canonicalAddress(input.ip) || input.ip.trim(),
+    country: text(info?.country),
+    countryCode: text(info?.countryCode),
+    regionName: text(info?.regionName),
+    city: text(info?.city),
+    isp: text(info?.isp),
+    org: identity.organization || text(info?.org),
+    as: identity.asn,
+    lat: hasPoint ? rawLat : null,
+    lon: hasPoint ? rawLon : null,
+    risk,
+    riskSource: risk == null ? null : source,
+    accessType: accessTypeLabel(info, reputation, pure),
+    vpnStatus: flags.length
+      ? `${flags[0].short}${flags.length > 1 ? ` +${flags.length - 1}` : ""}`
+      : known ? "未标记" : "未知",
+  }
+}
+
+/** 兼容旧版本或被外部改坏的值；任何关键字段异常都整体拒绝。 */
+export function parseWidgetSnapshot(raw: unknown): WidgetSnapshot | null {
+  if (!raw || typeof raw !== "object") return null
+  const data = raw as Record<string, unknown>
+  if (data.version !== 1) return null
+  const ip = canonicalAddress(text(data.ip))
+  if (!ip) return null
+
+  // 旧快照中的启发式分数不能当成真实来源的评分展示。
+  const risk = data.riskSource === "heuristic" ? null : percentage(data.risk)
+  const network = data.manual === true ? null : parseNetworkReport(data.network)
+  const rawLat = coordinate(data.lat, 90)
+  const rawLon = coordinate(data.lon, 180)
+  const hasPoint = rawLat != null && rawLon != null
+  return {
+    version: 1,
+    savedAt: typeof data.savedAt === "number" && Number.isFinite(data.savedAt) ? data.savedAt : 0,
+    manual: data.manual === true,
+    network: reportMatchesIP(network, ip) ? network : null,
+    ip,
+    country: text(data.country),
+    countryCode: text(data.countryCode),
+    regionName: text(data.regionName),
+    city: text(data.city),
+    isp: text(data.isp),
+    org: text(data.org),
+    as: text(data.as),
+    lat: hasPoint ? rawLat : null,
+    lon: hasPoint ? rawLon : null,
+    risk,
+    riskSource: risk == null ? null : riskSource(data.riskSource),
+    accessType: text(data.accessType),
+    vpnStatus: text(data.vpnStatus) || "未知",
+  }
+}
+
+export function saveWidgetSnapshot(snapshot: WidgetSnapshot): boolean {
+  return Storage.set(WIDGET_SNAPSHOT_KEY, snapshot, { shared: true })
+}
+
+export function readWidgetSnapshot(): WidgetSnapshot | null {
+  return parseWidgetSnapshot(Storage.get<unknown>(WIDGET_SNAPSHOT_KEY, { shared: true }))
+}

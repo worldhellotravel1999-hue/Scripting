@@ -1,1 +1,20 @@
-aW1wb3J0IHR5cGUgeyBWaXJ0dWFsTm9kZSB9IGZyb20gInNjcmlwdGluZyIKaW1wb3J0IHsgQmFuZCwgTm90ZSwgUmlza1NjYWxlIH0gZnJvbSAiLi90aGVtZSIKaW1wb3J0IHsgaGFzUmlza1Njb3JlLCBzaG91bGRTaG93Umlza1NjYWxlIH0gZnJvbSAiLi91dGlscy9mbGFncyIKaW1wb3J0IHR5cGUgeyBJUFB1cmVSZXBvcnQgfSBmcm9tICIuL3V0aWxzL2lwcHVyZSIKCi8qKiDkuKTkuKrmnaXmupDni6znq4vliKTmlq3vvJvml6DmnInmlYjor4TliIbml7bov57lkIzmoIfpopjjgIHor7TmmI7lkozmjpLluo/pobnkuIDotbfpmpDol4/jgIIgKi8KZXhwb3J0IGZ1bmN0aW9uIHNjb3JlTW9kdWxlcyhwdXJlOiBJUFB1cmVSZXBvcnQgfCBudWxsLCBpcDogc3RyaW5nKTogUmVjb3JkPCJpcHB1cmUiIHwgImNsb3VkZmxhcmUiLCBWaXJ0dWFsTm9kZSB8IG51bGw+IHsKICBjb25zdCByaXNrID0gcHVyZT8ucmlzawogIGNvbnN0IGNsb3VkZmxhcmVSaXNrID0gcHVyZT8uY2xvdWRmbGFyZVJpc2sKICByZXR1cm4gewogICAgaXBwdXJlOiBoYXNSaXNrU2NvcmUocmlzaykgPyA8QmFuZCB0aXRsZT0iSVBQdXJlIOezu+aVsCIgaWNvbj0ic2hpZWxkLmxlZnRoYWxmLmZpbGxlZCIgaGludD0iSVBQdXJlIiBzaGFkZWQgb3JkZXI9ezN9PgogICAgICB7c2hvdWxkU2hvd1Jpc2tTY2FsZShyaXNrKSA/IDxSaXNrU2NhbGUga2V5PXtgcHVyZS0ke2lwfWB9IHZhbHVlPXtyaXNrfSAvPiA6IG51bGx9CiAgICAgIHtwdXJlPy5ub3RlID8gPE5vdGUgdGV4dD17cHVyZS5ub3RlfSAvPiA6IG51bGx9CiAgICA8L0JhbmQ+IDogbnVsbCwKICAgIGNsb3VkZmxhcmU6IGhhc1Jpc2tTY29yZShjbG91ZGZsYXJlUmlzaykgPyA8QmFuZCB0aXRsZT0iQ2xvdWRmbGFyZSDns7vmlbAiIGhpbnQ9Iue7jyBJUFB1cmUiIG9yZGVyPXs0fT4KICAgICAge3Nob3VsZFNob3dSaXNrU2NhbGUoY2xvdWRmbGFyZVJpc2spID8gPFJpc2tTY2FsZSBrZXk9e2BjZi0ke2lwfWB9IHZhbHVlPXtjbG91ZGZsYXJlUmlza30gLz4gOiBudWxsfQogICAgICA8Tm90ZSB0ZXh0PSLmtY/op4jlmajmo4DmtYvliIbmlbDkvJrlj5jljJbvvJvku4XmmL7npLrkuI7mn6Xor6IgSVAg5LiA6Ie055qE57uT5p6c44CCIiAvPgogICAgPC9CYW5kPiA6IG51bGwsCiAgfQp9Cg==
+import type { VirtualNode } from "scripting"
+import { Band, Note, RiskScale } from "./theme"
+import { hasRiskScore, shouldShowRiskScale } from "./utils/flags"
+import type { IPPureReport } from "./utils/ippure"
+
+/** 两个来源独立判断；无有效评分时连同标题、说明和排序项一起隐藏。 */
+export function scoreModules(pure: IPPureReport | null, ip: string): Record<"ippure" | "cloudflare", VirtualNode | null> {
+  const risk = pure?.risk
+  const cloudflareRisk = pure?.cloudflareRisk
+  return {
+    ippure: hasRiskScore(risk) ? <Band title="IPPure 系数" icon="shield.lefthalf.filled" hint="IPPure" shaded order={3}>
+      {shouldShowRiskScale(risk) ? <RiskScale key={`pure-${ip}`} value={risk} /> : null}
+      {pure?.note ? <Note text={pure.note} /> : null}
+    </Band> : null,
+    cloudflare: hasRiskScore(cloudflareRisk) ? <Band title="Cloudflare 系数" hint="经 IPPure" order={4}>
+      {shouldShowRiskScale(cloudflareRisk) ? <RiskScale key={`cf-${ip}`} value={cloudflareRisk} /> : null}
+      <Note text="浏览器检测分数会变化；仅显示与查询 IP 一致的结果。" />
+    </Band> : null,
+  }
+}

@@ -1,1 +1,148 @@
-aW1wb3J0IHsgSFN0YWNrLCBQcm9ncmVzc1ZpZXcsIFRleHQsIFZTdGFjaywgdXNlU3RhdGUgfSBmcm9tICJzY3JpcHRpbmciCmltcG9ydCB0eXBlIHsgQ29sb3IgfSBmcm9tICJzY3JpcHRpbmciCmltcG9ydCB7IEFDQ0VOVCwgQmFuZCwgQ09ERSwgSWNvbkJ1dHRvbiwgTm90ZSwgUm93LCBUYWcsIGFuaW1hdGUsIHRpbnRlZCwgdXNlRW50cmFuY2UgfSBmcm9tICIuL3RoZW1lIgppbXBvcnQgeyBTcGVlZFBhbmVsIH0gZnJvbSAiLi9zcGVlZF9zZWN0aW9uIgppbXBvcnQgeyBmb3JtYXRJUEFkZHJlc3MgfSBmcm9tICIuL3V0aWxzL2lwIgppbXBvcnQgeyBsb2NhbEFkZHJlc3NIaW50IH0gZnJvbSAiLi91dGlscy9uZXR3b3JrIgppbXBvcnQgeyBsYXRlbmN5TGFiZWwsIHBlbmRpbmdTZXJ2aWNlcywgcXVpY0xhYmVsLCBzZXJ2aWNlQ291bnRzLCBzZXJ2aWNlU3RhdGVQYXJ0cyB9IGZyb20gIi4vdXRpbHMvbmV0d29ya19tb2RlbCIKaW1wb3J0IHR5cGUgeyBOZXR3b3JrUmVwb3J0LCBTZXJ2aWNlR3JvdXAsIFNlcnZpY2VSZXN1bHQsIFNlcnZpY2VTdGF0ZSB9IGZyb20gIi4vdXRpbHMvbmV0d29ya19tb2RlbCIKaW1wb3J0IHsgc2VydmljZVJlZ2lvblNvdXJjZUxhYmVsIH0gZnJvbSAiLi91dGlscy9uZXR3b3JrX3JlZ2lvbiIKCmZ1bmN0aW9uIHRvbmUoc3RhdGU6IFNlcnZpY2VTdGF0ZSkgewogIHJldHVybiBzdGF0ZSA9PT0gInJlYWNoYWJsZSIgPyBBQ0NFTlQuZ3JlZW4gOiBzdGF0ZSA9PT0gInJlc3RyaWN0ZWQiID8gQUNDRU5ULm9yYW5nZQogICAgOiBzdGF0ZSA9PT0gImZhaWxlZCIgPyBBQ0NFTlQucmVkIDogQUNDRU5ULnZpb2xldAp9Ci8qKiDnirbmgIHog7blm4rvvJrmnoHmtYXlupXoibLliqDlkIzoibLmloflrZfvvIzmr5Too7jmloflrZfmm7TmmJPlnKjliJfooajph4zmqKrlkJHmiavor7vjgIIgKi8KZnVuY3Rpb24gU3RhdGVDaGlwKHsgbGFiZWwsIGNvbG9yIH06IHsgbGFiZWw6IHN0cmluZzsgY29sb3I6IENvbG9yIH0pIHsKICByZXR1cm4gPFRleHQgZm9udD17MTB9IGZvbnRXZWlnaHQ9InNlbWlib2xkIiBmb3JlZ3JvdW5kU3R5bGU9e2NvbG9yfSBsaW5lTGltaXQ9ezF9IG1pblNjYWxlRmFjdG9yPXswLjd9CiAgICBwYWRkaW5nPXt7IGhvcml6b250YWw6IDYsIHZlcnRpY2FsOiAyIH19CiAgICBiYWNrZ3JvdW5kPXt7IHN0eWxlOiB0aW50ZWQoY29sb3IsIDAuMTQpLCBzaGFwZTogeyB0eXBlOiAiY2Fwc3VsZSIsIHN0eWxlOiAiY29udGludW91cyIgfSB9fQogICAgY29udGVudFRyYW5zaXRpb249Im9wYWNpdHkiCiAgICBhbmltYXRpb249e3sgYW5pbWF0aW9uOiBBbmltYXRpb24uc21vb3RoKHsgZHVyYXRpb246IDAuMyB9KSwgdmFsdWU6IGxhYmVsIH19PgogICAge2xhYmVsfQogIDwvVGV4dD4KfQpmdW5jdGlvbiBTZXJ2aWNlQ2VsbCh7IHNlcnZpY2UsIGxvYWRpbmcsIGluZGV4ID0gMCB9OiB7CiAgc2VydmljZTogU2VydmljZVJlc3VsdDsgbG9hZGluZzogYm9vbGVhbjsgaW5kZXg/OiBudW1iZXIKfSkgewogIGNvbnN0IHNob3duID0gdXNlRW50cmFuY2UoaW5kZXggKiAyNikKICBjb25zdCBwZW5kaW5nID0gbG9hZGluZyAmJiBzZXJ2aWNlLmRldGFpbCA9PT0gIuacquajgOa1iyIKICBjb25zdCBzdGF0ZSA9IHNlcnZpY2VTdGF0ZVBhcnRzKHNlcnZpY2Uuc3RhdGUsIHNlcnZpY2UucmVnaW9uQ29kZSkKICBjb25zdCByZWdpb25UZXh0ID0gc3RhdGUuY29kZSB8fCAobG9hZGluZyA/ICLmo4DmtYvkuK3igKYiIDogIuacquWPluW+lyIpCiAgY29uc3QgcmVnaW9uU291cmNlID0gc3RhdGUuY29kZSA/IHNlcnZpY2VSZWdpb25Tb3VyY2VMYWJlbChzZXJ2aWNlLnJlZ2lvblNvdXJjZSkgOiAiIgogIGNvbnN0IHRpbnQgPSB0b25lKHNlcnZpY2Uuc3RhdGUpCiAgcmV0dXJuIDxWU3RhY2sgYWxpZ25tZW50PSJsZWFkaW5nIiBzcGFjaW5nPXs1fSBwYWRkaW5nPXt7IHZlcnRpY2FsOiA5IH19CiAgICBmcmFtZT17eyBtYXhXaWR0aDogImluZmluaXR5IiwgYWxpZ25tZW50OiAibGVhZGluZyIgfX0KICAgIG9wYWNpdHk9e3Nob3duID8gMSA6IDB9IG9mZnNldD17eyB4OiAwLCB5OiBzaG93biA/IDAgOiA2IH19CiAgICBhbmltYXRpb249e3sgYW5pbWF0aW9uOiBBbmltYXRpb24uZWFzZU91dCgwLjQyKSwgdmFsdWU6IHNob3duIH19PgogICAgPEhTdGFjayBzcGFjaW5nPXs2fT4KICAgICAgPFRleHQgZm9udD17MTN9IGZvbnRXZWlnaHQ9Im1lZGl1bSIgZm9yZWdyb3VuZFN0eWxlPXtDT0RFLnZhbHVlfSBsaW5lTGltaXQ9ezF9IG1pblNjYWxlRmFjdG9yPXswLjc1fQogICAgICAgIGZyYW1lPXt7IG1heFdpZHRoOiAiaW5maW5pdHkiLCBhbGlnbm1lbnQ6ICJsZWFkaW5nIiB9fT57c2VydmljZS5uYW1lfTwvVGV4dD4KICAgICAge3BlbmRpbmcgPyA8UHJvZ3Jlc3NWaWV3IGNvbnRyb2xTaXplPSJtaW5pIiAvPiA6IDxTdGF0ZUNoaXAgbGFiZWw9e3N0YXRlLmxhYmVsfSBjb2xvcj17dGludH0gLz59CiAgICA8L0hTdGFjaz4KICAgIDxIU3RhY2sgc3BhY2luZz17NX0+CiAgICAgIDxUZXh0IGZvbnQ9ezl9IGZvcmVncm91bmRTdHlsZT0ic2Vjb25kYXJ5TGFiZWwiPuWcsOWMuueggTwvVGV4dD4KICAgICAgPFRleHQgZm9udD17MTB9IGZvbnREZXNpZ249Im1vbm9zcGFjZWQiIGZvbnRXZWlnaHQ9InNlbWlib2xkIgogICAgICAgIGZvcmVncm91bmRTdHlsZT17c3RhdGUuY29kZSA/IENPREUucmVnaW9uIDogInNlY29uZGFyeUxhYmVsIn0KICAgICAgICBsaW5lTGltaXQ9ezF9IGZpeGVkU2l6ZT17eyBob3Jpem9udGFsOiB0cnVlLCB2ZXJ0aWNhbDogZmFsc2UgfX0KICAgICAgICBjb250ZW50VHJhbnNpdGlvbj0ib3BhY2l0eSIKICAgICAgICBhbmltYXRpb249e3sgYW5pbWF0aW9uOiBBbmltYXRpb24uZWFzZU91dCgwLjMpLCB2YWx1ZTogcmVnaW9uVGV4dCB9fT57cmVnaW9uVGV4dH08L1RleHQ+CiAgICAgIHtyZWdpb25Tb3VyY2UgPyA8VGV4dCBmb250PXs4fSBmb3JlZ3JvdW5kU3R5bGU9InNlY29uZGFyeUxhYmVsIiBsaW5lTGltaXQ9ezF9IG1pblNjYWxlRmFjdG9yPXswLjh9PntyZWdpb25Tb3VyY2V9PC9UZXh0PiA6IG51bGx9CiAgICA8L0hTdGFjaz4KICAgIDxUZXh0IGZvbnQ9ezEwfSBmb3JlZ3JvdW5kU3R5bGU9InNlY29uZGFyeUxhYmVsIiBsaW5lTGltaXQ9ezJ9CiAgICAgIGNvbnRlbnRUcmFuc2l0aW9uPSJvcGFjaXR5IgogICAgICBhbmltYXRpb249e3sgYW5pbWF0aW9uOiBBbmltYXRpb24uZWFzZU91dCgwLjMpLCB2YWx1ZTogc2VydmljZS5zdGF0dXMgPT0gbnVsbCA/ICJub25lIiA6IFN0cmluZyhzZXJ2aWNlLnN0YXR1cykgfX0KICAgICAgZml4ZWRTaXplPXt7IGhvcml6b250YWw6IGZhbHNlLCB2ZXJ0aWNhbDogdHJ1ZSB9fT4KICAgICAge3BlbmRpbmcgPyAi5qOA5rWL5Lit4oCmIiA6IHNlcnZpY2Uuc3RhdHVzICE9IG51bGwKICAgICAgICA/IGBIVFRQICR7c2VydmljZS5zdGF0dXN9JHtzZXJ2aWNlLm1zID09IG51bGwgPyAiIiA6IGAgwrcgJHtsYXRlbmN5TGFiZWwoc2VydmljZS5tcyl9YH1gIDogc2VydmljZS5kZXRhaWwgfHwgIuacquWPluW+l+e7k+aenCJ9CiAgICA8L1RleHQ+CiAgICB7c2VydmljZS5wb2xpY3kgPyA8VGV4dCBmb250PXs5fSBmb3JlZ3JvdW5kU3R5bGU9e0FDQ0VOVC5ibHVlfSBsaW5lTGltaXQ9ezJ9PgogICAgICB7YOetlueVpSDCtyAke3NlcnZpY2UucG9saWN5fWB9PC9UZXh0PiA6IG51bGx9CiAgPC9WU3RhY2s+Cn0KZXhwb3J0IGZ1bmN0aW9uIFNlcnZpY2VTZWN0aW9uKHsgcmVwb3J0LCBncm91cCwgbG9hZGluZyB9OiB7IHJlcG9ydDogTmV0d29ya1JlcG9ydCB8IG51bGw7IGdyb3VwOiBTZXJ2aWNlR3JvdXA7IGxvYWRpbmc6IGJvb2xlYW4gfSkgewogIGNvbnN0IHNlcnZpY2VzID0gcGVuZGluZ1NlcnZpY2VzKCkuZmlsdGVyKHJvdyA9PiByb3cuZ3JvdXAgPT09IGdyb3VwKS5tYXAoYmFzZSA9PgogICAgcmVwb3J0Py5zZXJ2aWNlcy5maW5kKHJvdyA9PiByb3cuaWQgPT09IGJhc2UuaWQgJiYgcm93Lmdyb3VwID09PSBncm91cCkgfHwgYmFzZSkKICBjb25zdCBjb3VudCA9IHNlcnZpY2VDb3VudHMoc2VydmljZXMsIGdyb3VwKQogIC8vIOS4pOWIl+W4g+WxgOaMiee7hOWGheWunumZheaVsOmHj+WIhumhte+8jOaWsOWinuacjeWKoeS4jeS8muWboOS4uuWGmeatuyA2IOiAjOa8j+aOieOAggogIGNvbnN0IHJvd3M6IFNlcnZpY2VSZXN1bHRbXVtdID0gW10KICBmb3IgKGxldCBpbmRleCA9IDA7IGluZGV4IDwgc2VydmljZXMubGVuZ3RoOyBpbmRleCArPSAyKSByb3dzLnB1c2goc2VydmljZXMuc2xpY2UoaW5kZXgsIGluZGV4ICsgMikpCiAgcmV0dXJuIDxCYW5kIHRpdGxlPXtncm91cCA9PT0gIm1lZGlhIiA/ICLmtYHlqpLkvZPov57pgJrmgKciIDogIkFJIOacjeWKoei/numAmuaApyJ9CiAgICBpY29uPXtncm91cCA9PT0gIm1lZGlhIiA/ICJwbGF5LnJlY3RhbmdsZSIgOiAic3BhcmtsZXMifQogICAgaGludD17YCR7Y291bnQucmVhY2hhYmxlfS8ke2NvdW50LnRvdGFsfSDlj6/nlKgke2xvYWRpbmcgPyAiIMK3IOajgOa1i+S4rSIgOiAiIn1gfQogICAgc2hhZGVkPXtncm91cCA9PT0gImFpIn0gb3JkZXI9e2dyb3VwID09PSAibWVkaWEiID8gOSA6IDEwfT4KICAgIHtyb3dzLm1hcCgocGFpciwgaW5kZXgpID0+IDxIU3RhY2sga2V5PXtpbmRleH0gYWxpZ25tZW50PSJ0b3AiIHNwYWNpbmc9ezE2fT4KICAgICAge3BhaXIubWFwKChzZXJ2aWNlLCBjb2x1bW4pID0+IDxTZXJ2aWNlQ2VsbCBrZXk9e3NlcnZpY2UuaWR9IHNlcnZpY2U9e3NlcnZpY2V9IGxvYWRpbmc9e2xvYWRpbmd9CiAgICAgICAgaW5kZXg9e2luZGV4ICogMiArIGNvbHVtbn0gLz4pfQogICAgPC9IU3RhY2s+KX0KICAgIDxOb3RlIHRleHQ9e2dyb3VwID09PSAibWVkaWEiCiAgICAgID8gIuajgOa1i+WFrOW8gOmhtemdouWPr+iuv+mXruaAp++8jOS4jeS7o+ihqOiuoumYheaIluaSreaUvuW3suino+mUgeOAguWcsOWMuueggemZhOadpea6kO+8muWMv+WQjemFjee9ruS4uuacjeWKoeaOpeWPo+aJgOaKpeWRiuWcsOWMuu+8jOacjeWKoeWMuuWfn+S4uui3r+eUseWMuuWfn+OAgiIKICAgICAgOiAi5ZCM5Z+f6KeC5rWL5Li65pyN5YqhIENETiDor4bliKvnmoTorr/pl67lnLDljLrvvJvpobXpnaLlnLDljLrvvI/ljLrln5/mmK/pobXpnaLphY3nva7lgLzvvIzkuI3nrYnkuo4gSVAg5Zu95a625oiW6LSm5oi344CB5qih5Z6L5Y+v55So5Zyw5Yy644CC5pyq5Y+W5b6X6KGo56S65pys6L2u5pyq6L+U5Zue5Luj56CB44CCIn0gLz4KICA8L0JhbmQ+Cn0KCmV4cG9ydCBmdW5jdGlvbiBOZXR3b3JrU2VjdGlvbih7IHJlcG9ydCwgbG9hZGluZywgbWFudWFsLCBwcml2YWN5IH06IHsKICByZXBvcnQ6IE5ldHdvcmtSZXBvcnQgfCBudWxsOyBsb2FkaW5nOiBib29sZWFuOyBtYW51YWw6IGJvb2xlYW47IHByaXZhY3k6IGJvb2xlYW4KfSkgewogIGNvbnN0IFtwYW5lbCwgc2V0UGFuZWxdID0gdXNlU3RhdGU8ImRpYWdub3NlIiB8ICJzcGVlZCI+KCJkaWFnbm9zZSIpCiAgY29uc3QgW3J1bm5pbmcsIHNldFJ1bm5pbmddID0gdXNlU3RhdGUoZmFsc2UpCiAgY29uc3QgbG9jYWwgPSByZXBvcnQ/LmxvY2FsCiAgY29uc3QgbWVhc3VyZWQgPSByZXBvcnQgPyBuZXcgRGF0ZShyZXBvcnQubWVhc3VyZWRBdCkudG9Mb2NhbGVUaW1lU3RyaW5nKCJ6aC1DTiIsIHsgaG91cjEyOiBmYWxzZSB9KSA6ICIiCiAgY29uc3QgbWVhc3VyaW5nID0gcGFuZWwgPT09ICJzcGVlZCIKICBjb25zdCB0b2dnbGUgPSAoKSA9PiB7CiAgICAvLyDmtYvpgJ/ov5vooYzkuK3kuI3lhYHorrjliIfotbDvvIzpgb/lhY3ljbjovb3ml7booqvkuK3mraLljbTnnIvkuI3liLDljp/lm6DjgIIKICAgIGlmIChtZWFzdXJpbmcgJiYgcnVubmluZykgcmV0dXJuCiAgICBhbmltYXRlKCgpID0+IHNldFBhbmVsKGN1cnJlbnQgPT4gY3VycmVudCA9PT0gInNwZWVkIiA/ICJkaWFnbm9zZSIgOiAic3BlZWQiKSwKICAgICAgQW5pbWF0aW9uLnNwcmluZyh7IGR1cmF0aW9uOiAwLjM2LCBib3VuY2U6IDAuMTIgfSkpCiAgfQogIHJldHVybiA8QmFuZCB0aXRsZT17bWVhc3VyaW5nID8gIue9kee7nOa1i+mAnyIgOiAi572R57uc6K+K5patIn0gaWNvbj17bWVhc3VyaW5nID8gInNwZWVkb21ldGVyIiA6ICJ3YXZlZm9ybS5wYXRoLmVjZyJ9CiAgICBzaGFkZWQgb3JkZXI9ezd9CiAgICBoaW50PXttYW51YWwgPyAi5omL5Yqo5p+l6K+iIiA6IG1lYXN1cmluZyA/IChydW5uaW5nID8gIua1i+mAn+S4rSIgOiAi5b6F5byA5aeLIikgOiBsb2FkaW5nID8gIuato+WcqOajgOa1iyIKICAgICAgOiByZXBvcnQ/LnNvdXJjZSA9PT0gInN1cmdlIiA/ICJTdXJnZSDlv6vnhaciIDogIuacrOacuuWunua1iyJ9CiAgICBhY2Nlc3Nvcnk9e21hbnVhbCA/IG51bGwgOiA8SWNvbkJ1dHRvbiBpY29uPXttZWFzdXJpbmcgPyAibGlzdC5idWxsZXQiIDogInNwZWVkb21ldGVyIn0KICAgICAgbGFiZWw9e21lYXN1cmluZyA/IChydW5uaW5nID8gIua1i+mAn+i/m+ihjOS4re+8jOaaguS4jeiDvei/lOWbniIgOiAi6L+U5Zue572R57uc6K+K5patIikgOiAi5bGV5byA572R57uc5rWL6YCfIn0KICAgICAgYWN0aW9uPXt0b2dnbGV9IGFjdGl2ZT17bWVhc3VyaW5nfSBkaXNhYmxlZD17bWVhc3VyaW5nICYmIHJ1bm5pbmd9IC8+fT4KICAgIHttYW51YWwgPyA8Tm90ZSB0ZXh0PSLmiYvliqggSVAg5p+l6K+i5LiN5qOA5rWL5pys5py6572R57uc5ZKM5pyN5Yqh6L+e6YCa5oCn77yb6L+U5Zue5b2T5YmN5Ye65Y+j5ZCO5Lya5LiA6LW35qOA5rWL44CCIiAvPgogICAgICA6IDxWU3RhY2sgc3BhY2luZz17MH0gZnJhbWU9e3sgbWF4V2lkdGg6ICJpbmZpbml0eSIsIGFsaWdubWVudDogImxlYWRpbmciIH19CiAgICAgICAga2V5PXttZWFzdXJpbmcgPyAibmV0d29yay1zcGVlZCIgOiAibmV0d29yay1kaWFnbm9zZSJ9CiAgICAgICAgdHJhbnNpdGlvbj17VHJhbnNpdGlvbi5vcGFjaXR5KCkuY29tYmluZWQoVHJhbnNpdGlvbi5vZmZzZXQoeyB4OiAwLCB5OiA5IH0pKX0+CiAgICAgICAge21lYXN1cmluZyA/IDxTcGVlZFBhbmVsIGtpbmQ9e2xvY2FsPy5raW5kIHx8ICIifSBvblJ1bm5pbmdDaGFuZ2U9e3NldFJ1bm5pbmd9IC8+CiAgICAgICAgICA6IDxWU3RhY2sgc3BhY2luZz17MH0gZnJhbWU9e3sgbWF4V2lkdGg6ICJpbmZpbml0eSIsIGFsaWdubWVudDogImxlYWRpbmciIH19PgogICAgICAgICAgPFJvdyBsYWJlbD0i5pys5py65o6l5Y+jIiB2YWx1ZT17bG9jYWw/LmtpbmQgfHwgKGxvYWRpbmcgPyAi6K+75Y+W5Lit4oCmIiA6ICLmnKrnn6UiKX0gLz4KICAgICAgICAgIHtsb2NhbD8uaXB2NCA/IDxSb3cgbGFiZWw9IuacrOWcsCBJUHY0IiB2YWx1ZT17Zm9ybWF0SVBBZGRyZXNzKGxvY2FsLmlwdjQsIHByaXZhY3kpfSBtb25vIC8+IDogbnVsbH0KICAgICAgICAgIHtsb2NhbD8uaXB2NiA/IDxSb3cgbGFiZWw9IuacrOWcsCBJUHY2IiB2YWx1ZT17Zm9ybWF0SVBBZGRyZXNzKGxvY2FsLmlwdjYsIHByaXZhY3kpfSBtb25vIC8+IDogbnVsbH0KICAgICAgICAgIDxSb3cgbGFiZWw9Iumap+mBk+aOpeWPoyIgdmFsdWU9e2xvY2FsPy50dW5uZWwgPT0gbnVsbCA/ICLmnKrnn6UiIDogbG9jYWwudHVubmVsID8gIuajgOa1i+WIsCIgOiAi5pyq5qOA5rWL5YiwIn0gLz4KICAgICAgICAgIHtsb2NhbD8uaXB2NCA/IDxOb3RlIHRleHQ9e2xvY2FsQWRkcmVzc0hpbnQobG9jYWwuaXB2NCl9IC8+IDogbnVsbH0KICAgICAgICAgIHtsb2NhbD8uZ2F0ZXdheSA/IDxSb3cgbGFiZWw9Iue9keWFsyIgdmFsdWU9e3ByaXZhY3kgPyAi5bey6ZqQ6JePIiA6IGxvY2FsLmdhdGV3YXl9IG1vbm8gLz4gOiBudWxsfQogICAgICAgICAge2xvY2FsPy5kbnMgPyA8Um93IGxhYmVsPSJETlMiIHZhbHVlPXtwcml2YWN5ID8gIuW3sumakOiXjyIgOiBsb2NhbC5kbnN9IG1vbm8gLz4gOiBudWxsfQogICAgICAgICAgPFJvdyBsYWJlbD0i5Zu95YaF5ZON5bqUIiB2YWx1ZT17bGF0ZW5jeUxhYmVsKHJlcG9ydD8ubGF0ZW5jeS5kb21lc3RpYyl9IG1vbm8gLz4KICAgICAgICAgIDxSb3cgbGFiZWw9IuWbvemZheWTjeW6lCIgdmFsdWU9e2xhdGVuY3lMYWJlbChyZXBvcnQ/LmxhdGVuY3kub3ZlcnNlYXMpfSBtb25vIC8+CiAgICAgICAgICA8Um93IGxhYmVsPSJIVFRQLzMiPjxUYWcgdGV4dD17cXVpY0xhYmVsKHJlcG9ydCl9CiAgICAgICAgICAgIGNvbG9yPXtyZXBvcnQ/LnF1aWMgPT09ICJoMyIgPyBBQ0NFTlQuZ3JlZW4gOiBBQ0NFTlQudmlvbGV0fSAvPjwvUm93PgogICAgICAgICAgPE5vdGUgdGV4dD0i5ZON5bqU5Li65Zu95YaF77yP5Zu96ZmF56uZ54K555qEIEhUVFAg6K+35rGC6ICX5pe277yM5Y+W5pys6L2u5oiQ5Yqf6K+35rGC5pyA5bCP5YC877yM5YyF5ZCr5bu66L+e562J5byA6ZSA77yb6K+35rGC6YG15b6q5b2T5YmN5YiG5rWB44CC5o6l5Y+j5a2Y5Zyo5LiN5Luj6KGo5a6e6ZmF5Ye656uZ77yM5pyq6KeC5rWL5YiwIEgzIOS5n+S4jeetieS6jiBVRFAg6KKr56aB55So44CCIiAvPgogICAgICAgICAge3JlcG9ydD8uc3VyZ2UgPyA8PgogICAgICAgICAgICA8Um93IGxhYmVsPSLlh7rnq5nmqKHlvI8iIHZhbHVlPXtyZXBvcnQuc3VyZ2UubW9kZX0gLz4KICAgICAgICAgICAge3JlcG9ydC5zdXJnZS5ub2RlID8gPFJvdyBsYWJlbD0i5rS76LeD6IqC54K5IiB2YWx1ZT17cmVwb3J0LnN1cmdlLm5vZGV9IC8+IDogbnVsbH0KICAgICAgICAgICAge3JlcG9ydC5zdXJnZS5wb2xpY3kgPyA8Um93IGxhYmVsPSLnrZbnlaXnu4QiIHZhbHVlPXtyZXBvcnQuc3VyZ2UucG9saWN5fSAvPiA6IG51bGx9CiAgICAgICAgICAgIHtyZXBvcnQuc3VyZ2UucHJvdG9jb2wgPyA8Um93IGxhYmVsPSLljY/orq4iIHZhbHVlPXtyZXBvcnQuc3VyZ2UucHJvdG9jb2x9IC8+IDogbnVsbH0KICAgICAgICAgICAge3JlcG9ydC5zdXJnZS5ub3RlID8gPE5vdGUgdGV4dD17cmVwb3J0LnN1cmdlLm5vdGV9IC8+IDogbnVsbH0KICAgICAgICAgIDwvPiA6IG51bGx9CiAgICAgICAgICB7cmVwb3J0Py5ub3RlID8gPE5vdGUgdGV4dD17cmVwb3J0Lm5vdGV9IC8+IDogbnVsbH0KICAgICAgICAgIHshbG9hZGluZyAmJiBtZWFzdXJlZCA/IDxOb3RlIHRleHQ9e2Ake21lYXN1cmVkfSDCtyAke3JlcG9ydD8uc291cmNlID09PSAic3VyZ2UiID8gIuadpeiHqiBTdXJnZSDlv6vnhaciIDogYOacrOi9ruiAl+aXtiAkeygocmVwb3J0Py5kdXJhdGlvbk1zIHx8IDApIC8gMTAwMCkudG9GaXhlZCgxKX0g56eSYH1gfSAvPiA6IG51bGx9CiAgICAgICAgICA8L1ZTdGFjaz59CiAgICAgIDwvVlN0YWNrPn0KICA8L0JhbmQ+Cn0KCi8qKiDni6znq4vpooTop4jnrYnljp/osIPnlKjnu6fnu63kvb/nlKjnu4TlkIjlhaXlj6PvvIzkuLvpobXpnaLmjInliIbljLrliIbliKvlj4LkuI7mjpLluo/jgILmtYvpgJ/lt7LlubblhaXnvZHnu5zor4rmlq3liIbljLrjgIIgKi8KZXhwb3J0IGZ1bmN0aW9uIE5ldHdvcmtTZWN0aW9ucyhwcm9wczogewogIHJlcG9ydDogTmV0d29ya1JlcG9ydCB8IG51bGw7IGxvYWRpbmc6IGJvb2xlYW47IG1hbnVhbDogYm9vbGVhbjsgcHJpdmFjeTogYm9vbGVhbgp9KSB7CiAgcmV0dXJuIDw+CiAgICA8TmV0d29ya1NlY3Rpb24gey4uLnByb3BzfSAvPgogICAgeyFwcm9wcy5tYW51YWwgPyA8PgogICAgICA8U2VydmljZVNlY3Rpb24gcmVwb3J0PXtwcm9wcy5yZXBvcnR9IGdyb3VwPSJtZWRpYSIgbG9hZGluZz17cHJvcHMubG9hZGluZ30gLz4KICAgICAgPFNlcnZpY2VTZWN0aW9uIHJlcG9ydD17cHJvcHMucmVwb3J0fSBncm91cD0iYWkiIGxvYWRpbmc9e3Byb3BzLmxvYWRpbmd9IC8+CiAgICA8Lz4gOiBudWxsfQogIDwvPgp9Cg==
+import { HStack, ProgressView, Text, VStack, useState } from "scripting"
+import type { Color } from "scripting"
+import { ACCENT, Band, CODE, IconButton, Note, Row, Tag, animate, tinted, useEntrance } from "./theme"
+import { SpeedPanel } from "./speed_section"
+import { formatIPAddress } from "./utils/ip"
+import { localAddressHint } from "./utils/network"
+import { latencyLabel, pendingServices, quicLabel, serviceCounts, serviceStateParts } from "./utils/network_model"
+import type { NetworkReport, ServiceGroup, ServiceResult, ServiceState } from "./utils/network_model"
+import { serviceRegionSourceLabel } from "./utils/network_region"
+
+function tone(state: ServiceState) {
+  return state === "reachable" ? ACCENT.green : state === "restricted" ? ACCENT.orange
+    : state === "failed" ? ACCENT.red : ACCENT.violet
+}
+/** 状态胶囊：极浅底色加同色文字，比裸文字更易在列表里横向扫读。 */
+function StateChip({ label, color }: { label: string; color: Color }) {
+  return <Text font={10} fontWeight="semibold" foregroundStyle={color} lineLimit={1} minScaleFactor={0.7}
+    padding={{ horizontal: 6, vertical: 2 }}
+    background={{ style: tinted(color, 0.14), shape: { type: "capsule", style: "continuous" } }}
+    contentTransition="opacity"
+    animation={{ animation: Animation.smooth({ duration: 0.3 }), value: label }}>
+    {label}
+  </Text>
+}
+function ServiceCell({ service, loading, index = 0 }: {
+  service: ServiceResult; loading: boolean; index?: number
+}) {
+  const shown = useEntrance(index * 26)
+  const pending = loading && service.detail === "未检测"
+  const state = serviceStateParts(service.state, service.regionCode)
+  const regionText = state.code || (loading ? "检测中…" : "未取得")
+  const regionSource = state.code ? serviceRegionSourceLabel(service.regionSource) : ""
+  const tint = tone(service.state)
+  return <VStack alignment="leading" spacing={5} padding={{ vertical: 9 }}
+    frame={{ maxWidth: "infinity", alignment: "leading" }}
+    opacity={shown ? 1 : 0} offset={{ x: 0, y: shown ? 0 : 6 }}
+    animation={{ animation: Animation.easeOut(0.42), value: shown }}>
+    <HStack spacing={6}>
+      <Text font={13} fontWeight="medium" foregroundStyle={CODE.value} lineLimit={1} minScaleFactor={0.75}
+        frame={{ maxWidth: "infinity", alignment: "leading" }}>{service.name}</Text>
+      {pending ? <ProgressView controlSize="mini" /> : <StateChip label={state.label} color={tint} />}
+    </HStack>
+    <HStack spacing={5}>
+      <Text font={9} foregroundStyle="secondaryLabel">地区码</Text>
+      <Text font={10} fontDesign="monospaced" fontWeight="semibold"
+        foregroundStyle={state.code ? CODE.region : "secondaryLabel"}
+        lineLimit={1} fixedSize={{ horizontal: true, vertical: false }}
+        contentTransition="opacity"
+        animation={{ animation: Animation.easeOut(0.3), value: regionText }}>{regionText}</Text>
+      {regionSource ? <Text font={8} foregroundStyle="secondaryLabel" lineLimit={1} minScaleFactor={0.8}>{regionSource}</Text> : null}
+    </HStack>
+    <Text font={10} foregroundStyle="secondaryLabel" lineLimit={2}
+      contentTransition="opacity"
+      animation={{ animation: Animation.easeOut(0.3), value: service.status == null ? "none" : String(service.status) }}
+      fixedSize={{ horizontal: false, vertical: true }}>
+      {pending ? "检测中…" : service.status != null
+        ? `HTTP ${service.status}${service.ms == null ? "" : ` · ${latencyLabel(service.ms)}`}` : service.detail || "未取得结果"}
+    </Text>
+    {service.policy ? <Text font={9} foregroundStyle={ACCENT.blue} lineLimit={2}>
+      {`策略 · ${service.policy}`}</Text> : null}
+  </VStack>
+}
+export function ServiceSection({ report, group, loading }: { report: NetworkReport | null; group: ServiceGroup; loading: boolean }) {
+  const services = pendingServices().filter(row => row.group === group).map(base =>
+    report?.services.find(row => row.id === base.id && row.group === group) || base)
+  const count = serviceCounts(services, group)
+  // 两列布局按组内实际数量分页，新增服务不会因为写死 6 而漏掉。
+  const rows: ServiceResult[][] = []
+  for (let index = 0; index < services.length; index += 2) rows.push(services.slice(index, index + 2))
+  return <Band title={group === "media" ? "流媒体连通性" : "AI 服务连通性"}
+    icon={group === "media" ? "play.rectangle" : "sparkles"}
+    hint={`${count.reachable}/${count.total} 可用${loading ? " · 检测中" : ""}`}
+    shaded={group === "ai"} order={group === "media" ? 9 : 10}>
+    {rows.map((pair, index) => <HStack key={index} alignment="top" spacing={16}>
+      {pair.map((service, column) => <ServiceCell key={service.id} service={service} loading={loading}
+        index={index * 2 + column} />)}
+    </HStack>)}
+    <Note text={group === "media"
+      ? "检测公开页面可访问性，不代表订阅或播放已解锁。地区码附来源：匿名配置为服务接口所报告地区，服务区域为路由区域。"
+      : "同域观测为服务 CDN 识别的访问地区；页面地区／区域是页面配置值，不等于 IP 国家或账户、模型可用地区。未取得表示本轮未返回代码。"} />
+  </Band>
+}
+
+export function NetworkSection({ report, loading, manual, privacy }: {
+  report: NetworkReport | null; loading: boolean; manual: boolean; privacy: boolean
+}) {
+  const [panel, setPanel] = useState<"diagnose" | "speed">("diagnose")
+  const [running, setRunning] = useState(false)
+  const local = report?.local
+  const measured = report ? new Date(report.measuredAt).toLocaleTimeString("zh-CN", { hour12: false }) : ""
+  const measuring = panel === "speed"
+  const toggle = () => {
+    // 测速进行中不允许切走，避免卸载时被中止却看不到原因。
+    if (measuring && running) return
+    animate(() => setPanel(current => current === "speed" ? "diagnose" : "speed"),
+      Animation.spring({ duration: 0.36, bounce: 0.12 }))
+  }
+  return <Band title={measuring ? "网络测速" : "网络诊断"} icon={measuring ? "speedometer" : "waveform.path.ecg"}
+    shaded order={7}
+    hint={manual ? "手动查询" : measuring ? (running ? "测速中" : "待开始") : loading ? "正在检测"
+      : report?.source === "surge" ? "Surge 快照" : "本机实测"}
+    accessory={manual ? null : <IconButton icon={measuring ? "list.bullet" : "speedometer"}
+      label={measuring ? (running ? "测速进行中，暂不能返回" : "返回网络诊断") : "展开网络测速"}
+      action={toggle} active={measuring} disabled={measuring && running} />}>
+    {manual ? <Note text="手动 IP 查询不检测本机网络和服务连通性；返回当前出口后会一起检测。" />
+      : <VStack spacing={0} frame={{ maxWidth: "infinity", alignment: "leading" }}
+        key={measuring ? "network-speed" : "network-diagnose"}
+        transition={Transition.opacity().combined(Transition.offset({ x: 0, y: 9 }))}>
+        {measuring ? <SpeedPanel kind={local?.kind || ""} onRunningChange={setRunning} />
+          : <VStack spacing={0} frame={{ maxWidth: "infinity", alignment: "leading" }}>
+          <Row label="本机接口" value={local?.kind || (loading ? "读取中…" : "未知")} />
+          {local?.ipv4 ? <Row label="本地 IPv4" value={formatIPAddress(local.ipv4, privacy)} mono /> : null}
+          {local?.ipv6 ? <Row label="本地 IPv6" value={formatIPAddress(local.ipv6, privacy)} mono /> : null}
+          <Row label="隧道接口" value={local?.tunnel == null ? "未知" : local.tunnel ? "检测到" : "未检测到"} />
+          {local?.ipv4 ? <Note text={localAddressHint(local.ipv4)} /> : null}
+          {local?.gateway ? <Row label="网关" value={privacy ? "已隐藏" : local.gateway} mono /> : null}
+          {local?.dns ? <Row label="DNS" value={privacy ? "已隐藏" : local.dns} mono /> : null}
+          <Row label="国内响应" value={latencyLabel(report?.latency.domestic)} mono />
+          <Row label="国际响应" value={latencyLabel(report?.latency.overseas)} mono />
+          <Row label="HTTP/3"><Tag text={quicLabel(report)}
+            color={report?.quic === "h3" ? ACCENT.green : ACCENT.violet} /></Row>
+          <Note text="响应为国内／国际站点的 HTTP 请求耗时，取本轮成功请求最小值，包含建连等开销；请求遵循当前分流。接口存在不代表实际出站，未观测到 H3 也不等于 UDP 被禁用。" />
+          {report?.surge ? <>
+            <Row label="出站模式" value={report.surge.mode} />
+            {report.surge.node ? <Row label="活跃节点" value={report.surge.node} /> : null}
+            {report.surge.policy ? <Row label="策略组" value={report.surge.policy} /> : null}
+            {report.surge.protocol ? <Row label="协议" value={report.surge.protocol} /> : null}
+            {report.surge.note ? <Note text={report.surge.note} /> : null}
+          </> : null}
+          {report?.note ? <Note text={report.note} /> : null}
+          {!loading && measured ? <Note text={`${measured} · ${report?.source === "surge" ? "来自 Surge 快照" : `本轮耗时 ${((report?.durationMs || 0) / 1000).toFixed(1)} 秒`}`} /> : null}
+          </VStack>}
+      </VStack>}
+  </Band>
+}
+
+/** 独立预览等原调用继续使用组合入口，主页面按分区分别参与排序。测速已并入网络诊断分区。 */
+export function NetworkSections(props: {
+  report: NetworkReport | null; loading: boolean; manual: boolean; privacy: boolean
+}) {
+  return <>
+    <NetworkSection {...props} />
+    {!props.manual ? <>
+      <ServiceSection report={props.report} group="media" loading={props.loading} />
+      <ServiceSection report={props.report} group="ai" loading={props.loading} />
+    </> : null}
+  </>
+}

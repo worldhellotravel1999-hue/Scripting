@@ -1,1 +1,70 @@
-aW1wb3J0IHsgU2NyaXB0LCBXaWRnZXQgfSBmcm9tICJzY3JpcHRpbmciCmltcG9ydCB7IGZsdXNoV2lkZ2V0UmVsb2FkLCBzY2hlZHVsZVdpZGdldFJlbG9hZCB9IGZyb20gIi4uL3V0aWxzL3dpZGdldF9yZWxvYWQiCgp0eXBlIFRpbWVyID0gUmV0dXJuVHlwZTx0eXBlb2Ygc2V0VGltZW91dD4KdHlwZSBUaW1lckNhbGxiYWNrID0gUGFyYW1ldGVyczx0eXBlb2Ygc2V0VGltZW91dD5bMF0KY29uc3QgZ2xvYmFsVGltZXJzID0gZ2xvYmFsVGhpcyBhcyB1bmtub3duIGFzIHsgc2V0VGltZW91dDogdHlwZW9mIHNldFRpbWVvdXQ7IGNsZWFyVGltZW91dDogdHlwZW9mIGNsZWFyVGltZW91dCB9CmNvbnN0IHNhdmVkU2V0VGltZW91dCA9IGdsb2JhbFRpbWVycy5zZXRUaW1lb3V0CmNvbnN0IHNhdmVkQ2xlYXJUaW1lb3V0ID0gZ2xvYmFsVGltZXJzLmNsZWFyVGltZW91dApjb25zdCBzYXZlZFJlbG9hZCA9IFdpZGdldC5yZWxvYWRVc2VyV2lkZ2V0cwpsZXQgY2xvY2sgPSAwLCBuZXh0SUQgPSAwCmNvbnN0IHRhc2tzID0gbmV3IE1hcDxudW1iZXIsIHsgYXQ6IG51bWJlcjsgcnVuOiAoKSA9PiB2b2lkIH0+KCkKbGV0IHJlbG9hZHMgPSAwCmNvbnN0IGZhaWx1cmVzOiBzdHJpbmdbXSA9IFtdCmxldCBwYXNzZWQgPSAwCmNvbnN0IGNoZWNrID0gKG5hbWU6IHN0cmluZywgY29uZGl0aW9uOiBib29sZWFuKSA9PiBjb25kaXRpb24gPyBwYXNzZWQrKyA6IGZhaWx1cmVzLnB1c2gobmFtZSkKY29uc3QgYWR2YW5jZSA9ICh0bzogbnVtYmVyKSA9PiB7CiAgd2hpbGUgKHRydWUpIHsKICAgIGNvbnN0IG5leHQgPSBbLi4udGFza3MuZW50cmllcygpXS5maWx0ZXIoKFssIHRhc2tdKSA9PiB0YXNrLmF0IDw9IHRvKS5zb3J0KChhLCBiKSA9PiBhWzFdLmF0IC0gYlsxXS5hdClbMF0KICAgIGlmICghbmV4dCkgYnJlYWsKICAgIGNsb2NrID0gbmV4dFsxXS5hdAogICAgdGFza3MuZGVsZXRlKG5leHRbMF0pCiAgICBuZXh0WzFdLnJ1bigpCiAgfQogIGNsb2NrID0gdG8KfQoKYXN5bmMgZnVuY3Rpb24gcnVuKCkgewogIHRyeSB7CiAgICBnbG9iYWxUaW1lcnMuc2V0VGltZW91dCA9ICgoY2FsbGJhY2s6IFRpbWVyQ2FsbGJhY2ssIGRlbGF5PzogbnVtYmVyKSA9PiB7CiAgICAgIGNvbnN0IGlkID0gKytuZXh0SUQKICAgICAgdGFza3Muc2V0KGlkLCB7IGF0OiBjbG9jayArIChkZWxheSB8fCAwKSwgcnVuOiAoKSA9PiB7IGlmICh0eXBlb2YgY2FsbGJhY2sgPT09ICJmdW5jdGlvbiIpIGNhbGxiYWNrKCkgfSB9KQogICAgICByZXR1cm4gaWQgYXMgdW5rbm93biBhcyBUaW1lcgogICAgfSkgYXMgdHlwZW9mIHNldFRpbWVvdXQKICAgIGdsb2JhbFRpbWVycy5jbGVhclRpbWVvdXQgPSAoKHRpbWVyOiBUaW1lcikgPT4geyB0YXNrcy5kZWxldGUodGltZXIgYXMgdW5rbm93biBhcyBudW1iZXIpIH0pIGFzIHR5cGVvZiBjbGVhclRpbWVvdXQKICAgIFdpZGdldC5yZWxvYWRVc2VyV2lkZ2V0cyA9ICgpID0+IHsgcmVsb2FkcysrIH0KICAgIHNjaGVkdWxlV2lkZ2V0UmVsb2FkKCkKICAgIGxldCBjb21wbGV0ZWQgPSBmYWxzZQogICAgY29uc3QgZmx1c2ggPSBmbHVzaFdpZGdldFJlbG9hZCgpLnRoZW4oKCkgPT4geyBjb21wbGV0ZWQgPSB0cnVlIH0pCiAgICBhZHZhbmNlKDIwMCkKICAgIHNjaGVkdWxlV2lkZ2V0UmVsb2FkKCkKICAgIGFkdmFuY2UoMzAwKQogICAgYXdhaXQgUHJvbWlzZS5yZXNvbHZlKCkKICAgIGNoZWNrKCLmlrDlhpnlhaXlu7blkI7lvoXlpITnkIbliLfmlrAiLCByZWxvYWRzID09PSAwICYmICFjb21wbGV0ZWQpCiAgICBhZHZhbmNlKDQ5OSkKICAgIGF3YWl0IFByb21pc2UucmVzb2x2ZSgpCiAgICBjaGVjaygi5pyA5ZCO5LiA5qyh5YaZ5YWl5pyq5ruh5bu26L+f5LiN5Yi35pawIiwgcmVsb2FkcyA9PT0gMCAmJiAhY29tcGxldGVkKQogICAgYWR2YW5jZSg1MDApCiAgICBhd2FpdCBmbHVzaAogICAgY2hlY2soIuWQiOW5tuWGmeWFpeWPquWIt+aWsOS4gOasoSIsIHJlbG9hZHMgPT09IDEgJiYgY29tcGxldGVkKQogICAgYXdhaXQgZmx1c2hXaWRnZXRSZWxvYWQoKQogICAgY2hlY2soIuaXoOW+heWkhOeQhuaTjeS9nOaXtueri+WNs+i/lOWbniIsIHJlbG9hZHMgPT09IDEpCiAgICBXaWRnZXQucmVsb2FkVXNlcldpZGdldHMgPSAoKSA9PiB7IHJlbG9hZHMrKzsgdGhyb3cgbmV3IEVycm9yKCLmqKHmi5/lpLHotKUiKSB9CiAgICBzY2hlZHVsZVdpZGdldFJlbG9hZCgpCiAgICBjb25zdCBmYWlsZWRGbHVzaCA9IGZsdXNoV2lkZ2V0UmVsb2FkKCkKICAgIGFkdmFuY2UoODAwKQogICAgYXdhaXQgZmFpbGVkRmx1c2gKICAgIGNoZWNrKCLliLfmlrDmipvplJnkuZ/og73nu5PmnZ/pgIDlh7rnrYnlvoUiLCByZWxvYWRzID09PSAyKQogIH0gZmluYWxseSB7CiAgICBnbG9iYWxUaW1lcnMuc2V0VGltZW91dCA9IHNhdmVkU2V0VGltZW91dAogICAgZ2xvYmFsVGltZXJzLmNsZWFyVGltZW91dCA9IHNhdmVkQ2xlYXJUaW1lb3V0CiAgICBXaWRnZXQucmVsb2FkVXNlcldpZGdldHMgPSBzYXZlZFJlbG9hZAogIH0KICBTY3JpcHQuZXhpdCh7IHBhc3NlZCwgZmFpbGVkOiBmYWlsdXJlcy5sZW5ndGgsIGZhaWx1cmVzLCBvZmZsaW5lOiB0cnVlIH0pCn0Kdm9pZCBydW4oKS5jYXRjaChlcnJvciA9PiB7CiAgZ2xvYmFsVGltZXJzLnNldFRpbWVvdXQgPSBzYXZlZFNldFRpbWVvdXQKICBnbG9iYWxUaW1lcnMuY2xlYXJUaW1lb3V0ID0gc2F2ZWRDbGVhclRpbWVvdXQKICBXaWRnZXQucmVsb2FkVXNlcldpZGdldHMgPSBzYXZlZFJlbG9hZAogIFNjcmlwdC5leGl0KHsgZmFpbGVkOiAxLCBmYWlsdXJlczogW1N0cmluZyhlcnJvcildIH0pCn0pCg==
+import { Script, Widget } from "scripting"
+import { flushWidgetReload, scheduleWidgetReload } from "../utils/widget_reload"
+
+type Timer = ReturnType<typeof setTimeout>
+type TimerCallback = Parameters<typeof setTimeout>[0]
+const globalTimers = globalThis as unknown as { setTimeout: typeof setTimeout; clearTimeout: typeof clearTimeout }
+const savedSetTimeout = globalTimers.setTimeout
+const savedClearTimeout = globalTimers.clearTimeout
+const savedReload = Widget.reloadUserWidgets
+let clock = 0, nextID = 0
+const tasks = new Map<number, { at: number; run: () => void }>()
+let reloads = 0
+const failures: string[] = []
+let passed = 0
+const check = (name: string, condition: boolean) => condition ? passed++ : failures.push(name)
+const advance = (to: number) => {
+  while (true) {
+    const next = [...tasks.entries()].filter(([, task]) => task.at <= to).sort((a, b) => a[1].at - b[1].at)[0]
+    if (!next) break
+    clock = next[1].at
+    tasks.delete(next[0])
+    next[1].run()
+  }
+  clock = to
+}
+
+async function run() {
+  try {
+    globalTimers.setTimeout = ((callback: TimerCallback, delay?: number) => {
+      const id = ++nextID
+      tasks.set(id, { at: clock + (delay || 0), run: () => { if (typeof callback === "function") callback() } })
+      return id as unknown as Timer
+    }) as typeof setTimeout
+    globalTimers.clearTimeout = ((timer: Timer) => { tasks.delete(timer as unknown as number) }) as typeof clearTimeout
+    Widget.reloadUserWidgets = () => { reloads++ }
+    scheduleWidgetReload()
+    let completed = false
+    const flush = flushWidgetReload().then(() => { completed = true })
+    advance(200)
+    scheduleWidgetReload()
+    advance(300)
+    await Promise.resolve()
+    check("新写入延后待处理刷新", reloads === 0 && !completed)
+    advance(499)
+    await Promise.resolve()
+    check("最后一次写入未满延迟不刷新", reloads === 0 && !completed)
+    advance(500)
+    await flush
+    check("合并写入只刷新一次", reloads === 1 && completed)
+    await flushWidgetReload()
+    check("无待处理操作时立即返回", reloads === 1)
+    Widget.reloadUserWidgets = () => { reloads++; throw new Error("模拟失败") }
+    scheduleWidgetReload()
+    const failedFlush = flushWidgetReload()
+    advance(800)
+    await failedFlush
+    check("刷新抛错也能结束退出等待", reloads === 2)
+  } finally {
+    globalTimers.setTimeout = savedSetTimeout
+    globalTimers.clearTimeout = savedClearTimeout
+    Widget.reloadUserWidgets = savedReload
+  }
+  Script.exit({ passed, failed: failures.length, failures, offline: true })
+}
+void run().catch(error => {
+  globalTimers.setTimeout = savedSetTimeout
+  globalTimers.clearTimeout = savedClearTimeout
+  Widget.reloadUserWidgets = savedReload
+  Script.exit({ failed: 1, failures: [String(error)] })
+})

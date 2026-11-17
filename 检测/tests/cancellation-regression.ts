@@ -1,1 +1,23 @@
-aW1wb3J0IHsgQWJvcnRDb250cm9sbGVyLCBTY3JpcHQgfSBmcm9tICJzY3JpcHRpbmciCmltcG9ydCB7IGZldGNoRXhpdFByb2JlLCBmZXRjaElQSW5mbyB9IGZyb20gIi4uL3V0aWxzL2lwIgppbXBvcnQgeyBmZXRjaElQUHVyZSB9IGZyb20gIi4uL3V0aWxzL2lwcHVyZSIKCmFzeW5jIGZ1bmN0aW9uIHJ1bigpIHsKICBjb25zdCBjb250cm9sbGVyID0gbmV3IEFib3J0Q29udHJvbGxlcigpCiAgY29udHJvbGxlci5hYm9ydCgpCiAgY29uc3QgZmFpbHVyZXM6IHN0cmluZ1tdID0gW10KICBsZXQgcGFzc2VkID0gMAogIGNvbnN0IGNoZWNrID0gKG5hbWU6IHN0cmluZywgY29uZGl0aW9uOiBib29sZWFuKSA9PiBjb25kaXRpb24gPyBwYXNzZWQrKyA6IGZhaWx1cmVzLnB1c2gobmFtZSkKICBjb25zdCBzdGFydGVkID0gRGF0ZS5ub3coKQogIGNvbnN0IFtleGl0LCBpbmZvLCBwdXJlXSA9IGF3YWl0IFByb21pc2UuYWxsKFsKICAgIGZldGNoRXhpdFByb2JlKGNvbnRyb2xsZXIuc2lnbmFsKSwKICAgIGZldGNoSVBJbmZvKCI4LjguOC44IiwgY29udHJvbGxlci5zaWduYWwpLAogICAgZmV0Y2hJUFB1cmUoIjguOC44LjgiLCAoKSA9PiB0cnVlLCBjb250cm9sbGVyLnNpZ25hbCksCiAgXSkKICBjaGVjaygi5bey5Y+W5raI5pe25LiN5YaN5a+75om+5Ye65Y+jIiwgZXhpdCA9PT0gbnVsbCkKICBjaGVjaygi5bey5Y+W5raI5pe25LiN6K+35rGC5Li75b2S5bGe5rqQIiwgaW5mbyA9PT0gbnVsbCkKICBjaGVjaygi5bey5Y+W5raI5pe25LiN5pi+56S6IElQUHVyZSDnu5PmnpwiLCBwdXJlLnJpc2sgPT09IG51bGwgJiYgcHVyZS5jbG91ZGZsYXJlUmlzayA9PT0gbnVsbCAmJiBwdXJlLnNvdXJjZSA9PT0gbnVsbCkKICBjaGVjaygi6aKE5Y+W5raI5Y+K5pe26L+U5ZueIiwgRGF0ZS5ub3coKSAtIHN0YXJ0ZWQgPCAyMDAwKQogIFNjcmlwdC5leGl0KHsgcGFzc2VkLCBmYWlsZWQ6IGZhaWx1cmVzLmxlbmd0aCwgZmFpbHVyZXMgfSkKfQp2b2lkIHJ1bigpLmNhdGNoKGVycm9yID0+IFNjcmlwdC5leGl0KHsgZmFpbGVkOiAxLCBmYWlsdXJlczogW1N0cmluZyhlcnJvcildIH0pKQo=
+import { AbortController, Script } from "scripting"
+import { fetchExitProbe, fetchIPInfo } from "../utils/ip"
+import { fetchIPPure } from "../utils/ippure"
+
+async function run() {
+  const controller = new AbortController()
+  controller.abort()
+  const failures: string[] = []
+  let passed = 0
+  const check = (name: string, condition: boolean) => condition ? passed++ : failures.push(name)
+  const started = Date.now()
+  const [exit, info, pure] = await Promise.all([
+    fetchExitProbe(controller.signal),
+    fetchIPInfo("8.8.8.8", controller.signal),
+    fetchIPPure("8.8.8.8", () => true, controller.signal),
+  ])
+  check("已取消时不再寻找出口", exit === null)
+  check("已取消时不请求主归属源", info === null)
+  check("已取消时不显示 IPPure 结果", pure.risk === null && pure.cloudflareRisk === null && pure.source === null)
+  check("预取消及时返回", Date.now() - started < 2000)
+  Script.exit({ passed, failed: failures.length, failures })
+}
+void run().catch(error => Script.exit({ failed: 1, failures: [String(error)] }))

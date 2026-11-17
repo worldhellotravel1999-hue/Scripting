@@ -1,1 +1,55 @@
-aW1wb3J0IHR5cGUgeyBMb29rdXBSZXN1bHQgfSBmcm9tICIuL2xvb2t1cCIKCnR5cGUgUmlza0ZsYWdJZCA9ICJwcm94eSIgfCAidnBuIiB8ICJ0b3IiIHwgImFub255bW91cyIgfCAic2NyYXBlciIgfCAiY29tcHJvbWlzZWQiCnR5cGUgUmlza0ZsYWcgPSB7IGlkOiBSaXNrRmxhZ0lkOyBsYWJlbDogc3RyaW5nOyBzaG9ydDogc3RyaW5nIH0KCmNvbnN0IE9SREVSOiBSaXNrRmxhZ1tdID0gWwogIHsgaWQ6ICJwcm94eSIsIGxhYmVsOiAi5Luj55CG5qCH6K6wIiwgc2hvcnQ6ICLku6PnkIYiIH0sCiAgeyBpZDogInZwbiIsIGxhYmVsOiAiVlBOIOagh+iusCIsIHNob3J0OiAiVlBOIiB9LAogIHsgaWQ6ICJ0b3IiLCBsYWJlbDogIlRvciDlh7rlj6MiLCBzaG9ydDogIlRvciIgfSwKICB7IGlkOiAiYW5vbnltb3VzIiwgbGFiZWw6ICLljL/lkI3ljJbmoIforrAiLCBzaG9ydDogIuWMv+WQjeWMliIgfSwKICB7IGlkOiAic2NyYXBlciIsIGxhYmVsOiAi54is6Jmr5qCH6K6wIiwgc2hvcnQ6ICLniKzomasiIH0sCiAgeyBpZDogImNvbXByb21pc2VkIiwgbGFiZWw6ICLlj5fkvrXlrrPmoIforrAiLCBzaG9ydDogIuWPl+S+teWusyIgfSwKXQoKLyoqCiAqIOWPqui/lOWbnuaVsOaNruW6k+aYjuehruWRveS4reeahOagh+iusOOAgmZhbHNlIOS4jiBudWxsIOmDveS4jeWNoOS9je+8mgogKiDmnKrmoIforrDjgIHmn6Xor6LkuK3jgIHmmoLml6DmlbDmja7kuI3lho3nlJ/miJDku7vkvZXooYzjgIIKICogcHJveHkg5bey55Sx6aG16Z2i5oyJIHByb3h5Y2hlY2sg5LyY5YWI44CBaXAtYXBpIOWFnOW6leino+aekOOAggogKi8KZXhwb3J0IGZ1bmN0aW9uIGFjdGl2ZVJpc2tGbGFncygKICByZXB1dGF0aW9uOiBMb29rdXBSZXN1bHRbInJlcHV0YXRpb24iXSwKICBwcm94eT86IGJvb2xlYW4gfCBudWxsLAopOiBSaXNrRmxhZ1tdIHsKICBjb25zdCBoaXRzOiBSZWNvcmQ8Umlza0ZsYWdJZCwgYm9vbGVhbj4gPSB7CiAgICBwcm94eTogcHJveHkgPT09IHRydWUgfHwgcmVwdXRhdGlvbj8ucHJveHkgPT09IHRydWUsCiAgICB2cG46IHJlcHV0YXRpb24/LnZwbiA9PT0gdHJ1ZSwKICAgIHRvcjogcmVwdXRhdGlvbj8udG9yID09PSB0cnVlLAogICAgYW5vbnltb3VzOiByZXB1dGF0aW9uPy5hbm9ueW1vdXMgPT09IHRydWUsCiAgICBzY3JhcGVyOiByZXB1dGF0aW9uPy5zY3JhcGVyID09PSB0cnVlLAogICAgY29tcHJvbWlzZWQ6IHJlcHV0YXRpb24/LmNvbXByb21pc2VkID09PSB0cnVlLAogIH0KICByZXR1cm4gT1JERVIuZmlsdGVyKGZsYWcgPT4gaGl0c1tmbGFnLmlkXSkKfQoKLyoqIOiHs+WwkeacieS4gOS4quW4g+WwlOagh+iusOWPr+WIpOWumuaXtu+8jOaJjeiDveaKiuepuue7k+aenOensOS4uuKAnOacquagh+iusOKAneOAgiAqLwpleHBvcnQgZnVuY3Rpb24gaGFzS25vd25SaXNrRmxhZ3MoCiAgcmVwdXRhdGlvbjogTG9va3VwUmVzdWx0WyJyZXB1dGF0aW9uIl0sCiAgcHJveHk/OiBib29sZWFuIHwgbnVsbCwKKTogYm9vbGVhbiB7CiAgaWYgKHByb3h5ICE9IG51bGwpIHJldHVybiB0cnVlCiAgcmV0dXJuICEhcmVwdXRhdGlvbiAmJiBbCiAgICByZXB1dGF0aW9uLnByb3h5LCByZXB1dGF0aW9uLnZwbiwgcmVwdXRhdGlvbi50b3IsCiAgICByZXB1dGF0aW9uLmFub255bW91cywgcmVwdXRhdGlvbi5zY3JhcGVyLCByZXB1dGF0aW9uLmNvbXByb21pc2VkLAogIF0uc29tZSh2YWx1ZSA9PiB2YWx1ZSAhPSBudWxsKQp9CgovKiog55yf5a6eIDAg5YiG5Lmf5piv5pyJ5pWI5pWw5o2u77yb5ouS57ud57y65aSx44CB6Z2e5pWw5YC85ZKM6LaF5Ye655m+5YiG5Yi26IyD5Zu055qE6K+E5YiG44CCICovCmV4cG9ydCBmdW5jdGlvbiBoYXNSaXNrU2NvcmUodmFsdWU6IHVua25vd24pOiB2YWx1ZSBpcyBudW1iZXIgewogIHJldHVybiB0eXBlb2YgdmFsdWUgPT09ICJudW1iZXIiICYmIE51bWJlci5pc0Zpbml0ZSh2YWx1ZSkgJiYgdmFsdWUgPj0gMCAmJiB2YWx1ZSA8PSAxMDAKfQoKLyoqIDAg5YiG5LiN5riy5p+T5Yi75bqm5p2h77yb57y65aSx5pe25piv5ZCm6ZqQ6JeP5pW05Yy655Sx6LCD55So5pa55Yaz5a6a44CCICovCmV4cG9ydCBmdW5jdGlvbiBzaG91bGRTaG93Umlza1NjYWxlKHZhbHVlOiBudW1iZXIgfCBudWxsIHwgdW5kZWZpbmVkKTogYm9vbGVhbiB7CiAgcmV0dXJuIHR5cGVvZiB2YWx1ZSA9PT0gIm51bWJlciIgJiYgTnVtYmVyLmlzRmluaXRlKHZhbHVlKSAmJiB2YWx1ZSA+IDAKfQo=
+import type { LookupResult } from "./lookup"
+
+type RiskFlagId = "proxy" | "vpn" | "tor" | "anonymous" | "scraper" | "compromised"
+type RiskFlag = { id: RiskFlagId; label: string; short: string }
+
+const ORDER: RiskFlag[] = [
+  { id: "proxy", label: "代理标记", short: "代理" },
+  { id: "vpn", label: "VPN 标记", short: "VPN" },
+  { id: "tor", label: "Tor 出口", short: "Tor" },
+  { id: "anonymous", label: "匿名化标记", short: "匿名化" },
+  { id: "scraper", label: "爬虫标记", short: "爬虫" },
+  { id: "compromised", label: "受侵害标记", short: "受侵害" },
+]
+
+/**
+ * 只返回数据库明确命中的标记。false 与 null 都不占位：
+ * 未标记、查询中、暂无数据不再生成任何行。
+ * proxy 已由页面按 proxycheck 优先、ip-api 兜底解析。
+ */
+export function activeRiskFlags(
+  reputation: LookupResult["reputation"],
+  proxy?: boolean | null,
+): RiskFlag[] {
+  const hits: Record<RiskFlagId, boolean> = {
+    proxy: proxy === true || reputation?.proxy === true,
+    vpn: reputation?.vpn === true,
+    tor: reputation?.tor === true,
+    anonymous: reputation?.anonymous === true,
+    scraper: reputation?.scraper === true,
+    compromised: reputation?.compromised === true,
+  }
+  return ORDER.filter(flag => hits[flag.id])
+}
+
+/** 至少有一个布尔标记可判定时，才能把空结果称为“未标记”。 */
+export function hasKnownRiskFlags(
+  reputation: LookupResult["reputation"],
+  proxy?: boolean | null,
+): boolean {
+  if (proxy != null) return true
+  return !!reputation && [
+    reputation.proxy, reputation.vpn, reputation.tor,
+    reputation.anonymous, reputation.scraper, reputation.compromised,
+  ].some(value => value != null)
+}
+
+/** 真实 0 分也是有效数据；拒绝缺失、非数值和超出百分制范围的评分。 */
+export function hasRiskScore(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100
+}
+
+/** 0 分不渲染刻度条；缺失时是否隐藏整区由调用方决定。 */
+export function shouldShowRiskScale(value: number | null | undefined): boolean {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+}

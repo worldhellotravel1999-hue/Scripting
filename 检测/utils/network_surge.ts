@@ -1,1 +1,317 @@
-aW1wb3J0IHsgQWJvcnRTaWduYWwsIGZldGNoIH0gZnJvbSAic2NyaXB0aW5nIgppbXBvcnQgdHlwZSB7IFJlc3BvbnNlIH0gZnJvbSAic2NyaXB0aW5nIgppbXBvcnQgeyBjYW5vbmljYWxBZGRyZXNzIH0gZnJvbSAiLi9pcCIKaW1wb3J0IHsgRU1QVFlfTE9DQUwsIFNFUlZJQ0VTLCBub3JtYWxpemVTZXJ2aWNlUmVnaW9uQ29kZSwgcGVuZGluZ1NlcnZpY2VzIH0gZnJvbSAiLi9uZXR3b3JrX21vZGVsIgppbXBvcnQgdHlwZSB7IE5ldHdvcmtSZXBvcnQsIFNlcnZpY2VSZXN1bHQsIFN1cmdlU3VtbWFyeSB9IGZyb20gIi4vbmV0d29ya19tb2RlbCIKaW1wb3J0IHsgZ2V0U3VyZ2VLZXksIGlzTmV0d29ya1NuYXBzaG90VVJMLCBpc1N1cmdlSG9zdCwgbm9ybWFsaXplTmV0d29ya1NldHRpbmdzIH0gZnJvbSAiLi9uZXR3b3JrX3NldHRpbmdzIgppbXBvcnQgdHlwZSB7IE5ldHdvcmtTZXR0aW5ncyB9IGZyb20gIi4vbmV0d29ya19zZXR0aW5ncyIKCmNvbnN0IHZhbHVlID0gKHJhdzogdW5rbm93bik6IFJlY29yZDxzdHJpbmcsIHVua25vd24+IHwgbnVsbCA9PiByYXcgIT09IG51bGwgJiYgdHlwZW9mIHJhdyA9PT0gIm9iamVjdCIKICAmJiAhQXJyYXkuaXNBcnJheShyYXcpID8gcmF3IGFzIFJlY29yZDxzdHJpbmcsIHVua25vd24+IDogbnVsbApjb25zdCB0ZXh0ID0gKHJhdzogdW5rbm93biwgbGltaXQgPSAxMjApOiBzdHJpbmcgPT4gdHlwZW9mIHJhdyA9PT0gInN0cmluZyIgPyByYXcudHJpbSgpLnNsaWNlKDAsIGxpbWl0KSA6ICIiCmNvbnN0IHBvc2l0aXZlTXMgPSAocmF3OiB1bmtub3duKTogbnVtYmVyIHwgbnVsbCA9PiB0eXBlb2YgcmF3ID09PSAibnVtYmVyIiAmJiBOdW1iZXIuaXNGaW5pdGUocmF3KQogICYmIHJhdyA+IDAgJiYgcmF3IDw9IDMwMF8wMDAgPyByYXcgOiBudWxsCi8vIOaYvuekuuWtl+auteS4jeaJv+i9vSBVUkwg5oiW6Ym05p2D54mH5q6177yM6ZSZ6K+v6Lev5b6E5Lmf5LiN6L6T5Ye65Y6f5aeL5byC5bi444CCCmNvbnN0IGxhYmVsID0gKHJhdzogdW5rbm93biwgbGltaXQgPSAxMjApOiBzdHJpbmcgPT4gdHlwZW9mIHJhdyA9PT0gInN0cmluZyIgPyByYXcKICAucmVwbGFjZSgvW2Etel1bYS16XGQrLi1dKjpcL1wvW15cc10rL2dpLCAiW+WcsOWdgOW3sumakOiXj10iKQogIC5yZXBsYWNlKC9cYig/Ongta2V5fGF1dGhvcml6YXRpb258dG9rZW58cGFzc3dvcmQpXHMqWzo9XVxzKlxTKy9naSwgIlvlh63mja7lt7LpmpDol49dIikKICAucmVwbGFjZSgvW1x1MDAwMC1cdTAwMWZcdTAwN2ZdL2csICIgIikudHJpbSgpLnNsaWNlKDAsIGxpbWl0KSA6ICIiCmNvbnN0IGZpZWxkc0FyZSA9IChkYXRhOiBSZWNvcmQ8c3RyaW5nLCB1bmtub3duPiwgbmFtZXM6IHN0cmluZ1tdLCB0eXBlOiBzdHJpbmcpOiBib29sZWFuID0+CiAgbmFtZXMuZXZlcnkobmFtZSA9PiBkYXRhW25hbWVdID09PSB1bmRlZmluZWQgfHwgZGF0YVtuYW1lXSA9PT0gbnVsbCB8fCB0eXBlb2YgZGF0YVtuYW1lXSA9PT0gdHlwZSkKY29uc3QgdmFsaWRNcyA9IChyYXc6IHVua25vd24pOiBib29sZWFuID0+IHJhdyA9PT0gdW5kZWZpbmVkIHx8IHJhdyA9PT0gbnVsbAogIHx8IHR5cGVvZiByYXcgPT09ICJudW1iZXIiICYmIE51bWJlci5pc0Zpbml0ZShyYXcpICYmIHJhdyA+PSAwICYmIHJhdyA8PSAzMDBfMDAwCgpmdW5jdGlvbiB2YWxpZFNlcnZpY2VzKHJhdzogdW5rbm93bik6IHJhdyBpcyBSZWNvcmQ8c3RyaW5nLCB1bmtub3duPltdIHsKICBpZiAoIUFycmF5LmlzQXJyYXkocmF3KSB8fCByYXcubGVuZ3RoID4gNjQpIHJldHVybiBmYWxzZQogIGNvbnN0IGlkcyA9IG5ldyBTZXQ8c3RyaW5nPigpCiAgcmV0dXJuIHJhdy5ldmVyeShpdGVtID0+IHsKICAgIGNvbnN0IHJvdyA9IHZhbHVlKGl0ZW0pCiAgICBpZiAoIXJvdyB8fCB0eXBlb2Ygcm93LmlkICE9PSAic3RyaW5nIiB8fCAhcm93LmlkIHx8IHJvdy5pZC5sZW5ndGggPiA4MAogICAgICB8fCB0eXBlb2Ygcm93Lm9rICE9PSAiYm9vbGVhbiIgfHwgIWZpZWxkc0FyZShyb3csIFsicG9saWN5Il0sICJzdHJpbmciKSB8fCBpZHMuaGFzKHJvdy5pZCkpIHJldHVybiBmYWxzZQogICAgaWRzLmFkZChyb3cuaWQpCiAgICByZXR1cm4gdHJ1ZQogIH0pCn0KCi8qKiDmtYHlvI/op6PmnpDlv6vnhacvQVBJIOWTjeW6lO+8m+i2hei/h+S4iumZkOaXtuWBnOatouivu+WPluW5tuaLkue7neOAgiAqLwpleHBvcnQgYXN5bmMgZnVuY3Rpb24gcmVhZFN1cmdlSlNPTihyZXNwb25zZTogUmVzcG9uc2UsIGtleT86IHN0cmluZyk6IFByb21pc2U8eyBkYXRhOiB1bmtub3duOyBzdGF0dXM6IG51bWJlciB9PiB7CiAgY29uc3Qgc3RhdHVzID0gcmVzcG9uc2Uuc3RhdHVzCiAgdHJ5IHsKICAgIGNvbnN0IHJlYWRlciA9IHJlc3BvbnNlLmJvZHkuZ2V0UmVhZGVyKCkKICAgIHRyeSB7CiAgICAgIGlmICghcmVzcG9uc2Uub2spIHJldHVybiB7IGRhdGE6IG51bGwsIHN0YXR1cyB9CiAgICAgIGNvbnN0IGRlY29kZXIgPSBuZXcgVGV4dERlY29kZXIoKQogICAgICBsZXQgYm9keSA9ICIiLCBieXRlcyA9IDAKICAgICAgd2hpbGUgKHRydWUpIHsKICAgICAgICBjb25zdCBjaHVuayA9IGF3YWl0IHJlYWRlci5yZWFkKCkKICAgICAgICBpZiAoY2h1bmsuZG9uZSkgYnJlYWsKICAgICAgICBpZiAoIWNodW5rLnZhbHVlKSB0aHJvdyBuZXcgRXJyb3IoIuWTjeW6lOa1geS4jeWujOaVtCIpCiAgICAgICAgYnl0ZXMgKz0gY2h1bmsudmFsdWUubGVuZ3RoCiAgICAgICAgaWYgKGJ5dGVzID4gMV8wNDhfNTc2KSByZXR1cm4geyBkYXRhOiBudWxsLCBzdGF0dXMgfQogICAgICAgIGJvZHkgKz0gZGVjb2Rlci5kZWNvZGUoY2h1bmsudmFsdWUsIHsgc3RyZWFtOiB0cnVlIH0pCiAgICAgIH0KICAgICAgYm9keSArPSBkZWNvZGVyLmRlY29kZSgpCiAgICAgIGNvbnN0IGRhdGE6IHVua25vd24gPSBKU09OLnBhcnNlKGJvZHksIChfbmFtZSwgZW50cnk6IHVua25vd24pID0+IHR5cGVvZiBlbnRyeSA9PT0gInN0cmluZyIgJiYga2V5CiAgICAgICAgPyBlbnRyeS5zcGxpdChrZXkpLmpvaW4oIlvlh63mja7lt7LpmpDol49dIikuc3BsaXQoZW5jb2RlVVJJQ29tcG9uZW50KGtleSkpLmpvaW4oIlvlh63mja7lt7LpmpDol49dIikgOiBlbnRyeSkKICAgICAgcmV0dXJuIHsgZGF0YSwgc3RhdHVzIH0KICAgIH0gZmluYWxseSB7IGF3YWl0IHJlYWRlci5jYW5jZWwoKS5jYXRjaCgoKSA9PiB7fSkgfQogIH0gY2F0Y2ggeyByZXR1cm4geyBkYXRhOiBudWxsLCBzdGF0dXMgfSB9Cn0KCmFzeW5jIGZ1bmN0aW9uIHJlcXVlc3RKc29uKHVybDogc3RyaW5nLCBrZXk/OiBzdHJpbmcsIHNpZ25hbD86IEFib3J0U2lnbmFsKTogUHJvbWlzZTx7IGRhdGE6IHVua25vd247IHN0YXR1czogbnVtYmVyIH0+IHsKICBpZiAoc2lnbmFsPy5hYm9ydGVkKSByZXR1cm4geyBkYXRhOiBudWxsLCBzdGF0dXM6IDAgfQogIHRyeSB7CiAgICBjb25zdCB0aW1lb3V0ID0gQWJvcnRTaWduYWwudGltZW91dCgzMDAwKQogICAgY29uc3QgcmVzcG9uc2UgPSBhd2FpdCBmZXRjaCh1cmwsIHsgdGltZW91dDogMywgc2lnbmFsOiBzaWduYWwgPyBBYm9ydFNpZ25hbC5hbnkoW3NpZ25hbCwgdGltZW91dF0pIDogdGltZW91dCwKICAgICAgaGVhZGVyczoga2V5ID8geyAiWC1LZXkiOiBrZXkgfSA6IHVuZGVmaW5lZCwgaGFuZGxlUmVkaXJlY3Q6IGFzeW5jICgpID0+IG51bGwgfSkKICAgIHJldHVybiBhd2FpdCByZWFkU3VyZ2VKU09OKHJlc3BvbnNlLCBrZXkpCiAgfSBjYXRjaCB7IHJldHVybiB7IGRhdGE6IG51bGwsIHN0YXR1czogMCB9IH0KfQoKZnVuY3Rpb24gc25hcHNob3RTZXJ2aWNlcyhkYXRhOiBSZWNvcmQ8c3RyaW5nLCB1bmtub3duPik6IFNlcnZpY2VSZXN1bHRbXSB7CiAgY29uc3QgbWVkaWEgPSBkYXRhLm1lZGlhIGFzIHVua25vd25bXSwgYWkgPSBkYXRhLmFpIGFzIHVua25vd25bXQogIHJldHVybiBwZW5kaW5nU2VydmljZXMoKS5tYXAoYmFzZSA9PiB7CiAgICBjb25zdCByYXcgPSAoYmFzZS5ncm91cCA9PT0gIm1lZGlhIiA/IG1lZGlhIDogYWkpLmZpbmQoaXRlbSA9PiB2YWx1ZShpdGVtKT8uaWQgPT09IGJhc2UuaWQpCiAgICBjb25zdCBpdGVtID0gdmFsdWUocmF3KQogICAgaWYgKCFpdGVtIHx8IHR5cGVvZiBpdGVtLm9rICE9PSAiYm9vbGVhbiIpIHJldHVybiBiYXNlCiAgICBjb25zdCBwb2xpY3kgPSAvUVVJQy1CTE9DSy9pLnRlc3QodGV4dChpdGVtLnBvbGljeSwgNTAwKSkgPyAiIiA6IGxhYmVsKGl0ZW0ucG9saWN5LCA4MCkKICAgIGNvbnN0IHJlZ2lvbkNvZGUgPSBub3JtYWxpemVTZXJ2aWNlUmVnaW9uQ29kZShpdGVtLmNjKSB8fCBub3JtYWxpemVTZXJ2aWNlUmVnaW9uQ29kZShpdGVtLnJlZ2lvbkNvZGUpCiAgICByZXR1cm4geyAuLi5iYXNlLCBkZXRhaWw6IGl0ZW0ub2sgPyAi5LiK5ri45oql5ZGK5Y+v6L6+IMK3IOacquaPkOS+myBIVFRQIOeKtuaAgSIgOiAi5LiK5ri45pyq5oql5ZGK5Y+v6L6+IMK3IOacquaPkOS+myBIVFRQIOeKtuaAgSIsCiAgICAgIHJlZ2lvbkNvZGUsIHJlZ2lvblNvdXJjZTogcmVnaW9uQ29kZSA/ICJzbmFwc2hvdCIgOiAiIiwgcG9saWN5OiBwb2xpY3kgPyBg5LiK5ri45b+r54WnIMK3ICR7cG9saWN5fWAgOiAiIiB9CiAgfSkKfQoKLyoqIOWPquaOpeaUtiBTdXJnZSB2MSDor4rmlq3lv6vnhafvvIzkuI3or7vlj5blhbbor4TliIbjgIHlvZLlsZ7miJblnLDnkIblrZfmrrXjgIIgKi8KZXhwb3J0IGZ1bmN0aW9uIHBhcnNlU3VyZ2VTbmFwc2hvdChyYXc6IHVua25vd24sIHNldHRpbmdzOiBOZXR3b3JrU2V0dGluZ3MsIGNvbnRleHRJUDogc3RyaW5nIHwgbnVsbCwKICBub3cgPSBEYXRlLm5vdygpKTogTmV0d29ya1JlcG9ydCB8IG51bGwgewogIGNvbnN0IGRhdGEgPSB2YWx1ZShyYXcpCiAgaWYgKCFkYXRhIHx8IGRhdGEudiAhPT0gMSB8fCBkYXRhLnNyYyAhPT0gInN1cmdlIiB8fCB0eXBlb2YgZGF0YS50cyAhPT0gIm51bWJlciIKICAgIHx8ICFOdW1iZXIuaXNGaW5pdGUobm93KSB8fCAhTnVtYmVyLmlzU2FmZUludGVnZXIoZGF0YS50cykgfHwgZGF0YS50cyA8PSAwIHx8IGRhdGEudHMgPiBub3cKICAgIHx8IG5vdyAtIGRhdGEudHMgPj0gbm9ybWFsaXplTmV0d29ya1NldHRpbmdzKHNldHRpbmdzKS5yZWZyZXNoTWludXRlcyAqIDYwXzAwMAogICAgfHwgZGF0YS5leGl0ICE9IG51bGwgJiYgIXZhbHVlKGRhdGEuZXhpdCkKICAgIHx8ICF2YWx1ZShkYXRhLmxvY2FsKSB8fCAhdmFsdWUoZGF0YS5sYXQpIHx8ICF2YWx1ZShkYXRhLnF1aWMpCiAgICB8fCAhdmFsaWRTZXJ2aWNlcyhkYXRhLm1lZGlhKSB8fCAhdmFsaWRTZXJ2aWNlcyhkYXRhLmFpKQogICAgfHwgIWZpZWxkc0FyZShkYXRhLCBbIm1hc2tlZCJdLCAiYm9vbGVhbiIpIHx8ICF2YWxpZE1zKGRhdGEuY29zdCkKICAgIHx8IGRhdGEuc3VyZ2UgIT0gbnVsbCAmJiAhdmFsdWUoZGF0YS5zdXJnZSkpIHJldHVybiBudWxsCgogIGNvbnN0IGV4aXQgPSB2YWx1ZShkYXRhLmV4aXQpIHx8IHt9LCBsb2NhbCA9IGRhdGEubG9jYWwgYXMgUmVjb3JkPHN0cmluZywgdW5rbm93bj4KICBjb25zdCBsYXQgPSBkYXRhLmxhdCBhcyBSZWNvcmQ8c3RyaW5nLCB1bmtub3duPiwgcXVpYyA9IGRhdGEucXVpYyBhcyBSZWNvcmQ8c3RyaW5nLCB1bmtub3duPgogIGNvbnN0IHN1cmdlID0gdmFsdWUoZGF0YS5zdXJnZSkKICBpZiAoIWZpZWxkc0FyZShleGl0LCBbImlwIl0sICJzdHJpbmciKQogICAgfHwgIVsibmV0IiwgImlwIiwgImd3IiwgImRucyJdLmV2ZXJ5KGZpZWxkID0+IHR5cGVvZiBsb2NhbFtmaWVsZF0gPT09ICJzdHJpbmciKQogICAgfHwgdHlwZW9mIGxvY2FsLnZwbiAhPT0gImJvb2xlYW4iIHx8ICFmaWVsZHNBcmUobG9jYWwsIFsidjYiXSwgImJvb2xlYW4iKQogICAgfHwgdHlwZW9mIGxhdC5sb2NhbCAhPT0gIm51bWJlciIgfHwgdHlwZW9mIGxhdC5wcm94eSAhPT0gIm51bWJlciIKICAgIHx8ICF2YWxpZE1zKGxhdC5sb2NhbCkgfHwgIXZhbGlkTXMobGF0LnByb3h5KQogICAgfHwgdHlwZW9mIHF1aWMub2sgIT09ICJib29sZWFuIiB8fCB0eXBlb2YgcXVpYy5yZWFjaGFibGUgIT09ICJib29sZWFuIgogICAgfHwgcXVpYy5vayA9PT0gdHJ1ZSAmJiBxdWljLnJlYWNoYWJsZSAhPT0gdHJ1ZQogICAgfHwgc3VyZ2UgJiYgIVsibW9kZSIsICJub2RlIiwgInBvbGljeSIsICJwcm90b2NvbCJdLmV2ZXJ5KGZpZWxkID0+IHR5cGVvZiBzdXJnZVtmaWVsZF0gPT09ICJzdHJpbmciKSkgcmV0dXJuIG51bGwKCiAgY29uc3QgdXBzdHJlYW1JUCA9IGNhbm9uaWNhbEFkZHJlc3ModGV4dChleGl0LmlwKSksIGN1cnJlbnRJUCA9IGNvbnRleHRJUCA/IGNhbm9uaWNhbEFkZHJlc3MoY29udGV4dElQKSA6IG51bGwKICBjb25zdCBib3VuZCA9IGRhdGEubWFza2VkICE9PSB0cnVlICYmICEhdXBzdHJlYW1JUCAmJiAhIWN1cnJlbnRJUCAmJiB1cHN0cmVhbUlQID09PSBjdXJyZW50SVAKICBjb25zdCBsb2NhbElQID0gZGF0YS5tYXNrZWQgPT09IHRydWUgPyBudWxsIDogY2Fub25pY2FsQWRkcmVzcyh0ZXh0KGxvY2FsLmlwKSkKICBjb25zdCB1cHN0cmVhbU1vZGUgPSBtb2RlTGFiZWwoc3VyZ2U/Lm1vZGUpIHx8IGxhYmVsKHN1cmdlPy5tb2RlKQogIGNvbnN0IHVwc3RyZWFtRGlyZWN0ID0gdXBzdHJlYW1Nb2RlID09PSAi5YWo6YOo55u06L+eIgogIGxldCBub3RlID0gIuS4iua4uCBTdXJnZSB2MSDlv6vnhacgwrcg5pyq57uR5a6a5b2T5YmNIElQIgogIGlmIChib3VuZCkgbm90ZSA9ICLkuIrmuLggU3VyZ2UgdjEg5b+r54WnIMK3IOWHuuWPoyBJUCDlt7LljLnphY0iCiAgZWxzZSBpZiAoZGF0YS5tYXNrZWQgPT09IHRydWUpIG5vdGUgPSAi5LiK5ri4IFN1cmdlIHYxIOW/q+eFpyDCtyDlh7rlj6MgSVAg5bey5omT56CB77yM5pyq57uR5a6a5b2T5YmNIElQIgogIGVsc2UgaWYgKHVwc3RyZWFtSVAgJiYgY3VycmVudElQKSBub3RlID0gIuS4iua4uCBTdXJnZSB2MSDlv6vnhacgwrcg5Ye65Y+jIElQIOS4jeWMuemFje+8jOacque7keWumuW9k+WJjSBJUCIKICBlbHNlIGlmICghdXBzdHJlYW1JUCkgbm90ZSA9ICLkuIrmuLggU3VyZ2UgdjEg5b+r54WnIMK3IOaXoOacieaViOWHuuWPoyBJUO+8jOacque7keWumuW9k+WJjSBJUCIKCiAgcmV0dXJuIHsKICAgIHZlcnNpb246IDEsIG1lYXN1cmVkQXQ6IGRhdGEudHMsIGNvbnRleHRJUDogYm91bmQgPyBjdXJyZW50SVAgOiBudWxsLCBzb3VyY2U6ICJzdXJnZSIsCiAgICBsb2NhbDogeyAuLi5FTVBUWV9MT0NBTCwgaW50ZXJmYWNlczogW10sIGtpbmQ6IGxhYmVsKGxvY2FsLm5ldCkgfHwgIuacquefpSIsIGlwdjQ6IGxvY2FsSVAgJiYgIWxvY2FsSVAuaW5jbHVkZXMoIjoiKSA/IGxvY2FsSVAgOiAiIiwKICAgICAgaXB2NjogbG9jYWxJUD8uaW5jbHVkZXMoIjoiKSA/IGxvY2FsSVAgOiAiIiwgdHVubmVsOiB0eXBlb2YgbG9jYWwudnBuID09PSAiYm9vbGVhbiIgPyBsb2NhbC52cG4gOiBudWxsLAogICAgICBnYXRld2F5OiBsYWJlbChsb2NhbC5ndyksIGRuczogbGFiZWwobG9jYWwuZG5zKSB9LAogICAgbGF0ZW5jeTogeyBkb21lc3RpYzogcG9zaXRpdmVNcyhsYXQubG9jYWwpLCBvdmVyc2VhczogcG9zaXRpdmVNcyhsYXQucHJveHkpIH0sCiAgICBxdWljOiBxdWljLm9rID09PSB0cnVlID8gImgzIiA6IHF1aWMub2sgPT09IGZhbHNlICYmIHF1aWMucmVhY2hhYmxlID09PSB0cnVlID8gIm90aGVyIiA6ICJ1bmtub3duIiwKICAgIGh0dHBQcm90b2NvbDogcXVpYy5vayA9PT0gdHJ1ZSA/ICJIVFRQLzMiIDogIiIsIHNlcnZpY2VzOiBzbmFwc2hvdFNlcnZpY2VzKGRhdGEpLAogICAgc3VyZ2U6IHN1cmdlID8geyBtb2RlOiB1cHN0cmVhbU1vZGUsIG5vZGU6IHVwc3RyZWFtRGlyZWN0ID8gIuebtOi/niIgOiBsYWJlbChzdXJnZS5ub2RlKSwKICAgICAgcG9saWN5OiB1cHN0cmVhbURpcmVjdCA/ICIiIDogbGFiZWwoc3VyZ2UucG9saWN5KSwgcHJvdG9jb2w6IHVwc3RyZWFtRGlyZWN0ID8gIiIgOiBsYWJlbChzdXJnZS5wcm90b2NvbCksCiAgICAgIG5vdGU6ICLkuIrmuLjlv6vnhafvvIzpnZ7lrp7ml7YgQVBJIiB9IDogbnVsbCwKICAgIG5vdGUsIGR1cmF0aW9uTXM6IHBvc2l0aXZlTXMoZGF0YS5jb3N0KSA/PyAwLAogIH0KfQoKZXhwb3J0IGFzeW5jIGZ1bmN0aW9uIHJlYWRSZW1vdGVOZXR3b3JrKHNldHRpbmdzOiBOZXR3b3JrU2V0dGluZ3MsIGNvbnRleHRJUDogc3RyaW5nIHwgbnVsbCwgc2lnbmFsPzogQWJvcnRTaWduYWwpOiBQcm9taXNlPE5ldHdvcmtSZXBvcnQgfCBudWxsPiB7CiAgaWYgKCFpc05ldHdvcmtTbmFwc2hvdFVSTChzZXR0aW5ncy5zbmFwc2hvdFVSTCkpIHJldHVybiBudWxsCiAgY29uc3QgcmVzdWx0ID0gYXdhaXQgcmVxdWVzdEpzb24oc2V0dGluZ3Muc25hcHNob3RVUkwsIHVuZGVmaW5lZCwgc2lnbmFsKQogIHJldHVybiByZXN1bHQuZGF0YSA9PT0gbnVsbCA/IG51bGwgOiBwYXJzZVN1cmdlU25hcHNob3QocmVzdWx0LmRhdGEsIHNldHRpbmdzLCBjb250ZXh0SVApCn0KCmZ1bmN0aW9uIHN1cmdlQmFzZShzZXR0aW5nczogTmV0d29ya1NldHRpbmdzLCBrZXk6IHN0cmluZyk6IHN0cmluZyB8IG51bGwgewogIGlmICgha2V5IHx8ICFpc1N1cmdlSG9zdChzZXR0aW5ncy5zdXJnZUhvc3QpIHx8ICFOdW1iZXIuaXNJbnRlZ2VyKHNldHRpbmdzLnN1cmdlUG9ydCkKICAgIHx8IHNldHRpbmdzLnN1cmdlUG9ydCA8IDEgfHwgc2V0dGluZ3Muc3VyZ2VQb3J0ID4gNjU1MzUpIHJldHVybiBudWxsCiAgY29uc3QgaG9zdCA9IHNldHRpbmdzLnN1cmdlSG9zdC5yZXBsYWNlKC9eXFt8XF0kL2csICIiKQogIHJldHVybiBgaHR0cDovLyR7aG9zdC5pbmNsdWRlcygiOiIpID8gYFske2hvc3R9XWAgOiBob3N0fToke3NldHRpbmdzLnN1cmdlUG9ydH0vdjEvYAp9CgpmdW5jdGlvbiByZWNlbnRMaXN0KGRhdGE6IHVua25vd24pOiB1bmtub3duW10gfCBudWxsIHsKICBpZiAoQXJyYXkuaXNBcnJheShkYXRhKSkgcmV0dXJuIGRhdGEKICBjb25zdCB3cmFwcGVkID0gdmFsdWUoZGF0YSkKICByZXR1cm4gd3JhcHBlZCAmJiBBcnJheS5pc0FycmF5KHdyYXBwZWQucmVxdWVzdHMpID8gd3JhcHBlZC5yZXF1ZXN0cyA6IG51bGwKfQoKZnVuY3Rpb24gcmVxdWVzdElEKHJhdzogdW5rbm93bik6IG51bWJlciB8IG51bGwgewogIGNvbnN0IGlkID0gdHlwZW9mIHJhdyA9PT0gInN0cmluZyIgJiYgL15cZCskLy50ZXN0KHJhdykgPyBOdW1iZXIocmF3KSA6IHJhdwogIHJldHVybiB0eXBlb2YgaWQgPT09ICJudW1iZXIiICYmIE51bWJlci5pc1NhZmVJbnRlZ2VyKGlkKSAmJiBpZCA+PSAwID8gaWQgOiBudWxsCn0KCmZ1bmN0aW9uIHJlcXVlc3RIb3N0KGl0ZW06IFJlY29yZDxzdHJpbmcsIHVua25vd24+KTogc3RyaW5nIHsKICBjb25zdCByZW1vdGUgPSB0ZXh0KGl0ZW0ucmVtb3RlSG9zdCwgMzAwKS50b0xvd2VyQ2FzZSgpLnJlcGxhY2UoL1wuJC8sICIiKQogIC8vIHJlbW90ZUhvc3Qg5a2Y5Zyo5pe25LiN5LuOIFVSTCDlhZzlupXvvIzpmLLmraLkuKTogIXkuI3kuIDoh7Tlr7zoh7Tor6/ljLnphY3jgIIKICBpZiAocmVtb3RlKSB7CiAgICBjb25zdCBob3N0ID0gcmVtb3RlLnJlcGxhY2UoLzpcZCskLywgIiIpLnJlcGxhY2UoL1wuJC8sICIiKQogICAgcmV0dXJuIGlzU3VyZ2VIb3N0KGhvc3QpID8gaG9zdC5yZXBsYWNlKC9ed3d3XC4vLCAiIikgOiAiIgogIH0KICB0cnkgewogICAgY29uc3QgdXJsID0gbmV3IFVSTCh0ZXh0KGl0ZW0uVVJMLCAyMDAwKSkKICAgIHJldHVybiAvXmh0dHBzPzokLy50ZXN0KHVybC5wcm90b2NvbCkgPyB1cmwuaG9zdG5hbWUudG9Mb3dlckNhc2UoKS5yZXBsYWNlKC9cLiQvLCAiIikucmVwbGFjZSgvXnd3d1wuLywgIiIpIDogIiIKICB9IGNhdGNoIHsgcmV0dXJuICIiIH0KfQoKY29uc3Qgc2VydmljZUhvc3QgPSAodXJsOiBzdHJpbmcpOiBzdHJpbmcgPT4gbmV3IFVSTCh1cmwpLmhvc3RuYW1lLnJlcGxhY2UoL153d3dcLi8sICIiKQpjb25zdCBzZXJ2aWNlSG9zdHMgPSBTRVJWSUNFUy5tYXAoc2VydmljZSA9PiAoeyBpZDogc2VydmljZS5pZCwgaG9zdDogc2VydmljZUhvc3Qoc2VydmljZS51cmwpIH0pKQpjb25zdCB1c2FibGVQb2xpY3kgPSAoaXRlbTogUmVjb3JkPHN0cmluZywgdW5rbm93bj4pOiBzdHJpbmcgPT4gewogIGNvbnN0IHBvbGljeSA9IHR5cGVvZiBpdGVtLnBvbGljeU5hbWUgPT09ICJzdHJpbmciID8gaXRlbS5wb2xpY3lOYW1lLnRyaW0oKSA6ICIiCiAgY29uc3Qgbm90ZXMgPSBBcnJheS5pc0FycmF5KGl0ZW0ubm90ZXMpID8gaXRlbS5ub3Rlcy5maWx0ZXIobm90ZSA9PiB0eXBlb2Ygbm90ZSA9PT0gInN0cmluZyIpLmpvaW4oIiAiKSA6IHRleHQoaXRlbS5ub3RlcywgMjBfMDAwKQogIGlmICghcG9saWN5IHx8IHBvbGljeS5sZW5ndGggPiAyNTYgfHwgL1FVSUMtQkxPQ0svaS50ZXN0KGAke3BvbGljeX0gJHt0ZXh0KGl0ZW0ub3JpZ2luYWxQb2xpY3lOYW1lLCAyNTYpfSAke25vdGVzfWApKSByZXR1cm4gIiIKICByZXR1cm4gcG9saWN5Cn0KCi8qKiDljLnphY3ln7rnur/kuYvlkI7nmoTlkIzln5/or7fmsYLvvJvml6Xlv5fkuI3og73or4HmmI7or6Xor7fmsYLkuIDlrprmnaXoh6rmnKzohJrmnKzjgIIgKi8KZXhwb3J0IGZ1bmN0aW9uIHBvbGljaWVzQWZ0ZXJCYXNlbGluZShkYXRhOiB1bmtub3duLCBiYXNlbGluZTogbnVtYmVyIHwgbnVsbCk6IE1hcDxzdHJpbmcsIHN0cmluZz4gewogIGNvbnN0IHJlc3VsdCA9IG5ldyBNYXA8c3RyaW5nLCBzdHJpbmc+KCksIGxpc3QgPSByZWNlbnRMaXN0KGRhdGEpCiAgaWYgKGJhc2VsaW5lID09PSBudWxsIHx8ICFOdW1iZXIuaXNTYWZlSW50ZWdlcihiYXNlbGluZSkgfHwgYmFzZWxpbmUgPCAwIHx8ICFsaXN0KSByZXR1cm4gcmVzdWx0CiAgY29uc3QgbGF0ZXN0ID0gbmV3IE1hcDxzdHJpbmcsIG51bWJlcj4oKQogIGZvciAoY29uc3QgcmF3IG9mIGxpc3QpIHsKICAgIGNvbnN0IGl0ZW0gPSB2YWx1ZShyYXcpLCBpZCA9IHJlcXVlc3RJRChpdGVtPy5pZCkKICAgIGlmICghaXRlbSB8fCBpZCA9PT0gbnVsbCB8fCBpZCA8PSBiYXNlbGluZSkgY29udGludWUKICAgIGNvbnN0IHBvbGljeSA9IHVzYWJsZVBvbGljeShpdGVtKSwgaG9zdCA9IHJlcXVlc3RIb3N0KGl0ZW0pCiAgICBpZiAoIXBvbGljeSB8fCAhaG9zdCkgY29udGludWUKICAgIGZvciAoY29uc3Qgc2VydmljZSBvZiBzZXJ2aWNlSG9zdHMpIHsKICAgICAgaWYgKGhvc3QgIT09IHNlcnZpY2UuaG9zdCAmJiAhaG9zdC5lbmRzV2l0aChgLiR7c2VydmljZS5ob3N0fWApKSBjb250aW51ZQogICAgICBpZiAoaWQgPD0gKGxhdGVzdC5nZXQoc2VydmljZS5pZCkgPz8gYmFzZWxpbmUpKSBjb250aW51ZQogICAgICByZXN1bHQuc2V0KHNlcnZpY2UuaWQsIGxhYmVsKHBvbGljeSkpCiAgICAgIGxhdGVzdC5zZXQoc2VydmljZS5pZCwgaWQpCiAgICB9CiAgfQogIHJldHVybiByZXN1bHQKfQoKZnVuY3Rpb24gYWN0aXZlTm9kZShkYXRhOiB1bmtub3duKTogeyBub2RlOiBzdHJpbmc7IGNvdW50OiBudW1iZXI7IHBvbGljeTogc3RyaW5nIH0gfCBudWxsIHsKICBjb25zdCBsaXN0ID0gcmVjZW50TGlzdChkYXRhKQogIGlmICghbGlzdCkgcmV0dXJuIG51bGwKICBjb25zdCBjb3VudHMgPSBuZXcgTWFwPHN0cmluZywgeyBjb3VudDogbnVtYmVyOyBsYXN0OiBudW1iZXI7IHBvbGljeTogc3RyaW5nIH0+KCkKICBjb25zdCByZWNlbnQgPSBbLi4ubGlzdF0uc29ydCgoYSwgYikgPT4gKHJlcXVlc3RJRCh2YWx1ZShiKT8uaWQpID8/IC0xKSAtIChyZXF1ZXN0SUQodmFsdWUoYSk/LmlkKSA/PyAtMSkpLnNsaWNlKDAsIDY0KQogIGZvciAoY29uc3QgcmF3IG9mIHJlY2VudCkgewogICAgY29uc3QgaXRlbSA9IHZhbHVlKHJhdyksIGlkID0gcmVxdWVzdElEKGl0ZW0/LmlkKQogICAgaWYgKCFpdGVtIHx8IGlkID09PSBudWxsKSBjb250aW51ZQogICAgY29uc3QgbmFtZSA9IHVzYWJsZVBvbGljeShpdGVtKQogICAgaWYgKCFuYW1lIHx8IC9eKERJUkVDVHxSRUpFQ1QoPzotW1x3LV0rKT98T1VUQk9VTkQpJC9pLnRlc3QobmFtZSkpIGNvbnRpbnVlCiAgICBjb25zdCBjdXJyZW50ID0gY291bnRzLmdldChuYW1lKSB8fCB7IGNvdW50OiAwLCBsYXN0OiAwLCBwb2xpY3k6ICIiIH0KICAgIGNvbnN0IGdyb3VwID0gdGV4dChpdGVtLm9yaWdpbmFsUG9saWN5TmFtZSwgMjU2KQogICAgY291bnRzLnNldChuYW1lLCB7IGNvdW50OiBjdXJyZW50LmNvdW50ICsgMSwgbGFzdDogTWF0aC5tYXgoaWQsIGN1cnJlbnQubGFzdCksCiAgICAgIHBvbGljeTogaWQgPj0gY3VycmVudC5sYXN0ICYmIGdyb3VwICYmIGdyb3VwICE9PSBuYW1lID8gbGFiZWwoZ3JvdXApIDogY3VycmVudC5wb2xpY3kgfSkKICB9CiAgY29uc3Qgd2lubmVyID0gWy4uLmNvdW50cy5lbnRyaWVzKCldLnNvcnQoKGEsIGIpID0+IGJbMV0uY291bnQgLSBhWzFdLmNvdW50IHx8IGJbMV0ubGFzdCAtIGFbMV0ubGFzdClbMF0KICByZXR1cm4gd2lubmVyID8geyBub2RlOiB3aW5uZXJbMF0sIGNvdW50OiB3aW5uZXJbMV0uY291bnQsIHBvbGljeTogd2lubmVyWzFdLnBvbGljeSB9IDogbnVsbAp9CgpmdW5jdGlvbiBvYnNlcnZlZFByb3RvY29sKGRhdGE6IHVua25vd24sIG5vZGU6IHN0cmluZyk6IHN0cmluZyB7CiAgY29uc3QgZ3JvdXBzID0gdmFsdWUoZGF0YSkKICBpZiAoIWdyb3VwcyB8fCAhbm9kZSkgcmV0dXJuICIiCiAgY29uc3QgcHJvdG9jb2xzID0gbmV3IFNldDxzdHJpbmc+KCkKICBmb3IgKGNvbnN0IHJhdyBvZiBPYmplY3QudmFsdWVzKGdyb3VwcykpIHsKICAgIC8vIOaVsOe7hOWPquaPkOS+m+aIkOWRmOexu+Wei++8m+aIkOWRmOS9jee9ruWSjOaJgOWxnue7hOWdh+S4jeivgeaYjuW3sumAieS4reaIlue7j+i/h+ivpee7hOOAggogICAgY29uc3QgZW50cmllcyA9IEFycmF5LmlzQXJyYXkocmF3KSA/IHJhdyA6IFtyYXddCiAgICBmb3IgKGNvbnN0IGVudHJ5IG9mIGVudHJpZXMpIHsKICAgICAgY29uc3QgbWVtYmVyID0gdmFsdWUoZW50cnkpCiAgICAgIGlmICghbWVtYmVyIHx8IHRleHQobWVtYmVyLm5hbWUsIDI1NykgIT09IG5vZGUpIGNvbnRpbnVlCiAgICAgIGNvbnN0IHR5cGUgPSB0ZXh0KG1lbWJlci50eXBlRGVzY3JpcHRpb24pIHx8IHRleHQobWVtYmVyLnR5cGUpIHx8IHRleHQobWVtYmVyLnByb3RvY29sKQogICAgICBpZiAodHlwZSAmJiAhL2dyb3VwfHNlbGVjdHx1cmwtdGVzdHxmYWxsYmFja3xsb2FkLmJhbGFuY2V8c21hcnR8c3VibmV0L2kudGVzdCh0eXBlKSkgcHJvdG9jb2xzLmFkZChsYWJlbCh0eXBlKSkKICAgIH0KICB9CiAgLy8g5ZCM5ZCN6IqC54K557G75Z6L5Yay56qB5pe25LiN6YCJ5oup5YW25Lit5LiA5Liq5Y2P6K6u44CCCiAgcmV0dXJuIHByb3RvY29scy5zaXplID09PSAxID8gWy4uLnByb3RvY29sc11bMF0gOiAiIgp9Cgpjb25zdCBtb2RlTGFiZWwgPSAocmF3OiB1bmtub3duKTogc3RyaW5nID0+IHsKICBzd2l0Y2ggKHRleHQocmF3LCAzMCkudG9Mb3dlckNhc2UoKSkgewogICAgY2FzZSAicnVsZSI6IHJldHVybiAi6KeE5YiZ5YiG5rWBIgogICAgY2FzZSAicHJveHkiOiBjYXNlICJnbG9iYWwiOiByZXR1cm4gIuWFqOWxgOS7o+eQhiIKICAgIGNhc2UgImRpcmVjdCI6IHJldHVybiAi5YWo6YOo55u06L+eIgogICAgZGVmYXVsdDogcmV0dXJuICIiCiAgfQp9CgpmdW5jdGlvbiBhcGlOb3RlKHJlcG9ydDogTmV0d29ya1JlcG9ydCwgaXNzdWVzOiBzdHJpbmdbXSk6IHN0cmluZyB7CiAgcmV0dXJuIFtsYWJlbChyZXBvcnQubm90ZSwgNDAwKSwgLi4uaXNzdWVzXS5maWx0ZXIoQm9vbGVhbikuam9pbigiIMK3ICIpLnNsaWNlKDAsIDYwMCkKfQoKLyoqIOepuuWIl+ihqOS7o+ihqOWfuue6vyAw77yb5Lu75LiAIGlkIOeVuOW9ouaXtuaXoOazleivgeaYjuW3suimhuebluaJgOacieaXp+ivt+axgu+8jOi/lOWbniBudWxs44CCICovCmV4cG9ydCBmdW5jdGlvbiBzdXJnZUJhc2VsaW5lRnJvbVJlcXVlc3RzKGRhdGE6IHVua25vd24pOiBudW1iZXIgfCBudWxsIHsKICBjb25zdCBsaXN0ID0gcmVjZW50TGlzdChkYXRhKQogIGlmICghbGlzdCkgcmV0dXJuIG51bGwKICBsZXQgbWF4ID0gMAogIGZvciAoY29uc3QgcmF3IG9mIGxpc3QpIHsKICAgIGNvbnN0IGlkID0gcmVxdWVzdElEKHZhbHVlKHJhdyk/LmlkKQogICAgaWYgKGlkID09PSBudWxsKSByZXR1cm4gbnVsbAogICAgbWF4ID0gTWF0aC5tYXgobWF4LCBpZCkKICB9CiAgcmV0dXJuIG1heAp9CgovKiog5peg5a+G6ZKl5LiN6K+35rGCIEFQSe+8m+Wfuue6v+iOt+WPluWksei0pei/lOWbniBudWxs77yM5pys6L2u5pyN5Yqh562W55Wl6ZqP5LmL5L+d5oyB5pyq55+l44CCICovCmV4cG9ydCBhc3luYyBmdW5jdGlvbiByZWFkU3VyZ2VCYXNlbGluZShzZXR0aW5nczogTmV0d29ya1NldHRpbmdzLCBzaWduYWw/OiBBYm9ydFNpZ25hbCk6IFByb21pc2U8bnVtYmVyIHwgbnVsbD4gewogIGNvbnN0IGtleSA9IGdldFN1cmdlS2V5KCksIGJhc2UgPSBzdXJnZUJhc2Uoc2V0dGluZ3MsIGtleSkKICBpZiAoIWJhc2UpIHJldHVybiBudWxsCiAgY29uc3QgcmVzcG9uc2UgPSBhd2FpdCByZXF1ZXN0SnNvbihgJHtiYXNlfXJlcXVlc3RzL3JlY2VudGAsIGtleSwgc2lnbmFsKQogIHJldHVybiBzdXJnZUJhc2VsaW5lRnJvbVJlcXVlc3RzKHJlc3BvbnNlLmRhdGEpCn0KCmV4cG9ydCBhc3luYyBmdW5jdGlvbiBlbnJpY2hXaXRoU3VyZ2UocmVwb3J0OiBOZXR3b3JrUmVwb3J0LCBzZXR0aW5nczogTmV0d29ya1NldHRpbmdzLAogIGJhc2VsaW5lOiBudW1iZXIgfCBudWxsLCBzaWduYWw/OiBBYm9ydFNpZ25hbCk6IFByb21pc2U8TmV0d29ya1JlcG9ydD4gewogIGNvbnN0IGtleSA9IGdldFN1cmdlS2V5KCksIGJhc2UgPSBzdXJnZUJhc2Uoc2V0dGluZ3MsIGtleSkKICBpZiAoIWtleSkgcmV0dXJuIHJlcG9ydAogIGlmICghYmFzZSkgcmV0dXJuIHsgLi4ucmVwb3J0LCBub3RlOiBhcGlOb3RlKHJlcG9ydCwgWyJTdXJnZSBBUEkg5Zyw5Z2A5peg5pWIIl0pIH0KICBjb25zdCBbb3V0Ym91bmQsIGdyb3VwcywgcmVjZW50XSA9IGF3YWl0IFByb21pc2UuYWxsKFsKICAgIHJlcXVlc3RKc29uKGAke2Jhc2V9b3V0Ym91bmRgLCBrZXksIHNpZ25hbCksIHJlcXVlc3RKc29uKGAke2Jhc2V9cG9saWN5X2dyb3Vwc2AsIGtleSwgc2lnbmFsKSwKICAgIHJlcXVlc3RKc29uKGAke2Jhc2V9cmVxdWVzdHMvcmVjZW50YCwga2V5LCBzaWduYWwpLAogIF0pCiAgY29uc3QgcmVzdWx0ID0gYXBwbHlTdXJnZU9ic2VydmF0aW9uKHJlcG9ydCwgb3V0Ym91bmQuZGF0YSwgZ3JvdXBzLmRhdGEsIHJlY2VudC5kYXRhLCBiYXNlbGluZSkKICByZXR1cm4gW291dGJvdW5kLCBncm91cHMsIHJlY2VudF0uc29tZShyZXNwb25zZSA9PiByZXNwb25zZS5zdGF0dXMgPT09IDQwMSB8fCByZXNwb25zZS5zdGF0dXMgPT09IDQwMykKICAgID8geyAuLi5yZXN1bHQsIG5vdGU6IGFwaU5vdGUocmVzdWx0LCBbIlN1cmdlIEFQSSDmnKrmjojmnYMiXSkgfSA6IHJlc3VsdAp9CgovKiog57qv5Ye95pWw77ya5LiN6K+75Y+W5a2Y5YKo5oiW5a+G6ZKl77yM5LiN5Y+R6K+35rGC77yb5L6/5LqO6aqM6K+B5qih5byP5YiH5o2i5LiO5pyN5Yqh5pel5b+X5b2S5bGe44CCICovCmV4cG9ydCBmdW5jdGlvbiBhcHBseVN1cmdlT2JzZXJ2YXRpb24ocmVwb3J0OiBOZXR3b3JrUmVwb3J0LCBvdXRib3VuZDogdW5rbm93biwgZ3JvdXBzOiB1bmtub3duLAogIHJlY2VudDogdW5rbm93biwgYmFzZWxpbmU6IG51bWJlciB8IG51bGwpOiBOZXR3b3JrUmVwb3J0IHsKICBjb25zdCBpc3N1ZXM6IHN0cmluZ1tdID0gW10KICBjb25zdCBtb2RlID0gbW9kZUxhYmVsKHZhbHVlKG91dGJvdW5kKT8ubW9kZSkKICBpZiAoIW1vZGUpIGlzc3Vlcy5wdXNoKCJTdXJnZSDlh7rnq5nmqKHlvI/mnKrlj5blvpciKQogIGlmICghcmVjZW50TGlzdChyZWNlbnQpKSBpc3N1ZXMucHVzaCgiU3VyZ2Ug6L+R5pyf6K+35rGC5pyq5Y+W5b6XIikKICBjb25zdCBkaXJlY3QgPSBtb2RlID09PSAi5YWo6YOo55u06L+eIiwgYWN0aXZlID0gZGlyZWN0ID8gbnVsbCA6IGFjdGl2ZU5vZGUocmVjZW50KQogIGNvbnN0IHByb3RvY29sID0gYWN0aXZlID8gb2JzZXJ2ZWRQcm90b2NvbChncm91cHMsIGFjdGl2ZS5ub2RlKSA6ICIiCiAgaWYgKCFkaXJlY3QgJiYgIXZhbHVlKGdyb3VwcykpIGlzc3Vlcy5wdXNoKCJTdXJnZSDnrZbnlaXnu4Tkv6Hmga/mnKrlj5blvpciKQogIGlmIChhY3RpdmUgJiYgIXByb3RvY29sKSBpc3N1ZXMucHVzaCgiU3VyZ2Ug6IqC54K55Y2P6K6u5pyq55+lIikKICBpZiAocmVwb3J0LnNvdXJjZSA9PT0gInN1cmdlIikgaXNzdWVzLnB1c2goIuS4iua4uOW/q+eFp+aOoua1i+aXtumXtOeLrOeri++8jOacque7keWumuacrOi9ruacjeWKoeaXpeW/lyIpCiAgY29uc3QgdmFsaWRCYXNlbGluZSA9IGJhc2VsaW5lICE9PSBudWxsICYmIE51bWJlci5pc1NhZmVJbnRlZ2VyKGJhc2VsaW5lKSAmJiBiYXNlbGluZSA+PSAwCiAgaWYgKCF2YWxpZEJhc2VsaW5lKSBpc3N1ZXMucHVzaCgi57y65bCR5o6i5rWL5YmN5pel5b+X5Z+657q/77yM5pyq57uR5a6a5pyN5Yqh562W55WlIikKICBjb25zdCBtYXggPSBzdXJnZUJhc2VsaW5lRnJvbVJlcXVlc3RzKHJlY2VudCkKICBjb25zdCByZXNldCA9IHZhbGlkQmFzZWxpbmUgJiYgbWF4ICE9PSBudWxsICYmIG1heCA8IGJhc2VsaW5lCiAgaWYgKHJlc2V0KSBpc3N1ZXMucHVzaCgi6L+R5pyf6K+35rGC57yW5Y+35bey5Zue6YCA77yM5pyq57uR5a6a5pyN5Yqh562W55WlIikKICBjb25zdCBzdW1tYXJ5OiBTdXJnZVN1bW1hcnkgPSB7CiAgICBtb2RlLCBub2RlOiBkaXJlY3QgPyAi55u06L+eIiA6IGxhYmVsKGFjdGl2ZT8ubm9kZSksCiAgICBwb2xpY3k6IGRpcmVjdCA/ICIiIDogYWN0aXZlPy5wb2xpY3kgfHwgIiIsIHByb3RvY29sOiBkaXJlY3QgPyAiIiA6IHByb3RvY29sLAogICAgbm90ZTogZGlyZWN0ID8gIlN1cmdlIOWHuuermeaooeW8j+aYvuekuuebtOi/niIgOiBhY3RpdmUKICAgICAgPyBg6L+R5pyf6K+35rGC5pel5b+X5rS76LeD6IqC54K577yIJHthY3RpdmUuY291bnR9IOadoe+8ie+8jOS4jeS7o+ihqOW9k+WJjemAieS4reiKgueCueaIluaJgOacieacjeWKoeWHuuWPo2AKICAgICAgOiAi5pyq6KeC5rWL5Yiw5rS76LeD6IqC54K577yb5LiN5Lya5qC55o2u562W55Wl57uE5oiQ5ZGY6aG65bqP5o6o5patIiwKICB9CiAgLy8g5LiK5ri45b+r54Wn5a+55bqU5Y+m5LiA5pe25Yi777yM5LiN6IO95oqK5pys5py66L+Z5LiA6L2u5pel5b+X57uR5a6a57uZ5LiK5ri45pen5o6i5rWL44CCCiAgY29uc3QgcG9saWNpZXMgPSByZXBvcnQuc291cmNlID09PSAiZGV2aWNlIiAmJiAhcmVzZXQgPyBwb2xpY2llc0FmdGVyQmFzZWxpbmUocmVjZW50LCBiYXNlbGluZSkgOiBuZXcgTWFwPHN0cmluZywgc3RyaW5nPigpCiAgY29uc3Qgc2VydmljZXMgPSByZXBvcnQuc2VydmljZXMubWFwKHJvdyA9PiB7CiAgICBjb25zdCBwb2xpY3kgPSBwb2xpY2llcy5nZXQocm93LmlkKQogICAgcmV0dXJuIHJlcG9ydC5zb3VyY2UgPT09ICJzdXJnZSIgPyByb3cgOiB7IC4uLnJvdywgcG9saWN5OiBwb2xpY3kgPyBg5ZCM5pyf5ZCM5Z+f5pel5b+XIMK3ICR7cG9saWN5fWAgOiAiIiB9CiAgfSkKICByZXR1cm4geyAuLi5yZXBvcnQsIHN1cmdlOiBzdW1tYXJ5LCBzZXJ2aWNlcywgbm90ZTogYXBpTm90ZShyZXBvcnQsIGlzc3VlcykgfQp9Cg==
+import { AbortSignal, fetch } from "scripting"
+import type { Response } from "scripting"
+import { canonicalAddress } from "./ip"
+import { EMPTY_LOCAL, SERVICES, normalizeServiceRegionCode, pendingServices } from "./network_model"
+import type { NetworkReport, ServiceResult, SurgeSummary } from "./network_model"
+import { getSurgeKey, isNetworkSnapshotURL, isSurgeHost, normalizeNetworkSettings } from "./network_settings"
+import type { NetworkSettings } from "./network_settings"
+
+const value = (raw: unknown): Record<string, unknown> | null => raw !== null && typeof raw === "object"
+  && !Array.isArray(raw) ? raw as Record<string, unknown> : null
+const text = (raw: unknown, limit = 120): string => typeof raw === "string" ? raw.trim().slice(0, limit) : ""
+const positiveMs = (raw: unknown): number | null => typeof raw === "number" && Number.isFinite(raw)
+  && raw > 0 && raw <= 300_000 ? raw : null
+// 显示字段不承载 URL 或鉴权片段，错误路径也不输出原始异常。
+const label = (raw: unknown, limit = 120): string => typeof raw === "string" ? raw
+  .replace(/[a-z][a-z\d+.-]*:\/\/[^\s]+/gi, "[地址已隐藏]")
+  .replace(/\b(?:x-key|authorization|token|password)\s*[:=]\s*\S+/gi, "[凭据已隐藏]")
+  .replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, limit) : ""
+const fieldsAre = (data: Record<string, unknown>, names: string[], type: string): boolean =>
+  names.every(name => data[name] === undefined || data[name] === null || typeof data[name] === type)
+const validMs = (raw: unknown): boolean => raw === undefined || raw === null
+  || typeof raw === "number" && Number.isFinite(raw) && raw >= 0 && raw <= 300_000
+
+function validServices(raw: unknown): raw is Record<string, unknown>[] {
+  if (!Array.isArray(raw) || raw.length > 64) return false
+  const ids = new Set<string>()
+  return raw.every(item => {
+    const row = value(item)
+    if (!row || typeof row.id !== "string" || !row.id || row.id.length > 80
+      || typeof row.ok !== "boolean" || !fieldsAre(row, ["policy"], "string") || ids.has(row.id)) return false
+    ids.add(row.id)
+    return true
+  })
+}
+
+/** 流式解析快照/API 响应；超过上限时停止读取并拒绝。 */
+export async function readSurgeJSON(response: Response, key?: string): Promise<{ data: unknown; status: number }> {
+  const status = response.status
+  try {
+    const reader = response.body.getReader()
+    try {
+      if (!response.ok) return { data: null, status }
+      const decoder = new TextDecoder()
+      let body = "", bytes = 0
+      while (true) {
+        const chunk = await reader.read()
+        if (chunk.done) break
+        if (!chunk.value) throw new Error("响应流不完整")
+        bytes += chunk.value.length
+        if (bytes > 1_048_576) return { data: null, status }
+        body += decoder.decode(chunk.value, { stream: true })
+      }
+      body += decoder.decode()
+      const data: unknown = JSON.parse(body, (_name, entry: unknown) => typeof entry === "string" && key
+        ? entry.split(key).join("[凭据已隐藏]").split(encodeURIComponent(key)).join("[凭据已隐藏]") : entry)
+      return { data, status }
+    } finally { await reader.cancel().catch(() => {}) }
+  } catch { return { data: null, status } }
+}
+
+async function requestJson(url: string, key?: string, signal?: AbortSignal): Promise<{ data: unknown; status: number }> {
+  if (signal?.aborted) return { data: null, status: 0 }
+  try {
+    const timeout = AbortSignal.timeout(3000)
+    const response = await fetch(url, { timeout: 3, signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+      headers: key ? { "X-Key": key } : undefined, handleRedirect: async () => null })
+    return await readSurgeJSON(response, key)
+  } catch { return { data: null, status: 0 } }
+}
+
+function snapshotServices(data: Record<string, unknown>): ServiceResult[] {
+  const media = data.media as unknown[], ai = data.ai as unknown[]
+  return pendingServices().map(base => {
+    const raw = (base.group === "media" ? media : ai).find(item => value(item)?.id === base.id)
+    const item = value(raw)
+    if (!item || typeof item.ok !== "boolean") return base
+    const policy = /QUIC-BLOCK/i.test(text(item.policy, 500)) ? "" : label(item.policy, 80)
+    const regionCode = normalizeServiceRegionCode(item.cc) || normalizeServiceRegionCode(item.regionCode)
+    return { ...base, detail: item.ok ? "上游报告可达 · 未提供 HTTP 状态" : "上游未报告可达 · 未提供 HTTP 状态",
+      regionCode, regionSource: regionCode ? "snapshot" : "", policy: policy ? `上游快照 · ${policy}` : "" }
+  })
+}
+
+/** 只接收 Surge v1 诊断快照，不读取其评分、归属或地理字段。 */
+export function parseSurgeSnapshot(raw: unknown, settings: NetworkSettings, contextIP: string | null,
+  now = Date.now()): NetworkReport | null {
+  const data = value(raw)
+  if (!data || data.v !== 1 || data.src !== "surge" || typeof data.ts !== "number"
+    || !Number.isFinite(now) || !Number.isSafeInteger(data.ts) || data.ts <= 0 || data.ts > now
+    || now - data.ts >= normalizeNetworkSettings(settings).refreshMinutes * 60_000
+    || data.exit != null && !value(data.exit)
+    || !value(data.local) || !value(data.lat) || !value(data.quic)
+    || !validServices(data.media) || !validServices(data.ai)
+    || !fieldsAre(data, ["masked"], "boolean") || !validMs(data.cost)
+    || data.surge != null && !value(data.surge)) return null
+
+  const exit = value(data.exit) || {}, local = data.local as Record<string, unknown>
+  const lat = data.lat as Record<string, unknown>, quic = data.quic as Record<string, unknown>
+  const surge = value(data.surge)
+  if (!fieldsAre(exit, ["ip"], "string")
+    || !["net", "ip", "gw", "dns"].every(field => typeof local[field] === "string")
+    || typeof local.vpn !== "boolean" || !fieldsAre(local, ["v6"], "boolean")
+    || typeof lat.local !== "number" || typeof lat.proxy !== "number"
+    || !validMs(lat.local) || !validMs(lat.proxy)
+    || typeof quic.ok !== "boolean" || typeof quic.reachable !== "boolean"
+    || quic.ok === true && quic.reachable !== true
+    || surge && !["mode", "node", "policy", "protocol"].every(field => typeof surge[field] === "string")) return null
+
+  const upstreamIP = canonicalAddress(text(exit.ip)), currentIP = contextIP ? canonicalAddress(contextIP) : null
+  const bound = data.masked !== true && !!upstreamIP && !!currentIP && upstreamIP === currentIP
+  const localIP = data.masked === true ? null : canonicalAddress(text(local.ip))
+  const upstreamMode = modeLabel(surge?.mode) || label(surge?.mode)
+  const upstreamDirect = upstreamMode === "全部直连"
+  let note = "上游 Surge v1 快照 · 未绑定当前 IP"
+  if (bound) note = "上游 Surge v1 快照 · 出口 IP 已匹配"
+  else if (data.masked === true) note = "上游 Surge v1 快照 · 出口 IP 已打码，未绑定当前 IP"
+  else if (upstreamIP && currentIP) note = "上游 Surge v1 快照 · 出口 IP 不匹配，未绑定当前 IP"
+  else if (!upstreamIP) note = "上游 Surge v1 快照 · 无有效出口 IP，未绑定当前 IP"
+
+  return {
+    version: 1, measuredAt: data.ts, contextIP: bound ? currentIP : null, source: "surge",
+    local: { ...EMPTY_LOCAL, interfaces: [], kind: label(local.net) || "未知", ipv4: localIP && !localIP.includes(":") ? localIP : "",
+      ipv6: localIP?.includes(":") ? localIP : "", tunnel: typeof local.vpn === "boolean" ? local.vpn : null,
+      gateway: label(local.gw), dns: label(local.dns) },
+    latency: { domestic: positiveMs(lat.local), overseas: positiveMs(lat.proxy) },
+    quic: quic.ok === true ? "h3" : quic.ok === false && quic.reachable === true ? "other" : "unknown",
+    httpProtocol: quic.ok === true ? "HTTP/3" : "", services: snapshotServices(data),
+    surge: surge ? { mode: upstreamMode, node: upstreamDirect ? "直连" : label(surge.node),
+      policy: upstreamDirect ? "" : label(surge.policy), protocol: upstreamDirect ? "" : label(surge.protocol),
+      note: "上游快照，非实时 API" } : null,
+    note, durationMs: positiveMs(data.cost) ?? 0,
+  }
+}
+
+export async function readRemoteNetwork(settings: NetworkSettings, contextIP: string | null, signal?: AbortSignal): Promise<NetworkReport | null> {
+  if (!isNetworkSnapshotURL(settings.snapshotURL)) return null
+  const result = await requestJson(settings.snapshotURL, undefined, signal)
+  return result.data === null ? null : parseSurgeSnapshot(result.data, settings, contextIP)
+}
+
+function surgeBase(settings: NetworkSettings, key: string): string | null {
+  if (!key || !isSurgeHost(settings.surgeHost) || !Number.isInteger(settings.surgePort)
+    || settings.surgePort < 1 || settings.surgePort > 65535) return null
+  const host = settings.surgeHost.replace(/^\[|\]$/g, "")
+  return `http://${host.includes(":") ? `[${host}]` : host}:${settings.surgePort}/v1/`
+}
+
+function recentList(data: unknown): unknown[] | null {
+  if (Array.isArray(data)) return data
+  const wrapped = value(data)
+  return wrapped && Array.isArray(wrapped.requests) ? wrapped.requests : null
+}
+
+function requestID(raw: unknown): number | null {
+  const id = typeof raw === "string" && /^\d+$/.test(raw) ? Number(raw) : raw
+  return typeof id === "number" && Number.isSafeInteger(id) && id >= 0 ? id : null
+}
+
+function requestHost(item: Record<string, unknown>): string {
+  const remote = text(item.remoteHost, 300).toLowerCase().replace(/\.$/, "")
+  // remoteHost 存在时不从 URL 兜底，防止两者不一致导致误匹配。
+  if (remote) {
+    const host = remote.replace(/:\d+$/, "").replace(/\.$/, "")
+    return isSurgeHost(host) ? host.replace(/^www\./, "") : ""
+  }
+  try {
+    const url = new URL(text(item.URL, 2000))
+    return /^https?:$/.test(url.protocol) ? url.hostname.toLowerCase().replace(/\.$/, "").replace(/^www\./, "") : ""
+  } catch { return "" }
+}
+
+const serviceHost = (url: string): string => new URL(url).hostname.replace(/^www\./, "")
+const serviceHosts = SERVICES.map(service => ({ id: service.id, host: serviceHost(service.url) }))
+const usablePolicy = (item: Record<string, unknown>): string => {
+  const policy = typeof item.policyName === "string" ? item.policyName.trim() : ""
+  const notes = Array.isArray(item.notes) ? item.notes.filter(note => typeof note === "string").join(" ") : text(item.notes, 20_000)
+  if (!policy || policy.length > 256 || /QUIC-BLOCK/i.test(`${policy} ${text(item.originalPolicyName, 256)} ${notes}`)) return ""
+  return policy
+}
+
+/** 匹配基线之后的同域请求；日志不能证明该请求一定来自本脚本。 */
+export function policiesAfterBaseline(data: unknown, baseline: number | null): Map<string, string> {
+  const result = new Map<string, string>(), list = recentList(data)
+  if (baseline === null || !Number.isSafeInteger(baseline) || baseline < 0 || !list) return result
+  const latest = new Map<string, number>()
+  for (const raw of list) {
+    const item = value(raw), id = requestID(item?.id)
+    if (!item || id === null || id <= baseline) continue
+    const policy = usablePolicy(item), host = requestHost(item)
+    if (!policy || !host) continue
+    for (const service of serviceHosts) {
+      if (host !== service.host && !host.endsWith(`.${service.host}`)) continue
+      if (id <= (latest.get(service.id) ?? baseline)) continue
+      result.set(service.id, label(policy))
+      latest.set(service.id, id)
+    }
+  }
+  return result
+}
+
+function activeNode(data: unknown): { node: string; count: number; policy: string } | null {
+  const list = recentList(data)
+  if (!list) return null
+  const counts = new Map<string, { count: number; last: number; policy: string }>()
+  const recent = [...list].sort((a, b) => (requestID(value(b)?.id) ?? -1) - (requestID(value(a)?.id) ?? -1)).slice(0, 64)
+  for (const raw of recent) {
+    const item = value(raw), id = requestID(item?.id)
+    if (!item || id === null) continue
+    const name = usablePolicy(item)
+    if (!name || /^(DIRECT|REJECT(?:-[\w-]+)?|OUTBOUND)$/i.test(name)) continue
+    const current = counts.get(name) || { count: 0, last: 0, policy: "" }
+    const group = text(item.originalPolicyName, 256)
+    counts.set(name, { count: current.count + 1, last: Math.max(id, current.last),
+      policy: id >= current.last && group && group !== name ? label(group) : current.policy })
+  }
+  const winner = [...counts.entries()].sort((a, b) => b[1].count - a[1].count || b[1].last - a[1].last)[0]
+  return winner ? { node: winner[0], count: winner[1].count, policy: winner[1].policy } : null
+}
+
+function observedProtocol(data: unknown, node: string): string {
+  const groups = value(data)
+  if (!groups || !node) return ""
+  const protocols = new Set<string>()
+  for (const raw of Object.values(groups)) {
+    // 数组只提供成员类型；成员位置和所属组均不证明已选中或经过该组。
+    const entries = Array.isArray(raw) ? raw : [raw]
+    for (const entry of entries) {
+      const member = value(entry)
+      if (!member || text(member.name, 257) !== node) continue
+      const type = text(member.typeDescription) || text(member.type) || text(member.protocol)
+      if (type && !/group|select|url-test|fallback|load.balance|smart|subnet/i.test(type)) protocols.add(label(type))
+    }
+  }
+  // 同名节点类型冲突时不选择其中一个协议。
+  return protocols.size === 1 ? [...protocols][0] : ""
+}
+
+const modeLabel = (raw: unknown): string => {
+  switch (text(raw, 30).toLowerCase()) {
+    case "rule": return "规则分流"
+    case "proxy": case "global": return "全局代理"
+    case "direct": return "全部直连"
+    default: return ""
+  }
+}
+
+function apiNote(report: NetworkReport, issues: string[]): string {
+  return [label(report.note, 400), ...issues].filter(Boolean).join(" · ").slice(0, 600)
+}
+
+/** 空列表代表基线 0；任一 id 畸形时无法证明已覆盖所有旧请求，返回 null。 */
+export function surgeBaselineFromRequests(data: unknown): number | null {
+  const list = recentList(data)
+  if (!list) return null
+  let max = 0
+  for (const raw of list) {
+    const id = requestID(value(raw)?.id)
+    if (id === null) return null
+    max = Math.max(max, id)
+  }
+  return max
+}
+
+/** 无密钥不请求 API；基线获取失败返回 null，本轮服务策略随之保持未知。 */
+export async function readSurgeBaseline(settings: NetworkSettings, signal?: AbortSignal): Promise<number | null> {
+  const key = getSurgeKey(), base = surgeBase(settings, key)
+  if (!base) return null
+  const response = await requestJson(`${base}requests/recent`, key, signal)
+  return surgeBaselineFromRequests(response.data)
+}
+
+export async function enrichWithSurge(report: NetworkReport, settings: NetworkSettings,
+  baseline: number | null, signal?: AbortSignal): Promise<NetworkReport> {
+  const key = getSurgeKey(), base = surgeBase(settings, key)
+  if (!key) return report
+  if (!base) return { ...report, note: apiNote(report, ["Surge API 地址无效"]) }
+  const [outbound, groups, recent] = await Promise.all([
+    requestJson(`${base}outbound`, key, signal), requestJson(`${base}policy_groups`, key, signal),
+    requestJson(`${base}requests/recent`, key, signal),
+  ])
+  const result = applySurgeObservation(report, outbound.data, groups.data, recent.data, baseline)
+  return [outbound, groups, recent].some(response => response.status === 401 || response.status === 403)
+    ? { ...result, note: apiNote(result, ["Surge API 未授权"]) } : result
+}
+
+/** 纯函数：不读取存储或密钥，不发请求；便于验证模式切换与服务日志归属。 */
+export function applySurgeObservation(report: NetworkReport, outbound: unknown, groups: unknown,
+  recent: unknown, baseline: number | null): NetworkReport {
+  const issues: string[] = []
+  const mode = modeLabel(value(outbound)?.mode)
+  if (!mode) issues.push("Surge 出站模式未取得")
+  if (!recentList(recent)) issues.push("Surge 近期请求未取得")
+  const direct = mode === "全部直连", active = direct ? null : activeNode(recent)
+  const protocol = active ? observedProtocol(groups, active.node) : ""
+  if (!direct && !value(groups)) issues.push("Surge 策略组信息未取得")
+  if (active && !protocol) issues.push("Surge 节点协议未知")
+  if (report.source === "surge") issues.push("上游快照探测时间独立，未绑定本轮服务日志")
+  const validBaseline = baseline !== null && Number.isSafeInteger(baseline) && baseline >= 0
+  if (!validBaseline) issues.push("缺少探测前日志基线，未绑定服务策略")
+  const max = surgeBaselineFromRequests(recent)
+  const reset = validBaseline && max !== null && max < baseline
+  if (reset) issues.push("近期请求编号已回退，未绑定服务策略")
+  const summary: SurgeSummary = {
+    mode, node: direct ? "直连" : label(active?.node),
+    policy: direct ? "" : active?.policy || "", protocol: direct ? "" : protocol,
+    note: direct ? "Surge 出站模式显示直连" : active
+      ? `近期请求日志活跃节点（${active.count} 条），不代表当前选中节点或所有服务出口`
+      : "未观测到活跃节点；不会根据策略组成员顺序推断",
+  }
+  // 上游快照对应另一时刻，不能把本机这一轮日志绑定给上游旧探测。
+  const policies = report.source === "device" && !reset ? policiesAfterBaseline(recent, baseline) : new Map<string, string>()
+  const services = report.services.map(row => {
+    const policy = policies.get(row.id)
+    return report.source === "surge" ? row : { ...row, policy: policy ? `同期同域日志 · ${policy}` : "" }
+  })
+  return { ...report, surge: summary, services, note: apiNote(report, issues) }
+}

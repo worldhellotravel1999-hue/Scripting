@@ -1,1 +1,20 @@
-aW1wb3J0IHsgUmVzcG9uc2UsIFNjcmlwdCB9IGZyb20gInNjcmlwdGluZyIKaW1wb3J0IHsgcmVhZFN1cmdlSlNPTiB9IGZyb20gIi4uL3V0aWxzL25ldHdvcmtfc3VyZ2UiCgphc3luYyBmdW5jdGlvbiBydW4oKSB7CiAgY29uc3QgZmFpbHVyZXM6IHN0cmluZ1tdID0gW10KICBsZXQgcGFzc2VkID0gMAogIGNvbnN0IGNoZWNrID0gKG5hbWU6IHN0cmluZywgY29uZGl0aW9uOiBib29sZWFuKSA9PiBjb25kaXRpb24gPyBwYXNzZWQrKyA6IGZhaWx1cmVzLnB1c2gobmFtZSkKICBjb25zdCBub3JtYWwgPSBhd2FpdCByZWFkU3VyZ2VKU09OKG5ldyBSZXNwb25zZSgneyJub2RlIjoiaGVsbG8ifScsIHsgc3RhdHVzOiAyMDAgfSkpCiAgY2hlY2soIuacieaViCBKU09OIOWTjeW6lOato+W4uOino+aekCIsIG5vcm1hbC5zdGF0dXMgPT09IDIwMCAmJiAobm9ybWFsLmRhdGEgYXMgeyBub2RlPzogc3RyaW5nIH0pPy5ub2RlID09PSAiaGVsbG8iKQogIGNvbnN0IGxhcmdlID0gYXdhaXQgcmVhZFN1cmdlSlNPTihuZXcgUmVzcG9uc2UoIngiLnJlcGVhdCgxXzA0OF81NzcpLCB7IHN0YXR1czogMjAwIH0pKQogIGNoZWNrKCLotoXov4cgMSBNaUIg55qE5ZON5bqU6KKr5ouS57udIiwgbGFyZ2Uuc3RhdHVzID09PSAyMDAgJiYgbGFyZ2UuZGF0YSA9PT0gbnVsbCkKICBjb25zdCBpbnZhbGlkID0gYXdhaXQgcmVhZFN1cmdlSlNPTihuZXcgUmVzcG9uc2UoInsiLCB7IHN0YXR1czogMjAwIH0pKQogIGNoZWNrKCLmjZ/lnY8gSlNPTiDooqvmi5Lnu50iLCBpbnZhbGlkLnN0YXR1cyA9PT0gMjAwICYmIGludmFsaWQuZGF0YSA9PT0gbnVsbCkKICBjb25zdCBkZW5pZWQgPSBhd2FpdCByZWFkU3VyZ2VKU09OKG5ldyBSZXNwb25zZSgiZGVuaWVkIiwgeyBzdGF0dXM6IDQwMyB9KSkKICBjaGVjaygi6Z2e5oiQ5Yqf5ZON5bqU5L+d55WZ54q25oCBIiwgZGVuaWVkLnN0YXR1cyA9PT0gNDAzICYmIGRlbmllZC5kYXRhID09PSBudWxsKQogIGNvbnN0IHNhbml0aXplZCA9IGF3YWl0IHJlYWRTdXJnZUpTT04obmV3IFJlc3BvbnNlKCd7InRleHQiOiJteS1zZWNyZXQgYW5kIG15LXNlY3JldCJ9JywgeyBzdGF0dXM6IDIwMCB9KSwgIm15LXNlY3JldCIpCiAgY2hlY2soIuWTjeW6lOS4reeahOWvhumSpeiiq+makOiXjyIsICFKU09OLnN0cmluZ2lmeShzYW5pdGl6ZWQpLmluY2x1ZGVzKCJteS1zZWNyZXQiKSkKICBTY3JpcHQuZXhpdCh7IHBhc3NlZCwgZmFpbGVkOiBmYWlsdXJlcy5sZW5ndGgsIGZhaWx1cmVzLCBvZmZsaW5lOiB0cnVlIH0pCn0Kdm9pZCBydW4oKS5jYXRjaChlcnJvciA9PiBTY3JpcHQuZXhpdCh7IGZhaWxlZDogMSwgZmFpbHVyZXM6IFtTdHJpbmcoZXJyb3IpXSB9KSkK
+import { Response, Script } from "scripting"
+import { readSurgeJSON } from "../utils/network_surge"
+
+async function run() {
+  const failures: string[] = []
+  let passed = 0
+  const check = (name: string, condition: boolean) => condition ? passed++ : failures.push(name)
+  const normal = await readSurgeJSON(new Response('{"node":"hello"}', { status: 200 }))
+  check("有效 JSON 响应正常解析", normal.status === 200 && (normal.data as { node?: string })?.node === "hello")
+  const large = await readSurgeJSON(new Response("x".repeat(1_048_577), { status: 200 }))
+  check("超过 1 MiB 的响应被拒绝", large.status === 200 && large.data === null)
+  const invalid = await readSurgeJSON(new Response("{", { status: 200 }))
+  check("损坏 JSON 被拒绝", invalid.status === 200 && invalid.data === null)
+  const denied = await readSurgeJSON(new Response("denied", { status: 403 }))
+  check("非成功响应保留状态", denied.status === 403 && denied.data === null)
+  const sanitized = await readSurgeJSON(new Response('{"text":"my-secret and my-secret"}', { status: 200 }), "my-secret")
+  check("响应中的密钥被隐藏", !JSON.stringify(sanitized).includes("my-secret"))
+  Script.exit({ passed, failed: failures.length, failures, offline: true })
+}
+void run().catch(error => Script.exit({ failed: 1, failures: [String(error)] }))

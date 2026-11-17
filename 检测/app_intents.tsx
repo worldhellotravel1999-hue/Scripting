@@ -1,1 +1,12 @@
-aW1wb3J0IHsgQXBwSW50ZW50TWFuYWdlciwgQXBwSW50ZW50UHJvdG9jb2wsIFNjcmlwdCB9IGZyb20gInNjcmlwdGluZyI7CgpleHBvcnQgY29uc3QgUmVmcmVzaElQSW50ZW50ID0gQXBwSW50ZW50TWFuYWdlci5yZWdpc3Rlcih7CiAgICBuYW1lOiAiUmVmcmVzaElQSW50ZW50IiwKICAgIHByb3RvY29sOiBBcHBJbnRlbnRQcm90b2NvbC5BcHBJbnRlbnQsCiAgICBwZXJmb3JtOiBhc3luYyAoKSA9PiB7CiAgICAgICAgLy8g5omT5byA6aG16Z2i5omn6KGM5LiA5pW06L2u5qOA5rWL77yM5YaN57uf5LiA5pu05pawIElQIC8g5Zyw5Zu+IC8g6aOO6ZmpIC8g5pyN5Yqh54q25oCB44CCCiAgICAgICAgLy8g5Y2V57qv6YeN6L29IHdpZGdldCDlj6rkvJrph43nlLvml6flv6vnhafvvIzml6Dms5XlrozmiJDph43mlrDmo4DmtYvjgIIKICAgICAgICBjb25zdCBvcGVuZWQgPSBhd2FpdCBTYWZhcmkub3BlblVSTChTY3JpcHQuY3JlYXRlUnVuVVJMU2NoZW1lKFNjcmlwdC5uYW1lKSk7CiAgICAgICAgaWYgKCFvcGVuZWQpIGNvbnNvbGUubG9nKCJbSVDmo4DmtYtdIOivt+aJk+W8gOiEmuacrOmHjeaWsOajgOa1iyIpOwogICAgfQp9KTsK
+import { AppIntentManager, AppIntentProtocol, Script } from "scripting";
+
+export const RefreshIPIntent = AppIntentManager.register({
+    name: "RefreshIPIntent",
+    protocol: AppIntentProtocol.AppIntent,
+    perform: async () => {
+        // 打开页面执行一整轮检测，再统一更新 IP / 地图 / 风险 / 服务状态。
+        // 单纯重载 widget 只会重画旧快照，无法完成重新检测。
+        const opened = await Safari.openURL(Script.createRunURLScheme(Script.name));
+        if (!opened) console.log("[IP检测] 请打开脚本重新检测");
+    }
+});

@@ -1,1 +1,98 @@
-aW1wb3J0IHsgY2Fub25pY2FsQWRkcmVzcyB9IGZyb20gIi4vaXAiCgpleHBvcnQgaW50ZXJmYWNlIE5ldHdvcmtTZXR0aW5ncyB7CiAgcmVmcmVzaE1pbnV0ZXM6IG51bWJlcgogIHNuYXBzaG90VVJMOiBzdHJpbmcKICBzdXJnZUhvc3Q6IHN0cmluZwogIHN1cmdlUG9ydDogbnVtYmVyCn0KCmNvbnN0IERFRkFVTFRfTkVUV09SS19TRVRUSU5HUzogUmVhZG9ubHk8TmV0d29ya1NldHRpbmdzPiA9IE9iamVjdC5mcmVlemUoewogIHJlZnJlc2hNaW51dGVzOiAxNSwgc25hcHNob3RVUkw6ICIiLCBzdXJnZUhvc3Q6ICIxMjcuMC4wLjEiLCBzdXJnZVBvcnQ6IDYxNzEsCn0pCgovLyDku4Xkvb/nlKjmnKzohJrmnKznmoTmlrDplK7vvJvkuI3or7vlj5bmiJbov4Hnp7sgcmFkYXJfKuOAgeaXp+iEmuacrOiuvue9ruaIluaYjuaWh+WvhumSpeOAggpjb25zdCBTRVRUSU5HU19LRVkgPSAicmVwb3J0LWlwLm5ldHdvcmsuc2V0dGluZ3MudjEiCmNvbnN0IFNVUkdFX0tFWSA9ICJyZXBvcnQtaXAubmV0d29yay5zdXJnZS1rZXkudjEiCmNvbnN0IHRleHQgPSAodmFsdWU6IHVua25vd24pOiBzdHJpbmcgPT4gdHlwZW9mIHZhbHVlID09PSAic3RyaW5nIiA/IHZhbHVlLnRyaW0oKSA6ICIiCgpleHBvcnQgZnVuY3Rpb24gbm9ybWFsaXplTmV0d29ya1NldHRpbmdzKHZhbHVlOiB1bmtub3duKTogTmV0d29ya1NldHRpbmdzIHsKICBjb25zdCByYXcgPSB2YWx1ZSAmJiB0eXBlb2YgdmFsdWUgPT09ICJvYmplY3QiICYmICFBcnJheS5pc0FycmF5KHZhbHVlKQogICAgPyB2YWx1ZSBhcyBSZWNvcmQ8c3RyaW5nLCB1bmtub3duPiA6IHt9CiAgcmV0dXJuIHsKICAgIHJlZnJlc2hNaW51dGVzOiB0eXBlb2YgcmF3LnJlZnJlc2hNaW51dGVzID09PSAibnVtYmVyIiAmJiBOdW1iZXIuaXNGaW5pdGUocmF3LnJlZnJlc2hNaW51dGVzKQogICAgICA/IE1hdGgubWF4KDUsIE1hdGgubWluKDI0MCwgTWF0aC5mbG9vcihyYXcucmVmcmVzaE1pbnV0ZXMpKSkgOiAxNSwKICAgIHNuYXBzaG90VVJMOiB0ZXh0KHJhdy5zbmFwc2hvdFVSTCksCiAgICBzdXJnZUhvc3Q6IHRleHQocmF3LnN1cmdlSG9zdCkgfHwgIjEyNy4wLjAuMSIsCiAgICBzdXJnZVBvcnQ6IHR5cGVvZiByYXcuc3VyZ2VQb3J0ID09PSAibnVtYmVyIiAmJiBOdW1iZXIuaXNJbnRlZ2VyKHJhdy5zdXJnZVBvcnQpCiAgICAgICYmIHJhdy5zdXJnZVBvcnQgPj0gMSAmJiByYXcuc3VyZ2VQb3J0IDw9IDY1NTM1ID8gcmF3LnN1cmdlUG9ydCA6IDYxNzEsCiAgfQp9CgovKiog5LuF5o6l5Y+XIEhUVFAoUynvvJvlh63mja7kuI3lhYHorrjlhpnlnKggVVJMIOeahCB1c2VyaW5mbyDkuK3jgIIgKi8KZXhwb3J0IGZ1bmN0aW9uIGlzTmV0d29ya1NuYXBzaG90VVJMKHZhbHVlOiBzdHJpbmcpOiBib29sZWFuIHsKICBpZiAoIXZhbHVlIHx8IHZhbHVlLmxlbmd0aCA+IDgxOTIgfHwgL1tcc1x1MDAwMC1cdTAwMWZcdTAwN2ZdLy50ZXN0KHZhbHVlKSkgcmV0dXJuIGZhbHNlCiAgdHJ5IHsKICAgIGNvbnN0IHVybCA9IG5ldyBVUkwodmFsdWUpCiAgICByZXR1cm4gKHVybC5wcm90b2NvbCA9PT0gImh0dHBzOiIgfHwgdXJsLnByb3RvY29sID09PSAiaHR0cDoiKQogICAgICAmJiAhIXVybC5ob3N0bmFtZSAmJiAhdXJsLnVzZXJuYW1lICYmICF1cmwucGFzc3dvcmQgJiYgIXVybC5oYXNoCiAgfSBjYXRjaCB7IHJldHVybiBmYWxzZSB9Cn0KCi8qKiDlnLDlnYDkuI3lkKvljY/orq7jgIHnq6/lj6PjgIHot6/lvoTmiJblh63mja7vvJvmlK/mjIEgRE5T44CBSVB2NCDku6Xlj4rluKYv5LiN5bim5pa55ous5Y+355qEIElQdjbjgIIgKi8KZXhwb3J0IGZ1bmN0aW9uIGlzU3VyZ2VIb3N0KHZhbHVlOiBzdHJpbmcpOiBib29sZWFuIHsKICBpZiAoIXZhbHVlIHx8IHZhbHVlLmxlbmd0aCA+IDI1MyB8fCAvW1xzL0A/I1xcXS8udGVzdCh2YWx1ZSkpIHJldHVybiBmYWxzZQogIGNvbnN0IGhvc3QgPSB2YWx1ZS5zdGFydHNXaXRoKCJbIikgJiYgdmFsdWUuZW5kc1dpdGgoIl0iKSA/IHZhbHVlLnNsaWNlKDEsIC0xKSA6IHZhbHVlCiAgaWYgKGNhbm9uaWNhbEFkZHJlc3MoaG9zdCkpIHJldHVybiB0cnVlCiAgaWYgKC9bXFtcXTpdLy50ZXN0KHZhbHVlKSB8fCAvXltcZC5dKyQvLnRlc3QodmFsdWUpKSByZXR1cm4gZmFsc2UKICByZXR1cm4gdmFsdWUuc3BsaXQoIi4iKS5ldmVyeShsYWJlbCA9PiAvXlthLXpcZF0oPzpbYS16XGQtXXswLDYxfVthLXpcZF0pPyQvaS50ZXN0KGxhYmVsKSkKfQoKLyoqIOi/lOWbnuWPr+ebtOaOpeaYvuekuueahOWbuuWumuaWh+ahiO+8jOS4jeWbnuaYvuWcsOWdgOaIluS7u+S9lei+k+WFpeOAgiAqLwpleHBvcnQgZnVuY3Rpb24gbmV0d29ya1NldHRpbmdzRXJyb3Ioc2V0dGluZ3M6IE5ldHdvcmtTZXR0aW5ncyk6IHN0cmluZyB7CiAgaWYgKCFOdW1iZXIuaXNJbnRlZ2VyKHNldHRpbmdzLnJlZnJlc2hNaW51dGVzKSB8fCBzZXR0aW5ncy5yZWZyZXNoTWludXRlcyA8IDUgfHwgc2V0dGluZ3MucmVmcmVzaE1pbnV0ZXMgPiAyNDApIHsKICAgIHJldHVybiAi5Yi35paw6Ze06ZqU6aG75Li6IDXigJMyNDAg5YiG6ZKf55qE5pW05pWw44CCIgogIH0KICBpZiAoc2V0dGluZ3Muc25hcHNob3RVUkwgJiYgIWlzTmV0d29ya1NuYXBzaG90VVJMKHNldHRpbmdzLnNuYXBzaG90VVJMKSkgewogICAgcmV0dXJuICLlv6vnhaflnLDlnYDpobvkuLrmnInmlYjnmoQgSFRUUChTKSBVUkzvvIzkuI3lkKvnqbrnmb3jgIHnlKjmiLflkI3jgIHlr4bnoIHmiJbniYfmrrXjgIIiCiAgfQogIGlmICghaXNTdXJnZUhvc3Qoc2V0dGluZ3Muc3VyZ2VIb3N0KSkgcmV0dXJuICJTdXJnZSDlnLDlnYDpobvkuLrkuLvmnLrlkI3miJYgSVDvvJvnq6/lj6Por7fljZXni6zloavlhpnjgIIiCiAgaWYgKCFOdW1iZXIuaXNJbnRlZ2VyKHNldHRpbmdzLnN1cmdlUG9ydCkgfHwgc2V0dGluZ3Muc3VyZ2VQb3J0IDwgMSB8fCBzZXR0aW5ncy5zdXJnZVBvcnQgPiA2NTUzNSkgewogICAgcmV0dXJuICJTdXJnZSDnq6/lj6PpobvkuLogMeKAkzY1NTM1IOeahOaVtOaVsOOAgiIKICB9CiAgcmV0dXJuICIiCn0KCmV4cG9ydCBmdW5jdGlvbiBnZXROZXR3b3JrU2V0dGluZ3MoKTogTmV0d29ya1NldHRpbmdzIHsKICB0cnkgewogICAgY29uc3QgcmF3ID0gU3RvcmFnZS5nZXQ8dW5rbm93bj4oU0VUVElOR1NfS0VZKQogICAgcmV0dXJuIG5vcm1hbGl6ZU5ldHdvcmtTZXR0aW5ncyh0eXBlb2YgcmF3ID09PSAic3RyaW5nIiA/IEpTT04ucGFyc2UocmF3KSA6IHJhdykKICB9IGNhdGNoIHsgcmV0dXJuIHsgLi4uREVGQVVMVF9ORVRXT1JLX1NFVFRJTkdTIH0gfQp9CgovKiog5oiQ5Yqf6L+U5Zue5a6e6ZmF5L+d5a2Y5YC877yb6aqM6K+B5oiW5a2Y5YKo5aSx6LSl6L+U5ZueIG51bGzjgILpop3lpJblrZfmrrXkuI3kvJrov5vlhaUgU3RvcmFnZeOAgiAqLwpleHBvcnQgZnVuY3Rpb24gc2F2ZU5ldHdvcmtTZXR0aW5ncyhwYXRjaDogUGFydGlhbDxOZXR3b3JrU2V0dGluZ3M+KTogTmV0d29ya1NldHRpbmdzIHwgbnVsbCB7CiAgdHJ5IHsKICAgIGNvbnN0IG5leHQgPSBub3JtYWxpemVOZXR3b3JrU2V0dGluZ3MoeyAuLi5nZXROZXR3b3JrU2V0dGluZ3MoKSwgLi4ucGF0Y2ggfSkKICAgIGlmIChuZXR3b3JrU2V0dGluZ3NFcnJvcihuZXh0KSkgcmV0dXJuIG51bGwKICAgIHJldHVybiBTdG9yYWdlLnNldChTRVRUSU5HU19LRVksIG5leHQpID8gbmV4dCA6IG51bGwKICB9IGNhdGNoIHsgcmV0dXJuIG51bGwgfQp9CgpleHBvcnQgZnVuY3Rpb24gZ2V0U3VyZ2VLZXkoKTogc3RyaW5nIHsKICB0cnkgeyByZXR1cm4gS2V5Y2hhaW4uZ2V0KFNVUkdFX0tFWSwgeyBzeW5jaHJvbml6YWJsZTogZmFsc2UgfSk/LnRyaW0oKSB8fCAiIiB9CiAgY2F0Y2ggeyByZXR1cm4gIiIgfQp9CgovKiogbnVsbCDooajnpLrmmL7lvI/muIXpmaTvvJvnqbrovpPlhaXkv53nlZnljp/lgLzjgILlr4bpkqXlj6rlhpnlhaXmnKzorr7lpIfjgIHmnKzohJrmnKznmoQgS2V5Y2hhaW7jgIIgKi8KZXhwb3J0IGZ1bmN0aW9uIHNldFN1cmdlS2V5KHZhbHVlOiBzdHJpbmcgfCBudWxsKTogYm9vbGVhbiB7CiAgdHJ5IHsKICAgIGlmICh2YWx1ZSA9PT0gbnVsbCkgcmV0dXJuIEtleWNoYWluLnJlbW92ZShTVVJHRV9LRVksIHsgc3luY2hyb25pemFibGU6IGZhbHNlIH0pCiAgICBjb25zdCBrZXkgPSB2YWx1ZS50cmltKCkKICAgIGlmICgha2V5KSByZXR1cm4gdHJ1ZQogICAgaWYgKGtleS5sZW5ndGggPiA0MDk2IHx8IC9bXHUwMDAwLVx1MDAxZlx1MDA3Zl0vLnRlc3Qoa2V5KSkgcmV0dXJuIGZhbHNlCiAgICByZXR1cm4gS2V5Y2hhaW4uc2V0KFNVUkdFX0tFWSwga2V5LCB7CiAgICAgIHN5bmNocm9uaXphYmxlOiBmYWxzZSwgYWNjZXNzaWJpbGl0eTogImZpcnN0X3VubG9ja190aGlzX2RldmljZSIsCiAgICB9KQogIH0gY2F0Y2ggeyByZXR1cm4gZmFsc2UgfQp9Cg==
+import { canonicalAddress } from "./ip"
+
+export interface NetworkSettings {
+  refreshMinutes: number
+  snapshotURL: string
+  surgeHost: string
+  surgePort: number
+}
+
+const DEFAULT_NETWORK_SETTINGS: Readonly<NetworkSettings> = Object.freeze({
+  refreshMinutes: 15, snapshotURL: "", surgeHost: "127.0.0.1", surgePort: 6171,
+})
+
+// 仅使用本脚本的新键；不读取或迁移 radar_*、旧脚本设置或明文密钥。
+const SETTINGS_KEY = "report-ip.network.settings.v1"
+const SURGE_KEY = "report-ip.network.surge-key.v1"
+const text = (value: unknown): string => typeof value === "string" ? value.trim() : ""
+
+export function normalizeNetworkSettings(value: unknown): NetworkSettings {
+  const raw = value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown> : {}
+  return {
+    refreshMinutes: typeof raw.refreshMinutes === "number" && Number.isFinite(raw.refreshMinutes)
+      ? Math.max(5, Math.min(240, Math.floor(raw.refreshMinutes))) : 15,
+    snapshotURL: text(raw.snapshotURL),
+    surgeHost: text(raw.surgeHost) || "127.0.0.1",
+    surgePort: typeof raw.surgePort === "number" && Number.isInteger(raw.surgePort)
+      && raw.surgePort >= 1 && raw.surgePort <= 65535 ? raw.surgePort : 6171,
+  }
+}
+
+/** 仅接受 HTTP(S)；凭据不允许写在 URL 的 userinfo 中。 */
+export function isNetworkSnapshotURL(value: string): boolean {
+  if (!value || value.length > 8192 || /[\s\u0000-\u001f\u007f]/.test(value)) return false
+  try {
+    const url = new URL(value)
+    return (url.protocol === "https:" || url.protocol === "http:")
+      && !!url.hostname && !url.username && !url.password && !url.hash
+  } catch { return false }
+}
+
+/** 地址不含协议、端口、路径或凭据；支持 DNS、IPv4 以及带/不带方括号的 IPv6。 */
+export function isSurgeHost(value: string): boolean {
+  if (!value || value.length > 253 || /[\s/@?#\\]/.test(value)) return false
+  const host = value.startsWith("[") && value.endsWith("]") ? value.slice(1, -1) : value
+  if (canonicalAddress(host)) return true
+  if (/[\[\]:]/.test(value) || /^[\d.]+$/.test(value)) return false
+  return value.split(".").every(label => /^[a-z\d](?:[a-z\d-]{0,61}[a-z\d])?$/i.test(label))
+}
+
+/** 返回可直接显示的固定文案，不回显地址或任何输入。 */
+export function networkSettingsError(settings: NetworkSettings): string {
+  if (!Number.isInteger(settings.refreshMinutes) || settings.refreshMinutes < 5 || settings.refreshMinutes > 240) {
+    return "刷新间隔须为 5–240 分钟的整数。"
+  }
+  if (settings.snapshotURL && !isNetworkSnapshotURL(settings.snapshotURL)) {
+    return "快照地址须为有效的 HTTP(S) URL，不含空白、用户名、密码或片段。"
+  }
+  if (!isSurgeHost(settings.surgeHost)) return "Surge 地址须为主机名或 IP；端口请单独填写。"
+  if (!Number.isInteger(settings.surgePort) || settings.surgePort < 1 || settings.surgePort > 65535) {
+    return "Surge 端口须为 1–65535 的整数。"
+  }
+  return ""
+}
+
+export function getNetworkSettings(): NetworkSettings {
+  try {
+    const raw = Storage.get<unknown>(SETTINGS_KEY)
+    return normalizeNetworkSettings(typeof raw === "string" ? JSON.parse(raw) : raw)
+  } catch { return { ...DEFAULT_NETWORK_SETTINGS } }
+}
+
+/** 成功返回实际保存值；验证或存储失败返回 null。额外字段不会进入 Storage。 */
+export function saveNetworkSettings(patch: Partial<NetworkSettings>): NetworkSettings | null {
+  try {
+    const next = normalizeNetworkSettings({ ...getNetworkSettings(), ...patch })
+    if (networkSettingsError(next)) return null
+    return Storage.set(SETTINGS_KEY, next) ? next : null
+  } catch { return null }
+}
+
+export function getSurgeKey(): string {
+  try { return Keychain.get(SURGE_KEY, { synchronizable: false })?.trim() || "" }
+  catch { return "" }
+}
+
+/** null 表示显式清除；空输入保留原值。密钥只写入本设备、本脚本的 Keychain。 */
+export function setSurgeKey(value: string | null): boolean {
+  try {
+    if (value === null) return Keychain.remove(SURGE_KEY, { synchronizable: false })
+    const key = value.trim()
+    if (!key) return true
+    if (key.length > 4096 || /[\u0000-\u001f\u007f]/.test(key)) return false
+    return Keychain.set(SURGE_KEY, key, {
+      synchronizable: false, accessibility: "first_unlock_this_device",
+    })
+  } catch { return false }
+}

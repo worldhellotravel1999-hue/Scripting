@@ -1,1 +1,118 @@
-aW1wb3J0IHsgQWJvcnRTaWduYWwsIGZldGNoIH0gZnJvbSAic2NyaXB0aW5nIgppbXBvcnQgeyBjYW5vbmljYWxBZGRyZXNzLCBmb3JtYXRJUExvY2F0aW9uIH0gZnJvbSAiLi9pcCIKCmV4cG9ydCBpbnRlcmZhY2UgR2VvUm93IHsKICBzb3VyY2U6IHN0cmluZwogIGlwOiBzdHJpbmcgfCBudWxsCiAgbG9jYXRpb246IHN0cmluZwogIHN0YXR1czogIm9rIiB8ICJ1bmF2YWlsYWJsZSIgfCAidW5zdXBwb3J0ZWQiCiAgbm90ZT86IHN0cmluZwp9CmV4cG9ydCBpbnRlcmZhY2UgRXhpdE9ic2VydmF0aW9uIHsgc291cmNlOiBzdHJpbmc7IGlwOiBzdHJpbmc7IGxvY2F0aW9uOiBzdHJpbmcgfQpleHBvcnQgaW50ZXJmYWNlIEdlb1JlcG9ydCB7IHJvd3M6IEdlb1Jvd1tdOyBleGl0czogRXhpdE9ic2VydmF0aW9uW10gfQoKdHlwZSBMb2NhdGlvbiA9IHsgaXA6IHN0cmluZzsgY291bnRyeTogc3RyaW5nOyBjb2RlOiBzdHJpbmc7IHJlZ2lvbjogc3RyaW5nOyBjaXR5OiBzdHJpbmcgfQpjb25zdCB0ZXh0ID0gKHZhbHVlOiB1bmtub3duKTogc3RyaW5nID0+IHR5cGVvZiB2YWx1ZSA9PT0gInN0cmluZyIgPyB2YWx1ZS50cmltKCkgOiAiIgoKZXhwb3J0IGFzeW5jIGZ1bmN0aW9uIHdpdGhUaW1lb3V0PFQ+KHRhc2s6IFByb21pc2U8VD4gfCAoKCkgPT4gUHJvbWlzZTxUPiksIG1zID0gNjAwMCwgbWVzc2FnZSA9ICLor7fmsYLotoXml7YiKTogUHJvbWlzZTxUPiB7CiAgbGV0IHRpbWVyOiBSZXR1cm5UeXBlPHR5cGVvZiBzZXRUaW1lb3V0PiB8IHVuZGVmaW5lZAogIHRyeSB7CiAgICByZXR1cm4gYXdhaXQgUHJvbWlzZS5yYWNlKFsKICAgICAgdHlwZW9mIHRhc2sgPT09ICJmdW5jdGlvbiIgPyB0YXNrKCkgOiB0YXNrLAogICAgICBuZXcgUHJvbWlzZTxuZXZlcj4oKF8sIHJlamVjdCkgPT4geyB0aW1lciA9IHNldFRpbWVvdXQoKCkgPT4gcmVqZWN0KG5ldyBFcnJvcihtZXNzYWdlKSksIG1zKSB9KSwKICAgIF0pCiAgfSBmaW5hbGx5IHsKICAgIGlmICh0aW1lciAhPT0gdW5kZWZpbmVkKSBjbGVhclRpbWVvdXQodGltZXIpCiAgfQp9CgpleHBvcnQgZnVuY3Rpb24gc2FtZUlQKGE6IHN0cmluZywgYjogc3RyaW5nKTogYm9vbGVhbiB7CiAgY29uc3Qga2V5ID0gY2Fub25pY2FsQWRkcmVzcyhhKQogIHJldHVybiBrZXkgIT09IG51bGwgJiYga2V5ID09PSBjYW5vbmljYWxBZGRyZXNzKGIpCn0KCmV4cG9ydCBmdW5jdGlvbiBjb3VudHJ5TmFtZShjb2RlOiBzdHJpbmcpOiBzdHJpbmcgewogIGlmICghL15bQS1aXXsyfSQvaS50ZXN0KGNvZGUpKSByZXR1cm4gIiIKICB0cnkgeyByZXR1cm4gbmV3IEludGwuRGlzcGxheU5hbWVzKFsiemgtSGFucyJdLCB7IHR5cGU6ICJyZWdpb24iIH0pLm9mKGNvZGUudG9VcHBlckNhc2UoKSkgfHwgY29kZSB9CiAgY2F0Y2ggeyByZXR1cm4gY29kZS50b1VwcGVyQ2FzZSgpIH0KfQoKYXN5bmMgZnVuY3Rpb24gcmVxdWVzdCh1cmw6IHN0cmluZywgcGxhaW4gPSBmYWxzZSwgc2lnbmFsPzogQWJvcnRTaWduYWwpOiBQcm9taXNlPGFueT4gewogIHJldHVybiB3aXRoVGltZW91dChhc3luYyAoKSA9PiB7CiAgICBjb25zdCBkZWFkbGluZSA9IEFib3J0U2lnbmFsLnRpbWVvdXQoNjAwMCkKICAgIGNvbnN0IHJlc3BvbnNlID0gYXdhaXQgZmV0Y2godXJsLCB7IHRpbWVvdXQ6IDYsIHNpZ25hbDogc2lnbmFsID8gQWJvcnRTaWduYWwuYW55KFtzaWduYWwsIGRlYWRsaW5lXSkgOiBkZWFkbGluZSB9KQogICAgaWYgKCFyZXNwb25zZS5vaykgdGhyb3cgbmV3IEVycm9yKGBIVFRQICR7cmVzcG9uc2Uuc3RhdHVzfWApCiAgICByZXR1cm4gcGxhaW4gPyByZXNwb25zZS50ZXh0KCkgOiByZXNwb25zZS5qc29uKCkKICB9KQp9CgpmdW5jdGlvbiBlbXB0eShzb3VyY2U6IHN0cmluZywgbm90ZTogc3RyaW5nLCBzdGF0dXM6ICJ1bmF2YWlsYWJsZSIgfCAidW5zdXBwb3J0ZWQiID0gInVuYXZhaWxhYmxlIik6IEdlb1JvdyB7CiAgcmV0dXJuIHsgc291cmNlLCBpcDogbnVsbCwgbG9jYXRpb246ICIiLCBzdGF0dXMsIG5vdGUgfQp9CgpleHBvcnQgYXN5bmMgZnVuY3Rpb24gY29sbGVjdEdlb1Jvdyhzb3VyY2U6IHN0cmluZywgdGFyZ2V0OiBzdHJpbmcsIHByb2JlOiBib29sZWFuLCBsb2FkOiAoKSA9PiBQcm9taXNlPExvY2F0aW9uPik6IFByb21pc2U8R2VvUm93PiB7CiAgdHJ5IHsKICAgIGNvbnN0IGRhdGEgPSBhd2FpdCBsb2FkKCkKICAgIGlmICghY2Fub25pY2FsQWRkcmVzcyhkYXRhLmlwKSkgdGhyb3cgbmV3IEVycm9yKCLmnKrov5Tlm57mnInmlYggSVAiKQogICAgaWYgKCFwcm9iZSAmJiAhc2FtZUlQKGRhdGEuaXAsIHRhcmdldCkpIHRocm93IG5ldyBFcnJvcigi6L+U5Zue5Zyw5Z2A5LiN5Yy56YWNIikKICAgIGNvbnN0IGxvY2F0aW9uID0gZm9ybWF0SVBMb2NhdGlvbih7CiAgICAgIGNvdW50cnk6IGNvdW50cnlOYW1lKGRhdGEuY29kZSkgfHwgZGF0YS5jb3VudHJ5LAogICAgICBjb3VudHJ5Q29kZTogZGF0YS5jb2RlLCByZWdpb25OYW1lOiBkYXRhLnJlZ2lvbiwgY2l0eTogZGF0YS5jaXR5LAogICAgfSwgIiIpCiAgICBpZiAoIWxvY2F0aW9uKSByZXR1cm4geyBzb3VyY2UsIGlwOiBkYXRhLmlwLCBsb2NhdGlvbjogIiIsIHN0YXR1czogInVuYXZhaWxhYmxlIiwgbm90ZTogIuS9jee9ruaaguS4jeWPr+eUqCIgfQogICAgcmV0dXJuIHsKICAgICAgc291cmNlLCBpcDogZGF0YS5pcCwgbG9jYXRpb24sIHN0YXR1czogIm9rIiwKICAgICAgbm90ZTogcHJvYmUgJiYgIXNhbWVJUChkYXRhLmlwLCB0YXJnZXQpID8gIuS4jeWQjOWHuuWPoyIgOiB1bmRlZmluZWQsCiAgICB9CiAgfSBjYXRjaCAoZXJyb3IpIHsKICAgIGNvbnN0IG1lc3NhZ2UgPSBTdHJpbmcoZXJyb3IpLnJlcGxhY2UoL15FcnJvcjogLywgIiIpCiAgICByZXR1cm4gZW1wdHkoc291cmNlLCAv6LaF5pe2fHRpbWVvdXQvaS50ZXN0KG1lc3NhZ2UpID8gIuivt+axgui2heaXtiIKICAgICAgOiAvSFRUUCBcZCsvLnRlc3QobWVzc2FnZSkgPyBtZXNzYWdlIDogL+S4jeWMuemFjS8udGVzdChtZXNzYWdlKSA/IG1lc3NhZ2UgOiAi5pqC5LiN5Y+v55SoIikKICB9Cn0KCi8qKiDkuInkuKrlnLDlnYDlupPlubbooYzmn6Xor6LvvJtDbG91ZGZsYXJlIC8gQmlsaWJpbGkg5Y+q6KeC5rWL5b2T5YmN6K+35rGC77yM5LiN5o6l5Y+X55uu5qCHIElQ44CCICovCmV4cG9ydCBhc3luYyBmdW5jdGlvbiBmZXRjaEdlb1JlcG9ydChpcDogc3RyaW5nLCBjdXJyZW50RXhpdDogYm9vbGVhbiwgc2lnbmFsPzogQWJvcnRTaWduYWwpOiBQcm9taXNlPEdlb1JlcG9ydD4gewogIGNvbnN0IHRhcmdldCA9IGlwLnRyaW0oKQogIGNvbnN0IGVuY29kZWQgPSBlbmNvZGVVUklDb21wb25lbnQodGFyZ2V0KQogIGNvbnN0IFtjbG91ZGZsYXJlLCBpcDIsIGRiaXAsIGlwaW5mbywgYmlsaV0gPSBhd2FpdCBQcm9taXNlLmFsbChbCiAgICBjdXJyZW50RXhpdCA/IGNvbGxlY3RHZW9Sb3coIkNsb3VkZmxhcmUiLCB0YXJnZXQsIHRydWUsIGFzeW5jICgpID0+IHsKICAgICAgY29uc3QgcmF3ID0gYXdhaXQgcmVxdWVzdCgiaHR0cHM6Ly93d3cuY2xvdWRmbGFyZS5jb20vY2RuLWNnaS90cmFjZSIsIHRydWUsIHNpZ25hbCkgYXMgc3RyaW5nCiAgICAgIGNvbnN0IHZhbHVlcyA9IE9iamVjdC5mcm9tRW50cmllcyhyYXcudHJpbSgpLnNwbGl0KCJcbiIpLm1hcChsaW5lID0+IHsKICAgICAgICBjb25zdCBzcGxpdCA9IGxpbmUuaW5kZXhPZigiPSIpCiAgICAgICAgcmV0dXJuIFtsaW5lLnNsaWNlKDAsIHNwbGl0KSwgbGluZS5zbGljZShzcGxpdCArIDEpLnRyaW0oKV0KICAgICAgfSkpCiAgICAgIHJldHVybiB7IGlwOiB0ZXh0KHZhbHVlcy5pcCksIGNvdW50cnk6ICIiLCBjb2RlOiB0ZXh0KHZhbHVlcy5sb2MpLCByZWdpb246ICIiLCBjaXR5OiAiIiB9CiAgICB9KSA6IFByb21pc2UucmVzb2x2ZShlbXB0eSgiQ2xvdWRmbGFyZSIsICLku4XmlK/mjIHlvZPliY3lh7rlj6MiLCAidW5zdXBwb3J0ZWQiKSksCiAgICBjb2xsZWN0R2VvUm93KCJJUDJMb2NhdGlvbiIsIHRhcmdldCwgZmFsc2UsIGFzeW5jICgpID0+IHsKICAgICAgY29uc3QgZGF0YSA9IGF3YWl0IHJlcXVlc3QoYGh0dHBzOi8vYXBpLmlwMmxvY2F0aW9uLmlvLz9pcD0ke2VuY29kZWR9YCwgZmFsc2UsIHNpZ25hbCkKICAgICAgaWYgKGRhdGEuZXJyb3IpIHRocm93IG5ldyBFcnJvcigi5pWw5o2u5rqQ5LiN5Y+v55SoIikKICAgICAgcmV0dXJuIHsgaXA6IHRleHQoZGF0YS5pcCksIGNvdW50cnk6IHRleHQoZGF0YS5jb3VudHJ5X25hbWUpLCBjb2RlOiB0ZXh0KGRhdGEuY291bnRyeV9jb2RlKSwKICAgICAgICByZWdpb246IHRleHQoZGF0YS5yZWdpb25fbmFtZSksIGNpdHk6IHRleHQoZGF0YS5jaXR5X25hbWUpIH0KICAgIH0pLAogICAgY29sbGVjdEdlb1JvdygiREItSVAiLCB0YXJnZXQsIGZhbHNlLCBhc3luYyAoKSA9PiB7CiAgICAgIGNvbnN0IGRhdGEgPSBhd2FpdCByZXF1ZXN0KGBodHRwczovL2FwaS5kYi1pcC5jb20vdjIvZnJlZS8ke2VuY29kZWR9YCwgZmFsc2UsIHNpZ25hbCkKICAgICAgcmV0dXJuIHsgaXA6IHRleHQoZGF0YS5pcEFkZHJlc3MpLCBjb3VudHJ5OiB0ZXh0KGRhdGEuY291bnRyeU5hbWUpLCBjb2RlOiB0ZXh0KGRhdGEuY291bnRyeUNvZGUpLAogICAgICAgIHJlZ2lvbjogdGV4dChkYXRhLnN0YXRlUHJvdiksIGNpdHk6IHRleHQoZGF0YS5jaXR5KSB9CiAgICB9KSwKICAgIGNvbGxlY3RHZW9Sb3coIklQSW5mby5pbyIsIHRhcmdldCwgZmFsc2UsIGFzeW5jICgpID0+IHsKICAgICAgY29uc3QgZGF0YSA9IGF3YWl0IHJlcXVlc3QoYGh0dHBzOi8vaXBpbmZvLmlvLyR7ZW5jb2RlZH0vanNvbmAsIGZhbHNlLCBzaWduYWwpCiAgICAgIHJldHVybiB7IGlwOiB0ZXh0KGRhdGEuaXApLCBjb3VudHJ5OiAiIiwgY29kZTogdGV4dChkYXRhLmNvdW50cnkpLAogICAgICAgIHJlZ2lvbjogdGV4dChkYXRhLnJlZ2lvbiksIGNpdHk6IHRleHQoZGF0YS5jaXR5KSB9CiAgICB9KSwKICAgIGN1cnJlbnRFeGl0ID8gY29sbGVjdEdlb1JvdygiQmlsaWJpbGkiLCB0YXJnZXQsIHRydWUsIGFzeW5jICgpID0+IHsKICAgICAgY29uc3QgZGF0YSA9IGF3YWl0IHJlcXVlc3QoImh0dHBzOi8vYXBpLmJpbGliaWxpLmNvbS94L3dlYi1pbnRlcmZhY2Uvem9uZSIsIGZhbHNlLCBzaWduYWwpCiAgICAgIGlmIChkYXRhLmNvZGUgIT09IDAgfHwgIWRhdGEuZGF0YSkgdGhyb3cgbmV3IEVycm9yKCLmlbDmja7mupDkuI3lj6/nlKgiKQogICAgICBjb25zdCB6b25lID0gZGF0YS5kYXRhCiAgICAgIHJldHVybiB7IGlwOiB0ZXh0KHpvbmUuYWRkciksIGNvdW50cnk6IHRleHQoem9uZS5jb3VudHJ5KSwgY29kZTogIiIsCiAgICAgICAgcmVnaW9uOiB0ZXh0KHpvbmUucHJvdmluY2UpLCBjaXR5OiB0ZXh0KHpvbmUuY2l0eSkgfQogICAgfSkgOiBQcm9taXNlLnJlc29sdmUoZW1wdHkoIkJpbGliaWxpIiwgIuS7heaUr+aMgeW9k+WJjeWHuuWPoyIsICJ1bnN1cHBvcnRlZCIpKSwKICBdKQogIGNvbnN0IGV4aXRzOiBFeGl0T2JzZXJ2YXRpb25bXSA9IFtdCiAgZm9yIChjb25zdCByb3cgb2YgW2Nsb3VkZmxhcmUsIGJpbGldKSB7CiAgICBpZiAocm93LmlwKSB7CiAgICAgIGV4aXRzLnB1c2goeyBzb3VyY2U6IHJvdy5zb3VyY2UsIGlwOiByb3cuaXAsIGxvY2F0aW9uOiByb3cubG9jYXRpb24gfSkKICAgIH0KICB9CiAgcmV0dXJuIHsgcm93czogW2Nsb3VkZmxhcmUsIGlwMiwgZGJpcCwgZW1wdHkoIk1heE1pbmQiLCAi5pyq5o6l5YWl5pWw5o2u5rqQIiwgInVuc3VwcG9ydGVkIiksIGlwaW5mbywgYmlsaV0sIGV4aXRzIH0KfQo=
+import { AbortSignal, fetch } from "scripting"
+import { canonicalAddress, formatIPLocation } from "./ip"
+
+export interface GeoRow {
+  source: string
+  ip: string | null
+  location: string
+  status: "ok" | "unavailable" | "unsupported"
+  note?: string
+}
+export interface ExitObservation { source: string; ip: string; location: string }
+export interface GeoReport { rows: GeoRow[]; exits: ExitObservation[] }
+
+type Location = { ip: string; country: string; code: string; region: string; city: string }
+const text = (value: unknown): string => typeof value === "string" ? value.trim() : ""
+
+export async function withTimeout<T>(task: Promise<T> | (() => Promise<T>), ms = 6000, message = "请求超时"): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      typeof task === "function" ? task() : task,
+      new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error(message)), ms) }),
+    ])
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+  }
+}
+
+export function sameIP(a: string, b: string): boolean {
+  const key = canonicalAddress(a)
+  return key !== null && key === canonicalAddress(b)
+}
+
+export function countryName(code: string): string {
+  if (!/^[A-Z]{2}$/i.test(code)) return ""
+  try { return new Intl.DisplayNames(["zh-Hans"], { type: "region" }).of(code.toUpperCase()) || code }
+  catch { return code.toUpperCase() }
+}
+
+async function request(url: string, plain = false, signal?: AbortSignal): Promise<any> {
+  return withTimeout(async () => {
+    const deadline = AbortSignal.timeout(6000)
+    const response = await fetch(url, { timeout: 6, signal: signal ? AbortSignal.any([signal, deadline]) : deadline })
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    return plain ? response.text() : response.json()
+  })
+}
+
+function empty(source: string, note: string, status: "unavailable" | "unsupported" = "unavailable"): GeoRow {
+  return { source, ip: null, location: "", status, note }
+}
+
+export async function collectGeoRow(source: string, target: string, probe: boolean, load: () => Promise<Location>): Promise<GeoRow> {
+  try {
+    const data = await load()
+    if (!canonicalAddress(data.ip)) throw new Error("未返回有效 IP")
+    if (!probe && !sameIP(data.ip, target)) throw new Error("返回地址不匹配")
+    const location = formatIPLocation({
+      country: countryName(data.code) || data.country,
+      countryCode: data.code, regionName: data.region, city: data.city,
+    }, "")
+    if (!location) return { source, ip: data.ip, location: "", status: "unavailable", note: "位置暂不可用" }
+    return {
+      source, ip: data.ip, location, status: "ok",
+      note: probe && !sameIP(data.ip, target) ? "不同出口" : undefined,
+    }
+  } catch (error) {
+    const message = String(error).replace(/^Error: /, "")
+    return empty(source, /超时|timeout/i.test(message) ? "请求超时"
+      : /HTTP \d+/.test(message) ? message : /不匹配/.test(message) ? message : "暂不可用")
+  }
+}
+
+/** 三个地址库并行查询；Cloudflare / Bilibili 只观测当前请求，不接受目标 IP。 */
+export async function fetchGeoReport(ip: string, currentExit: boolean, signal?: AbortSignal): Promise<GeoReport> {
+  const target = ip.trim()
+  const encoded = encodeURIComponent(target)
+  const [cloudflare, ip2, dbip, ipinfo, bili] = await Promise.all([
+    currentExit ? collectGeoRow("Cloudflare", target, true, async () => {
+      const raw = await request("https://www.cloudflare.com/cdn-cgi/trace", true, signal) as string
+      const values = Object.fromEntries(raw.trim().split("\n").map(line => {
+        const split = line.indexOf("=")
+        return [line.slice(0, split), line.slice(split + 1).trim()]
+      }))
+      return { ip: text(values.ip), country: "", code: text(values.loc), region: "", city: "" }
+    }) : Promise.resolve(empty("Cloudflare", "仅支持当前出口", "unsupported")),
+    collectGeoRow("IP2Location", target, false, async () => {
+      const data = await request(`https://api.ip2location.io/?ip=${encoded}`, false, signal)
+      if (data.error) throw new Error("数据源不可用")
+      return { ip: text(data.ip), country: text(data.country_name), code: text(data.country_code),
+        region: text(data.region_name), city: text(data.city_name) }
+    }),
+    collectGeoRow("DB-IP", target, false, async () => {
+      const data = await request(`https://api.db-ip.com/v2/free/${encoded}`, false, signal)
+      return { ip: text(data.ipAddress), country: text(data.countryName), code: text(data.countryCode),
+        region: text(data.stateProv), city: text(data.city) }
+    }),
+    collectGeoRow("IPInfo.io", target, false, async () => {
+      const data = await request(`https://ipinfo.io/${encoded}/json`, false, signal)
+      return { ip: text(data.ip), country: "", code: text(data.country),
+        region: text(data.region), city: text(data.city) }
+    }),
+    currentExit ? collectGeoRow("Bilibili", target, true, async () => {
+      const data = await request("https://api.bilibili.com/x/web-interface/zone", false, signal)
+      if (data.code !== 0 || !data.data) throw new Error("数据源不可用")
+      const zone = data.data
+      return { ip: text(zone.addr), country: text(zone.country), code: "",
+        region: text(zone.province), city: text(zone.city) }
+    }) : Promise.resolve(empty("Bilibili", "仅支持当前出口", "unsupported")),
+  ])
+  const exits: ExitObservation[] = []
+  for (const row of [cloudflare, bili]) {
+    if (row.ip) {
+      exits.push({ source: row.source, ip: row.ip, location: row.location })
+    }
+  }
+  return { rows: [cloudflare, ip2, dbip, empty("MaxMind", "未接入数据源", "unsupported"), ipinfo, bili], exits }
+}

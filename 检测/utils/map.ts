@@ -1,1 +1,84 @@
-aW1wb3J0IHR5cGUgeyBJUEluZm8gfSBmcm9tICIuL2lwIgoKZXhwb3J0IGZ1bmN0aW9uIGhhc0Nvb3JkaW5hdGVzKGluZm86IElQSW5mbyB8IG51bGwgfCB1bmRlZmluZWQpOiBpbmZvIGlzIElQSW5mbyB7CiAgaWYgKCFpbmZvKSByZXR1cm4gZmFsc2UKICBjb25zdCB7IGxhdCwgbG9uIH0gPSBpbmZvCiAgaWYgKCFOdW1iZXIuaXNGaW5pdGUobGF0KSB8fCAhTnVtYmVyLmlzRmluaXRlKGxvbikpIHJldHVybiBmYWxzZQogIGlmIChNYXRoLmFicyhsYXQpID4gOTAgfHwgTWF0aC5hYnMobG9uKSA+IDE4MCkgcmV0dXJuIGZhbHNlCiAgcmV0dXJuIHRydWUKfQoKZnVuY3Rpb24gcmVnaW9uU3BhbkZvckZhbWlseShmYW1pbHk/OiBzdHJpbmcpOiB7CiAgbGF0aXR1ZGVEZWx0YTogbnVtYmVyCiAgbG9uZ2l0dWRlRGVsdGE6IG51bWJlcgp9IHsKICBzd2l0Y2ggKGZhbWlseSkgewogICAgY2FzZSAic3lzdGVtU21hbGwiOgogICAgY2FzZSAiYWNjZXNzb3J5Q2lyY3VsYXIiOgogICAgICByZXR1cm4geyBsYXRpdHVkZURlbHRhOiAwLjQ1LCBsb25naXR1ZGVEZWx0YTogMC41NSB9CiAgICBjYXNlICJzeXN0ZW1NZWRpdW0iOgogICAgY2FzZSAiYWNjZXNzb3J5UmVjdGFuZ3VsYXIiOgogICAgICByZXR1cm4geyBsYXRpdHVkZURlbHRhOiAwLjM0LCBsb25naXR1ZGVEZWx0YTogMC40NCB9CiAgICBkZWZhdWx0OgogICAgICByZXR1cm4geyBsYXRpdHVkZURlbHRhOiAwLjI0LCBsb25naXR1ZGVEZWx0YTogMC4zMiB9CiAgfQp9CgpleHBvcnQgZnVuY3Rpb24gYXBwcm94aW1hdGVSYWRpdXNNZXRlcnMoaW5mbzogSVBJbmZvKTogbnVtYmVyIHsKICBpZiAoaW5mby5jaXR5KSByZXR1cm4gMzUwMAogIGlmIChpbmZvLnJlZ2lvbk5hbWUpIHJldHVybiAxMjAwMAogIHJldHVybiAyNTAwMAp9CgpleHBvcnQgYXN5bmMgZnVuY3Rpb24gdGFrZUlQTWFwU25hcHNob3Qob3B0aW9uczogewogIGxhdDogbnVtYmVyCiAgbG9uOiBudW1iZXIKICB3aWR0aDogbnVtYmVyCiAgaGVpZ2h0OiBudW1iZXIKICBmYW1pbHk/OiBzdHJpbmcKICBhcHBlYXJhbmNlPzogImxpZ2h0IiB8ICJkYXJrIgp9KTogUHJvbWlzZTx7CiAgaW1hZ2U6IGFueQogIHNpemU6IHsgd2lkdGg6IG51bWJlcjsgaGVpZ2h0OiBudW1iZXIgfQogIHBvaW50OiAoY29vcmRpbmF0ZTogeyBsYXRpdHVkZTogbnVtYmVyOyBsb25naXR1ZGU6IG51bWJlciB9KSA9PiB7IHg6IG51bWJlcjsgeTogbnVtYmVyIH0KfSB8IG51bGw+IHsKICBjb25zdCB3aWR0aCA9IE1hdGgubWF4KDY0LCBNYXRoLnJvdW5kKG9wdGlvbnMud2lkdGgpKQogIGNvbnN0IGhlaWdodCA9IE1hdGgubWF4KDQ4LCBNYXRoLnJvdW5kKG9wdGlvbnMuaGVpZ2h0KSkKICBjb25zdCBzcGFuID0gcmVnaW9uU3BhbkZvckZhbWlseShvcHRpb25zLmZhbWlseSkKICAvLyDlrprkvY3lnZDmoIflp4vnu4jkvZzkuLrlnLDlm77lv6vnhafnmoTkuK3lv4PngrnvvJvlnLDlm77op4blm77mnKzouqvlho3nlLHnu4Tku7bluIPlsYDnp7vliqjliLAgKDMvNCwgMS8yKeOAggogIGNvbnN0IGNlbnRlciA9IHsKICAgIGxhdGl0dWRlOiBvcHRpb25zLmxhdCwKICAgIGxvbmdpdHVkZTogb3B0aW9ucy5sb24sCiAgfQoKICB0cnkgewogICAgY29uc3QgY29tbW9uID0gewogICAgICByZWdpb246IHsKICAgICAgICBjZW50ZXIsCiAgICAgICAgc3BhbiwKICAgICAgfSwKICAgICAgc2l6ZTogeyB3aWR0aCwgaGVpZ2h0IH0sCiAgICAgIGFwcGVhcmFuY2U6IG9wdGlvbnMuYXBwZWFyYW5jZSwKICAgIH0KCiAgICB0cnkgewogICAgICBjb25zdCBzbmFwID0gYXdhaXQgTWFwU25hcHNob3R0ZXIudGFrZSh7CiAgICAgICAgLi4uY29tbW9uLAogICAgICAgIG1hcFN0eWxlOiB7CiAgICAgICAgICBzdHlsZTogInN0YW5kYXJkIiwKICAgICAgICAgIHNob3dzVHJhZmZpYzogZmFsc2UsCiAgICAgICAgICBwb2ludHNPZkludGVyZXN0OiAiZXhjbHVkaW5nQWxsIiwKICAgICAgICB9LAogICAgICB9KQogICAgICBpZiAoc25hcD8uaW1hZ2UpIHJldHVybiBzbmFwCiAgICB9IGNhdGNoIChwcmltYXJ5RXJyb3IpIHsKICAgICAgY29uc29sZS5lcnJvcigiW0lQ5qOA5rWLXSDnroDmtIHlnLDlm77lv6vnhaflpLHotKXvvIzlsJ3or5Xpu5jorqTmoLflvI8iLCBwcmltYXJ5RXJyb3IpCiAgICB9CgogICAgY29uc3QgZmFsbGJhY2sgPSBhd2FpdCBNYXBTbmFwc2hvdHRlci50YWtlKGNvbW1vbikKICAgIHJldHVybiBmYWxsYmFjaz8uaW1hZ2UgPyBmYWxsYmFjayA6IG51bGwKICB9IGNhdGNoIChlcnJvcikgewogICAgY29uc29sZS5lcnJvcigiW0lQ5qOA5rWLXSDlnLDlm77lv6vnhaflpLHotKUiLCBlcnJvcikKICAgIHJldHVybiBudWxsCiAgfQp9Cg==
+import type { IPInfo } from "./ip"
+
+export function hasCoordinates(info: IPInfo | null | undefined): info is IPInfo {
+  if (!info) return false
+  const { lat, lon } = info
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return false
+  if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return false
+  return true
+}
+
+function regionSpanForFamily(family?: string): {
+  latitudeDelta: number
+  longitudeDelta: number
+} {
+  switch (family) {
+    case "systemSmall":
+    case "accessoryCircular":
+      return { latitudeDelta: 0.45, longitudeDelta: 0.55 }
+    case "systemMedium":
+    case "accessoryRectangular":
+      return { latitudeDelta: 0.34, longitudeDelta: 0.44 }
+    default:
+      return { latitudeDelta: 0.24, longitudeDelta: 0.32 }
+  }
+}
+
+export function approximateRadiusMeters(info: IPInfo): number {
+  if (info.city) return 3500
+  if (info.regionName) return 12000
+  return 25000
+}
+
+export async function takeIPMapSnapshot(options: {
+  lat: number
+  lon: number
+  width: number
+  height: number
+  family?: string
+  appearance?: "light" | "dark"
+}): Promise<{
+  image: any
+  size: { width: number; height: number }
+  point: (coordinate: { latitude: number; longitude: number }) => { x: number; y: number }
+} | null> {
+  const width = Math.max(64, Math.round(options.width))
+  const height = Math.max(48, Math.round(options.height))
+  const span = regionSpanForFamily(options.family)
+  // 定位坐标始终作为地图快照的中心点；地图视图本身再由组件布局移动到 (3/4, 1/2)。
+  const center = {
+    latitude: options.lat,
+    longitude: options.lon,
+  }
+
+  try {
+    const common = {
+      region: {
+        center,
+        span,
+      },
+      size: { width, height },
+      appearance: options.appearance,
+    }
+
+    try {
+      const snap = await MapSnapshotter.take({
+        ...common,
+        mapStyle: {
+          style: "standard",
+          showsTraffic: false,
+          pointsOfInterest: "excludingAll",
+        },
+      })
+      if (snap?.image) return snap
+    } catch (primaryError) {
+      console.error("[IP检测] 简洁地图快照失败，尝试默认样式", primaryError)
+    }
+
+    const fallback = await MapSnapshotter.take(common)
+    return fallback?.image ? fallback : null
+  } catch (error) {
+    console.error("[IP检测] 地图快照失败", error)
+    return null
+  }
+}

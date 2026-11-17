@@ -1,1 +1,146 @@
-ZXhwb3J0IHR5cGUgU2VydmljZVJlZ2lvblNvdXJjZSA9ICJoZWFkZXIiIHwgInBhZ2UiIHwgIm1hcmtldCIgfCAiY29uZmlnIiB8ICJyb3V0ZSIgfCAidHJhY2UiIHwgInJlZGlyZWN0IiB8ICJzbmFwc2hvdCIgfCAiIgpleHBvcnQgdHlwZSBTZXJ2aWNlUmVnaW9uID0geyByZWdpb25Db2RlOiBzdHJpbmc7IHJlZ2lvblNvdXJjZTogU2VydmljZVJlZ2lvblNvdXJjZSB9CmV4cG9ydCBjb25zdCBOT19TRVJWSUNFX1JFR0lPTjogU2VydmljZVJlZ2lvbiA9IHsgcmVnaW9uQ29kZTogIiIsIHJlZ2lvblNvdXJjZTogIiIgfQoKLy8gSVNPIDMxNjYtMSBhbHBoYS0y77ybWEsg5Li66YOo5YiG5pyN5Yqh6YeH55So55qE5omp5bGV5YC844CCVUsg57uf5LiA5Li6IEdC44CCCmNvbnN0IENPVU5UUllfQ09ERVMgPSBuZXcgU2V0KCgiQUQgQUUgQUYgQUcgQUkgQUwgQU0gQU8gQVEgQVIgQVMgQVQgQVUgQVcgQVggQVogQkEgQkIgQkQgQkUgQkYgQkcgQkggQkkgQkogQkwgQk0gQk4gQk8gQlEgQlIgQlMgQlQgQlYgQlcgQlkgQlogIgogICsgIkNBIENDIENEIENGIENHIENIIENJIENLIENMIENNIENOIENPIENSIENVIENWIENXIENYIENZIENaIERFIERKIERLIERNIERPIERaIEVDIEVFIEVHIEVIIEVSIEVTIEVUIEZJIEZKIEZLIEZNIEZPIEZSICIKICArICJHQSBHQiBHRCBHRSBHRiBHRyBHSCBHSSBHTCBHTSBHTiBHUCBHUSBHUiBHUyBHVCBHVSBHVyBHWSBISyBITSBITiBIUiBIVCBIVSBJRCBJRSBJTCBJTSBJTiBJTyBJUSBJUiBJUyBJVCBKRSBKTSBKTyBKUCAiCiAgKyAiS0UgS0cgS0ggS0kgS00gS04gS1AgS1IgS1cgS1kgS1ogTEEgTEIgTEMgTEkgTEsgTFIgTFMgTFQgTFUgTFYgTFkgTUEgTUMgTUQgTUUgTUYgTUcgTUggTUsgTUwgTU0gTU4gTU8gTVAgTVEgTVIgTVMgTVQgTVUgTVYgTVcgTVggTVkgTVogIgogICsgIk5BIE5DIE5FIE5GIE5HIE5JIE5MIE5PIE5QIE5SIE5VIE5aIE9NIFBBIFBFIFBGIFBHIFBIIFBLIFBMIFBNIFBOIFBSIFBTIFBUIFBXIFBZIFFBIFJFIFJPIFJTIFJVIFJXICIKICArICJTQSBTQiBTQyBTRCBTRSBTRyBTSCBTSSBTSiBTSyBTTCBTTSBTTiBTTyBTUiBTUyBTVCBTViBTWCBTWSBTWiBUQyBURCBURiBURyBUSCBUSiBUSyBUTCBUTSBUTiBUTyBUUiBUVCBUViBUVyBUWiAiCiAgKyAiVUEgVUcgVU0gVVMgVVkgVVogVkEgVkMgVkUgVkcgVkkgVk4gVlUgV0YgV1MgWEsgWUUgWVQgWkEgWk0gWlciKS5zcGxpdCgiICIpKQoKZXhwb3J0IGZ1bmN0aW9uIG5vcm1hbGl6ZVNlcnZpY2VSZWdpb25Db2RlKHZhbHVlOiB1bmtub3duKTogc3RyaW5nIHsKICBpZiAodHlwZW9mIHZhbHVlICE9PSAic3RyaW5nIikgcmV0dXJuICIiCiAgY29uc3QgY29kZSA9IHZhbHVlLnRyaW0oKS50b1VwcGVyQ2FzZSgpCiAgcmV0dXJuIGNvZGUgPT09ICJVSyIgPyAiR0IiIDogQ09VTlRSWV9DT0RFUy5oYXMoY29kZSkgPyBjb2RlIDogIiIKfQpleHBvcnQgZnVuY3Rpb24gbm9ybWFsaXplU2VydmljZVJlZ2lvblNvdXJjZSh2YWx1ZTogdW5rbm93bik6IFNlcnZpY2VSZWdpb25Tb3VyY2UgewogIHJldHVybiB0eXBlb2YgdmFsdWUgPT09ICJzdHJpbmciICYmIFsiaGVhZGVyIiwgInBhZ2UiLCAibWFya2V0IiwgImNvbmZpZyIsICJyb3V0ZSIsICJ0cmFjZSIsICJyZWRpcmVjdCIsICJzbmFwc2hvdCJdLmluY2x1ZGVzKHZhbHVlKQogICAgPyB2YWx1ZSBhcyBTZXJ2aWNlUmVnaW9uU291cmNlIDogIiIKfQpleHBvcnQgZnVuY3Rpb24gc2VydmljZVJlZ2lvblNvdXJjZUxhYmVsKHNvdXJjZT86IFNlcnZpY2VSZWdpb25Tb3VyY2UpOiBzdHJpbmcgewogIHJldHVybiBzb3VyY2UgPyB7IGhlYWRlcjogIuWTjeW6lOWcsOWMuiIsIHBhZ2U6ICLpobXpnaLlnLDljLoiLCBtYXJrZXQ6ICLpobXpnaLljLrln58iLCBjb25maWc6ICLljL/lkI3phY3nva4iLCByb3V0ZTogIuacjeWKoeWMuuWfnyIsIHRyYWNlOiAi5ZCM5Z+f6KeC5rWLIiwKICAgIHJlZGlyZWN0OiAi56uZ54K55Zyw5Yy6Iiwgc25hcHNob3Q6ICLkuIrmuLjlv6vnhaciIH1bc291cmNlXSA6ICIiCn0KCmZ1bmN0aW9uIHJlZ2lvbihjb2RlOiB1bmtub3duLCBzb3VyY2U6IFNlcnZpY2VSZWdpb25Tb3VyY2UpOiBTZXJ2aWNlUmVnaW9uIHsKICBjb25zdCByZWdpb25Db2RlID0gbm9ybWFsaXplU2VydmljZVJlZ2lvbkNvZGUoY29kZSkKICByZXR1cm4gcmVnaW9uQ29kZSA/IHsgcmVnaW9uQ29kZSwgcmVnaW9uU291cmNlOiBzb3VyY2UgfSA6IE5PX1NFUlZJQ0VfUkVHSU9OCn0KCi8qKiDlkIzkuIDlrZfmrrXlh7rnjrDlhrLnqoHlgLzml7bkuI3ku7vpgInkuIDkuKrvvJvot7Pov4fml6DmlYjljaDkvY3lgLzvvIzkv53nlZnlkI7nu63mnInmlYjku6PnoIHjgIIgKi8KZnVuY3Rpb24gbWF0Y2hDb2RlKGJvZHk6IHN0cmluZywgcGF0dGVybjogUmVnRXhwKTogc3RyaW5nIHsKICBjb25zdCBtYXRjaGVyID0gbmV3IFJlZ0V4cChwYXR0ZXJuLnNvdXJjZSwgcGF0dGVybi5mbGFncy5pbmNsdWRlcygiZyIpID8gcGF0dGVybi5mbGFncyA6IHBhdHRlcm4uZmxhZ3MgKyAiZyIpCiAgY29uc3QgY29kZXMgPSBuZXcgU2V0PHN0cmluZz4oKQogIGxldCBtYXRjaDogUmVnRXhwRXhlY0FycmF5IHwgbnVsbAogIHdoaWxlICgobWF0Y2ggPSBtYXRjaGVyLmV4ZWMoYm9keSkpKSB7CiAgICBjb25zdCBjb2RlID0gbm9ybWFsaXplU2VydmljZVJlZ2lvbkNvZGUobWF0Y2hbMV0pCiAgICBpZiAoY29kZSkgY29kZXMuYWRkKGNvZGUpCiAgICBpZiAoY29kZXMuc2l6ZSA+IDEpIHJldHVybiAiIgogICAgaWYgKCFtYXRjaFswXSkgbWF0Y2hlci5sYXN0SW5kZXgrKwogIH0KICByZXR1cm4gWy4uLmNvZGVzXVswXSB8fCAiIgp9CmZ1bmN0aW9uIGZpZWxkKGJvZHk6IHN0cmluZywgbmFtZTogc3RyaW5nKTogc3RyaW5nIHsKICByZXR1cm4gbWF0Y2hDb2RlKGJvZHksIG5ldyBSZWdFeHAoYCg/Ol58W15cXHckXSlbIiddPyg/OiR7bmFtZX0pWyInXT9cXHMqWzo9XVxccypbIiddKFtBLVphLXpdezJ9KVsiJ11gLCAiZ2kiKSkKfQpmdW5jdGlvbiBvYmplY3RGaWVsZChib2R5OiBzdHJpbmcsIG9iamVjdDogc3RyaW5nLCBuYW1lOiBzdHJpbmcpOiBzdHJpbmcgewogIC8vIOWPquWcqOebruagh+W5s+mdouWvueixoeWGheivu+WPlu+8jOS4jeiDvei2iui/h+mXreaLrOWPt+aNoeWIsOWQjue7reWGheWuuS/lm73lrrbpgInpobnjgIIKICBjb25zdCBibG9ja3MgPSBib2R5Lm1hdGNoKG5ldyBSZWdFeHAoYCg/Ol58W15cXHckXSlbIiddPyR7b2JqZWN0fVsiJ10/XFxzKls6PV1cXHMqXFx7W157fV17MCw0MDk2fVxcfWAsICJnaSIpKSB8fCBbXQogIHJldHVybiBmaWVsZChibG9ja3Muam9pbigiXG4iKSwgbmFtZSkKfQpmdW5jdGlvbiBkZWNvZGVQYWdlKGJvZHk6IHN0cmluZyk6IHN0cmluZyB7CiAgbGV0IHNhbXBsZSA9IGJvZHkKICBmb3IgKGxldCBpID0gMDsgaSA8IDM7IGkrKykgewogICAgc2FtcGxlID0gc2FtcGxlLnJlcGxhY2UoLyZhbXA7L2dpLCAiJiIpCiAgICAgIC5yZXBsYWNlKC8mcXVvdDt8JiMwKjM0O3wmI3gwKjIyO3xcXHUwMDIyfFxceDIyL2dpLCAnIicpCiAgICAgIC5yZXBsYWNlKC8mYXBvczt8JiMwKjM5O3wmI3gwKjI3Oy9naSwgIiciKQogICAgICAucmVwbGFjZSgvXFx1MDAzYS9naSwgIjoiKS5yZXBsYWNlKC9cXChbIidcXC9dKS9nLCAiJDEiKQogIH0KICByZXR1cm4gc2FtcGxlCn0KZnVuY3Rpb24gZ2VtaW5pTWFya2V0KGJvZHk6IHN0cmluZyk6IHN0cmluZyB7CiAgY29uc3QgbWFya2VyID0gLyg/OndpbmRvd1wuKT9XSVpfZ2xvYmFsX2RhdGFccyo9XHMqXHsvaS5leGVjKGJvZHkpCiAgaWYgKCFtYXJrZXIpIHJldHVybiAiIgogIGNvbnN0IGVuZCA9IGJvZHkuaW5kZXhPZigiPC9zY3JpcHQiLCBtYXJrZXIuaW5kZXgpCiAgY29uc3Qgc2NvcGVkID0gYm9keS5zbGljZShtYXJrZXIuaW5kZXgsIE1hdGgubWluKG1hcmtlci5pbmRleCArIDMwMF8wMDAsIGVuZCA8IDAgPyBib2R5Lmxlbmd0aCA6IGVuZCkpCiAgY29uc3QgbGl0ZXJhbCA9IC9bIidddlhtdXRkWyInXVxzKjpccyooIig/OlxcLnxbXiJcXF0pKiIpLy5leGVjKHNjb3BlZCk/LlsxXQogIHRyeSB7CiAgICBjb25zdCB2YWx1ZTogdW5rbm93biA9IGxpdGVyYWwgPyBKU09OLnBhcnNlKGxpdGVyYWwpIDogbnVsbAogICAgLy8g5a6e5rWL5Li66aG16Z2i5Yy65Z+f5Y+C5pWw77yM5Y+XIGdsIOW9seWTje+8m+S4jeiDveensOS4uuiuv+mXruiAhSBJUCDlm73lrrbjgIIKICAgIHJldHVybiB0eXBlb2YgdmFsdWUgPT09ICJzdHJpbmciID8gbm9ybWFsaXplU2VydmljZVJlZ2lvbkNvZGUoL14lXC5AXC4iKFtBLVpdezJ9KSIsIltBLVpdezJ9Iig/Oix8XF0pLy5leGVjKHZhbHVlKT8uWzFdKSA6ICIiCiAgfSBjYXRjaCB7IHJldHVybiAiIiB9Cn0KCmV4cG9ydCBmdW5jdGlvbiBzZXJ2aWNlQ29uZmlnUmVnaW9uKGJvZHk6IHN0cmluZywgc2VydmljZUlEOiBzdHJpbmcpOiBTZXJ2aWNlUmVnaW9uIHsKICBpZiAoc2VydmljZUlEICE9PSAic3BvdGlmeSIpIHJldHVybiBOT19TRVJWSUNFX1JFR0lPTgogIHRyeSB7CiAgICBjb25zdCBkYXRhID0gSlNPTi5wYXJzZShib2R5KQogICAgcmV0dXJuIGRhdGEgJiYgIUFycmF5LmlzQXJyYXkoZGF0YSkgJiYgZGF0YS5zdGF0dXMgPT09IDEgPyByZWdpb24oZGF0YS5jb3VudHJ5LCAiY29uZmlnIikgOiBOT19TRVJWSUNFX1JFR0lPTgogIH0gY2F0Y2ggeyByZXR1cm4gTk9fU0VSVklDRV9SRUdJT04gfQp9CgovKiog5LuF6Kej5p6QIHRyYWNlIOeahOWujOaVtCBsb2Mg6KGM77ybSFRUUCDnirbmgIHjgIHnsbvlnovjgIHlkIzln5/ot6/lvoTnlLHor7fmsYLlsYLmoLjlr7njgIIgKi8KZXhwb3J0IGZ1bmN0aW9uIGV4dHJhY3RUcmFjZVJlZ2lvbkNvZGUoYm9keTogc3RyaW5nKTogc3RyaW5nIHsKICBpZiAoL1s8Pl0vLnRlc3QoYm9keSkpIHJldHVybiAiIgogIHJldHVybiBtYXRjaENvZGUoYm9keSwgL15sb2M9KFtBLVphLXpdezJ9KVxyPyQvZ20pCn0KCmV4cG9ydCBmdW5jdGlvbiBzZXJ2aWNlSGVhZGVyUmVnaW9uKGhlYWRlcnM6IHsgZ2V0OiAobmFtZTogc3RyaW5nKSA9PiBzdHJpbmcgfCBudWxsIH0sIHNlcnZpY2VJRDogc3RyaW5nKTogU2VydmljZVJlZ2lvbiB7CiAgZm9yIChjb25zdCBuYW1lIG9mIFsieC1jb3VudHJ5LWNvZGUiLCAieC1jb3VudHJ5IiwgIngtZ2VvLWNvdW50cnkiLCAiY2YtaXBjb3VudHJ5IiwgIngtdmVyY2VsLWlwLWNvdW50cnkiLCAieC1hcHBlbmdpbmUtY291bnRyeSIsICJjb3VudHJ5LWNvZGUiXSkgewogICAgY29uc3QgcmVzdWx0ID0gcmVnaW9uKGhlYWRlcnMuZ2V0KG5hbWUpLCAiaGVhZGVyIikKICAgIGlmIChyZXN1bHQucmVnaW9uQ29kZSkgcmV0dXJuIHJlc3VsdAogIH0KICAvLyBEaXNuZXkrIOeahCByZWdpb24g5piv56uZ54K55Yy65Z+f77ybcGh5c2ljYWwtbG9jYXRpb24g5ZKMIHgtcmVnaW9uLWNvZGUg5LiN55So5LqO5Zu95a625Yik5pat44CCCiAgcmV0dXJuIHNlcnZpY2VJRCA9PT0gImRpc25leSIgPyByZWdpb24oaGVhZGVycy5nZXQoInJlZ2lvbiIpLCAicGFnZSIpIDogTk9fU0VSVklDRV9SRUdJT04KfQoKZXhwb3J0IGZ1bmN0aW9uIG5ldGZsaXhSZWRpcmVjdFJlZ2lvbih1cmw6IHN0cmluZyk6IFNlcnZpY2VSZWdpb24gewogIHRyeSB7CiAgICBjb25zdCBwYXJzZWQgPSBuZXcgVVJMKHVybCkKICAgIGlmIChwYXJzZWQucHJvdG9jb2wgIT09ICJodHRwczoiIHx8ICEvKF58XC4pbmV0ZmxpeFwuY29tJC9pLnRlc3QocGFyc2VkLmhvc3RuYW1lKSkgcmV0dXJuIE5PX1NFUlZJQ0VfUkVHSU9OCiAgICBjb25zdCBjb2RlID0gL15cLyhbQS1aYS16XXsyfSkoPzotW0EtWmEtel17Miw0fSk/KD86XC98JCkvLmV4ZWMocGFyc2VkLnBhdGhuYW1lKT8uWzFdCiAgICByZXR1cm4gcmVnaW9uKGNvZGUsICJyZWRpcmVjdCIpCiAgfSBjYXRjaCB7IHJldHVybiBOT19TRVJWSUNFX1JFR0lPTiB9Cn0KCmV4cG9ydCBmdW5jdGlvbiBzZXJ2aWNlUGFnZVJlZ2lvbihib2R5OiBzdHJpbmcsIHNlcnZpY2VJRCA9ICIiKTogU2VydmljZVJlZ2lvbiB7CiAgaWYgKCFib2R5KSByZXR1cm4gTk9fU0VSVklDRV9SRUdJT04KICBjb25zdCBzYW1wbGUgPSBkZWNvZGVQYWdlKGJvZHkpCiAgbGV0IGNvZGUgPSAiIgogIHN3aXRjaCAoc2VydmljZUlEKSB7CiAgICBjYXNlICJnZW1pbmkiOgogICAgICByZXR1cm4gcmVnaW9uKGdlbWluaU1hcmtldChib2R5KSwgIm1hcmtldCIpCiAgICBjYXNlICJuZXRmbGl4IjoKICAgICAgY29kZSA9IG9iamVjdEZpZWxkKHNhbXBsZSwgInJlcXVlc3RDb3VudHJ5IiwgImlkIikgfHwgb2JqZWN0RmllbGQoc2FtcGxlLCAiaWZyYW1lRGF0YSIsICJjb3VudHJ5IikKICAgICAgYnJlYWsKICAgIGNhc2UgInlvdXR1YmUiOgogICAgICBjb2RlID0gZmllbGQoc2FtcGxlLCAiSU5ORVJUVUJFX0NPTlRFWFRfR0wiKSB8fCBmaWVsZChzYW1wbGUsICJjb250ZW50UmVnaW9uIikKICAgICAgYnJlYWsKICAgIGNhc2UgInByaW1lIjoKICAgICAgY29kZSA9IGZpZWxkKHNhbXBsZSwgImN1cnJlbnRUZXJyaXRvcnkiKSB8fCBmaWVsZChzYW1wbGUsICJyZWNvcmRUZXJyaXRvcnkiKQogICAgICBicmVhawogICAgY2FzZSAidGlrdG9rIjoKICAgICAgY29kZSA9IGZpZWxkKHNhbXBsZSwgIlZSZWdpb24iKSB8fCBtYXRjaENvZGUoc2FtcGxlLCAvXGJkYXRhLXJlZ2lvblxzKj1ccypbIiddKFtBLVphLXpdezJ9KVsiJ10vZ2kpCiAgICAgIHJldHVybiByZWdpb24oY29kZSwgInJvdXRlIikKICAgIGNhc2UgImRlZXBzZWVrIjogewogICAgICBjb25zdCBtZXRhcyA9IChzYW1wbGUubWF0Y2goLzxtZXRhXGJbXj5dKj4vZ2kpIHx8IFtdKS5maWx0ZXIodGFnID0+IC9cc25hbWVccyo9XHMqWyInXXJlZ2lvblsiJ10vaS50ZXN0KHRhZykpCiAgICAgIGNvZGUgPSBtYXRjaENvZGUobWV0YXMuam9pbigiXG4iKSwgL1xzY29udGVudFxzKj1ccypbIiddKFtBLVphLXpdezJ9KVsiJ10vZ2kpCiAgICAgIGJyZWFrCiAgICB9CiAgICBjYXNlICIiOgogICAgICBjb2RlID0gZmllbGQoc2FtcGxlLCAiY291bnRyeUNvZGV8Y291bnRyeV9jb2RlfGNvdW50cnlJc29Db2RlfGNvdW50cnlfaXNvX2NvZGV8Z2VvQ291bnRyeXxnZW9fY291bnRyeXxJTk5FUlRVQkVfQ09OVEVYVF9HTHxjYyIpCiAgICAgICAgfHwgbWF0Y2hDb2RlKHNhbXBsZSwgL1xiZGF0YS0oPzpjb3VudHJ5fHJlZ2lvbikoPzotY29kZSk/XHMqPVxzKlsiJ10oW0EtWmEtel17Mn0pWyInXS9naSkKICAgICAgYnJlYWsKICAgIC8vIOaXoOWvueW6lOWtl+auteS4jeivu+WPluivreiogOOAgemhteiEmuWbveWutumAiemhueOAgei0puaIt+ekuuS+i+aIliBDRE4g6YOo572y54K544CCCiAgICBkZWZhdWx0OiBicmVhawogIH0KICByZXR1cm4gcmVnaW9uKGNvZGUsICJwYWdlIikKfQoKLyoqIOWFvOWuueW3suacieiwg+eUqO+8m+ecn+Wunuivt+axguW/hemhu+eUseivt+axguWxgumqjOivgSB0cmFjZSDnmoTkuIrkuIvmlofjgIIgKi8KZXhwb3J0IGZ1bmN0aW9uIGV4dHJhY3RTZXJ2aWNlUmVnaW9uQ29kZShib2R5OiBzdHJpbmcsIHNlcnZpY2VJRCA9ICIiLCBhbGxvd1RyYWNlID0gc2VydmljZUlEID09PSAiIik6IHN0cmluZyB7CiAgcmV0dXJuIHNlcnZpY2VQYWdlUmVnaW9uKGJvZHksIHNlcnZpY2VJRCkucmVnaW9uQ29kZSB8fCAoYWxsb3dUcmFjZSA/IGV4dHJhY3RUcmFjZVJlZ2lvbkNvZGUoYm9keSkgOiAiIikKfQo=
+export type ServiceRegionSource = "header" | "page" | "market" | "config" | "route" | "trace" | "redirect" | "snapshot" | ""
+export type ServiceRegion = { regionCode: string; regionSource: ServiceRegionSource }
+export const NO_SERVICE_REGION: ServiceRegion = { regionCode: "", regionSource: "" }
+
+// ISO 3166-1 alpha-2；XK 为部分服务采用的扩展值。UK 统一为 GB。
+const COUNTRY_CODES = new Set(("AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ "
+  + "CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR "
+  + "GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP "
+  + "KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ "
+  + "NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW "
+  + "SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ "
+  + "UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS XK YE YT ZA ZM ZW").split(" "))
+
+export function normalizeServiceRegionCode(value: unknown): string {
+  if (typeof value !== "string") return ""
+  const code = value.trim().toUpperCase()
+  return code === "UK" ? "GB" : COUNTRY_CODES.has(code) ? code : ""
+}
+export function normalizeServiceRegionSource(value: unknown): ServiceRegionSource {
+  return typeof value === "string" && ["header", "page", "market", "config", "route", "trace", "redirect", "snapshot"].includes(value)
+    ? value as ServiceRegionSource : ""
+}
+export function serviceRegionSourceLabel(source?: ServiceRegionSource): string {
+  return source ? { header: "响应地区", page: "页面地区", market: "页面区域", config: "匿名配置", route: "服务区域", trace: "同域观测",
+    redirect: "站点地区", snapshot: "上游快照" }[source] : ""
+}
+
+function region(code: unknown, source: ServiceRegionSource): ServiceRegion {
+  const regionCode = normalizeServiceRegionCode(code)
+  return regionCode ? { regionCode, regionSource: source } : NO_SERVICE_REGION
+}
+
+/** 同一字段出现冲突值时不任选一个；跳过无效占位值，保留后续有效代码。 */
+function matchCode(body: string, pattern: RegExp): string {
+  const matcher = new RegExp(pattern.source, pattern.flags.includes("g") ? pattern.flags : pattern.flags + "g")
+  const codes = new Set<string>()
+  let match: RegExpExecArray | null
+  while ((match = matcher.exec(body))) {
+    const code = normalizeServiceRegionCode(match[1])
+    if (code) codes.add(code)
+    if (codes.size > 1) return ""
+    if (!match[0]) matcher.lastIndex++
+  }
+  return [...codes][0] || ""
+}
+function field(body: string, name: string): string {
+  return matchCode(body, new RegExp(`(?:^|[^\\w$])["']?(?:${name})["']?\\s*[:=]\\s*["']([A-Za-z]{2})["']`, "gi"))
+}
+function objectField(body: string, object: string, name: string): string {
+  // 只在目标平面对象内读取，不能越过闭括号捡到后续内容/国家选项。
+  const blocks = body.match(new RegExp(`(?:^|[^\\w$])["']?${object}["']?\\s*[:=]\\s*\\{[^{}]{0,4096}\\}`, "gi")) || []
+  return field(blocks.join("\n"), name)
+}
+function decodePage(body: string): string {
+  let sample = body
+  for (let i = 0; i < 3; i++) {
+    sample = sample.replace(/&amp;/gi, "&")
+      .replace(/&quot;|&#0*34;|&#x0*22;|\\u0022|\\x22/gi, '"')
+      .replace(/&apos;|&#0*39;|&#x0*27;/gi, "'")
+      .replace(/\\u003a/gi, ":").replace(/\\(["'\\/])/g, "$1")
+  }
+  return sample
+}
+function geminiMarket(body: string): string {
+  const marker = /(?:window\.)?WIZ_global_data\s*=\s*\{/i.exec(body)
+  if (!marker) return ""
+  const end = body.indexOf("</script", marker.index)
+  const scoped = body.slice(marker.index, Math.min(marker.index + 300_000, end < 0 ? body.length : end))
+  const literal = /["']vXmutd["']\s*:\s*("(?:\\.|[^"\\])*")/.exec(scoped)?.[1]
+  try {
+    const value: unknown = literal ? JSON.parse(literal) : null
+    // 实测为页面区域参数，受 gl 影响；不能称为访问者 IP 国家。
+    return typeof value === "string" ? normalizeServiceRegionCode(/^%\.@\."([A-Z]{2})","[A-Z]{2}"(?:,|\])/.exec(value)?.[1]) : ""
+  } catch { return "" }
+}
+
+export function serviceConfigRegion(body: string, serviceID: string): ServiceRegion {
+  if (serviceID !== "spotify") return NO_SERVICE_REGION
+  try {
+    const data = JSON.parse(body)
+    return data && !Array.isArray(data) && data.status === 1 ? region(data.country, "config") : NO_SERVICE_REGION
+  } catch { return NO_SERVICE_REGION }
+}
+
+/** 仅解析 trace 的完整 loc 行；HTTP 状态、类型、同域路径由请求层核对。 */
+export function extractTraceRegionCode(body: string): string {
+  if (/[<>]/.test(body)) return ""
+  return matchCode(body, /^loc=([A-Za-z]{2})\r?$/gm)
+}
+
+export function serviceHeaderRegion(headers: { get: (name: string) => string | null }, serviceID: string): ServiceRegion {
+  for (const name of ["x-country-code", "x-country", "x-geo-country", "cf-ipcountry", "x-vercel-ip-country", "x-appengine-country", "country-code"]) {
+    const result = region(headers.get(name), "header")
+    if (result.regionCode) return result
+  }
+  // Disney+ 的 region 是站点区域；physical-location 和 x-region-code 不用于国家判断。
+  return serviceID === "disney" ? region(headers.get("region"), "page") : NO_SERVICE_REGION
+}
+
+export function netflixRedirectRegion(url: string): ServiceRegion {
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol !== "https:" || !/(^|\.)netflix\.com$/i.test(parsed.hostname)) return NO_SERVICE_REGION
+    const code = /^\/([A-Za-z]{2})(?:-[A-Za-z]{2,4})?(?:\/|$)/.exec(parsed.pathname)?.[1]
+    return region(code, "redirect")
+  } catch { return NO_SERVICE_REGION }
+}
+
+export function servicePageRegion(body: string, serviceID = ""): ServiceRegion {
+  if (!body) return NO_SERVICE_REGION
+  const sample = decodePage(body)
+  let code = ""
+  switch (serviceID) {
+    case "gemini":
+      return region(geminiMarket(body), "market")
+    case "netflix":
+      code = objectField(sample, "requestCountry", "id") || objectField(sample, "iframeData", "country")
+      break
+    case "youtube":
+      code = field(sample, "INNERTUBE_CONTEXT_GL") || field(sample, "contentRegion")
+      break
+    case "prime":
+      code = field(sample, "currentTerritory") || field(sample, "recordTerritory")
+      break
+    case "tiktok":
+      code = field(sample, "VRegion") || matchCode(sample, /\bdata-region\s*=\s*["']([A-Za-z]{2})["']/gi)
+      return region(code, "route")
+    case "deepseek": {
+      const metas = (sample.match(/<meta\b[^>]*>/gi) || []).filter(tag => /\sname\s*=\s*["']region["']/i.test(tag))
+      code = matchCode(metas.join("\n"), /\scontent\s*=\s*["']([A-Za-z]{2})["']/gi)
+      break
+    }
+    case "":
+      code = field(sample, "countryCode|country_code|countryIsoCode|country_iso_code|geoCountry|geo_country|INNERTUBE_CONTEXT_GL|cc")
+        || matchCode(sample, /\bdata-(?:country|region)(?:-code)?\s*=\s*["']([A-Za-z]{2})["']/gi)
+      break
+    // 无对应字段不读取语言、页脚国家选项、账户示例或 CDN 部署点。
+    default: break
+  }
+  return region(code, "page")
+}
+
+/** 兼容已有调用；真实请求必须由请求层验证 trace 的上下文。 */
+export function extractServiceRegionCode(body: string, serviceID = "", allowTrace = serviceID === ""): string {
+  return servicePageRegion(body, serviceID).regionCode || (allowTrace ? extractTraceRegionCode(body) : "")
+}

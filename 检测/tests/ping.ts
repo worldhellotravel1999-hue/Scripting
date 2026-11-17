@@ -1,1 +1,5 @@
-aW1wb3J0IHsgU2NyaXB0IH0gZnJvbSAic2NyaXB0aW5nIgoKY29uc3QgdmFsdWUgPSB7IGhlbGxvOiAid29ybGQiLCBwYXNzZWQ6IDIgfQpjb25zb2xlLmxvZygiW3BpbmddIHByb2plY3QgcnVuIiwgSlNPTi5zdHJpbmdpZnkodmFsdWUpKQpTY3JpcHQuZXhpdCh2YWx1ZSkK
+import { Script } from "scripting"
+
+const value = { hello: "world", passed: 2 }
+console.log("[ping] project run", JSON.stringify(value))
+Script.exit(value)

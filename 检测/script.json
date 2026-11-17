@@ -1,1 +1,46 @@
-ewogICJkZXNjcmlwdGlvbiIgOiAi5o6o6I2QRmFzdCAmIExpZ2h0d2VpZ2h0IOKAlCBTaW1wbGUsIGVmZmljaWVudCwgYW5kIGVhc3kgdG8gdXNlLiIsCiAgImxvY2FsaXplZE5hbWVzIiA6IHsKICAgICJqYSIgOiAiIiwKICAgICJwdCIgOiAiIiwKICAgICJmciIgOiAiIiwKICAgICJpdCIgOiAiIiwKICAgICJydSIgOiAiIiwKICAgICJlbiIgOiAiIiwKICAgICJlcyIgOiAiIiwKICAgICJ6aCIgOiAiIiwKICAgICJkZSIgOiAiIgogIH0sCiAgImljb24iIDogImFudGVubmEucmFkaW93YXZlcy5sZWZ0LmFuZC5yaWdodCIsCiAgInJlbW90ZURlZmluaXRpb25JZCIgOiBudWxsLAogICJlbnRyeSIgOiAiaW5kZXgudHN4IiwKICAidmVyc2lvbiIgOiAiMS4yLjEiLAogICJsb2NhbGl6ZWREZXNjcmlwdGlvbnMiIDogewogICAgImphIiA6ICIiLAogICAgImZyIiA6ICIiLAogICAgImVzIiA6ICIiLAogICAgInpoIiA6ICIiLAogICAgIml0IiA6ICIiLAogICAgImVuIiA6ICIiLAogICAgInB0IiA6ICIiLAogICAgInJ1IiA6ICIiLAogICAgImRlIiA6ICIiCiAgfSwKICAiYXV0aG9yIiA6IG51bGwsCiAgImNvbnRyaWJ1dG9ycyIgOiBbCgogIF0sCiAgImludGVudElucHV0VHlwZXMiIDogWwoKICBdLAogICJyZW1vdGVSZXNvdXJjZSIgOiB7CiAgICAidXJsIiA6ICJodHRwczpcL1wvZ2l0aHViLmNvbVwvd29ybGRoZWxsb3RyYXZlbDE5OTktaHVlXC9TY3JpcHRpbmdcL3RyZWVcL21haW5cL+ajgOa1iyIsCiAgICAiaGFzaCIgOiAiZWY1NzAzY2FmOTcyN2EzODUzNDRmOGVlMzJjODM2Y2YiLAogICAgImF1dG9VcGRhdGVJbnRlcnZhbCIgOiBudWxsCiAgfSwKICAiY29sb3IiIDogInJnYmEoMTc0LCAxMDksIDIxNiwgMSkiLAogICJpY29uSW1hZ2UiIDogIiIsCiAgInJ1bkluQXBwIiA6IGZhbHNlLAogICJwZXJtaXNzaW9ucyIgOiBudWxsLAogICJuYW1lIiA6ICJSZXBvcnQgaXAiCn0=
+{
+  "description" : "推荐Fast & Lightweight — Simple, efficient, and easy to use.",
+  "localizedNames" : {
+    "ja" : "",
+    "pt" : "",
+    "fr" : "",
+    "it" : "",
+    "ru" : "",
+    "en" : "",
+    "es" : "",
+    "zh" : "",
+    "de" : ""
+  },
+  "icon" : "antenna.radiowaves.left.and.right",
+  "remoteDefinitionId" : null,
+  "entry" : "index.tsx",
+  "version" : "1.2.1",
+  "localizedDescriptions" : {
+    "ja" : "",
+    "fr" : "",
+    "es" : "",
+    "zh" : "",
+    "it" : "",
+    "en" : "",
+    "pt" : "",
+    "ru" : "",
+    "de" : ""
+  },
+  "author" : null,
+  "contributors" : [
+
+  ],
+  "intentInputTypes" : [
+
+  ],
+  "remoteResource" : {
+    "url" : "https:\/\/github.com\/worldhellotravel1999-hue\/Scripting\/tree\/main\/检测",
+    "hash" : "ef5703caf9727a385344f8ee32c836cf",
+    "autoUpdateInterval" : null
+  },
+  "color" : "rgba(174, 109, 216, 1)",
+  "iconImage" : "",
+  "runInApp" : false,
+  "permissions" : null,
+  "name" : "Report ip"
+}

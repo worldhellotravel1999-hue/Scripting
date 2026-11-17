@@ -1,1 +1,66 @@
-ZXhwb3J0IGNvbnN0IFBBR0VfTU9EVUxFUyA9IFsKICAib3ZlcnZpZXciLCAibG9jYXRpb24iLCAiYXR0cmlidXRlcyIsICJpcHB1cmUiLCAiY2xvdWRmbGFyZSIsICJwcm94eWNoZWNrIiwKICAibGVhayIsICJuZXR3b3JrIiwgIm1lZGlhIiwgImFpIiwgInNldHRpbmdzIiwKXSBhcyBjb25zdAoKZXhwb3J0IHR5cGUgUGFnZU1vZHVsZUlEID0gdHlwZW9mIFBBR0VfTU9EVUxFU1tudW1iZXJdCmV4cG9ydCB0eXBlIFBhZ2VNb2R1bGUgPSB7IGlkOiBQYWdlTW9kdWxlSUQgfQpjb25zdCBPUkRFUl9LRVkgPSAicmVwb3J0LWlwLnBhZ2UubW9kdWxlLW9yZGVyLnYxIgpjb25zdCBrbm93biA9IG5ldyBTZXQ8c3RyaW5nPihQQUdFX01PRFVMRVMpCgovKiog5L+d55WZ5bey55+l5YiG5Yy655qE55u45a+56aG65bqP77yb5b+955Wl5o2f5Z2P6aG577yM5bm25Zyo5pyr5bC+6KGl5LiK5Lul5ZCO5paw5aKe55qE5YiG5Yy644CCICovCmV4cG9ydCBmdW5jdGlvbiBub3JtYWxpemVNb2R1bGVPcmRlcih2YWx1ZTogdW5rbm93bik6IFBhZ2VNb2R1bGVJRFtdIHsKICBjb25zdCBzYXZlZCA9IEFycmF5LmlzQXJyYXkodmFsdWUpID8gdmFsdWUgOiBbXQogIGNvbnN0IHJlc3VsdDogUGFnZU1vZHVsZUlEW10gPSBbXQogIGNvbnN0IHNlZW4gPSBuZXcgU2V0PHN0cmluZz4oKQogIGZvciAoY29uc3QgaWQgb2YgWy4uLnNhdmVkLCAuLi5QQUdFX01PRFVMRVNdKSB7CiAgICBpZiAodHlwZW9mIGlkICE9PSAic3RyaW5nIiB8fCAha25vd24uaGFzKGlkKSB8fCBzZWVuLmhhcyhpZCkpIGNvbnRpbnVlCiAgICBzZWVuLmFkZChpZCkKICAgIHJlc3VsdC5wdXNoKGlkIGFzIFBhZ2VNb2R1bGVJRCkKICB9CiAgcmV0dXJuIHJlc3VsdAp9CgovKiog5b2T5YmN5Y+v6KeB6ZuG5ZCI77ya55So5oi36ZqQ6JeP5qih5byP5LiO5pWw5o2u5p2h5Lu26ZqQ6JeP6YO95LiN5pS55Y+Y5a6M5pW05L+d5a2Y6aG65bqP44CCICovCmV4cG9ydCBmdW5jdGlvbiB2aXNpYmxlTW9kdWxlT3JkZXIoCiAgb3JkZXI6IHJlYWRvbmx5IFBhZ2VNb2R1bGVJRFtdLCBtYW51YWw6IGJvb2xlYW4sIGF2YWlsYWJsZTogcmVhZG9ubHkgUGFnZU1vZHVsZUlEW10gPSBQQUdFX01PRFVMRVMsCik6IFBhZ2VNb2R1bGVJRFtdIHsKICBjb25zdCBhdmFpbGFibGVTZXQgPSBuZXcgU2V0KGF2YWlsYWJsZSkKICByZXR1cm4gbm9ybWFsaXplTW9kdWxlT3JkZXIob3JkZXIpLmZpbHRlcihpZCA9PiBhdmFpbGFibGVTZXQuaGFzKGlkKQogICAgJiYgKCFtYW51YWwgfHwgKGlkICE9PSAibWVkaWEiICYmIGlkICE9PSAiYWkiKSkpCn0KCmV4cG9ydCBmdW5jdGlvbiBnZXRNb2R1bGVPcmRlcigpOiBQYWdlTW9kdWxlSURbXSB7CiAgdHJ5IHsKICAgIGNvbnN0IHNhdmVkID0gU3RvcmFnZS5nZXQ8dW5rbm93bj4oT1JERVJfS0VZKQogICAgcmV0dXJuIG5vcm1hbGl6ZU1vZHVsZU9yZGVyKHR5cGVvZiBzYXZlZCA9PT0gInN0cmluZyIgPyBKU09OLnBhcnNlKHNhdmVkKSA6IHNhdmVkKQogIH0gY2F0Y2ggeyByZXR1cm4gWy4uLlBBR0VfTU9EVUxFU10gfQp9CgpleHBvcnQgZnVuY3Rpb24gc2F2ZU1vZHVsZU9yZGVyKG9yZGVyOiByZWFkb25seSBQYWdlTW9kdWxlSURbXSk6IGJvb2xlYW4gewogIHRyeSB7IHJldHVybiBTdG9yYWdlLnNldChPUkRFUl9LRVksIG5vcm1hbGl6ZU1vZHVsZU9yZGVyKG9yZGVyKSkgfQogIGNhdGNoIHsgcmV0dXJuIGZhbHNlIH0KfQoKLyoqIG5ld09mZnNldCDmmK/np7vliqjliY3pm4blkIjnmoTmj5LlhaXkvY3nva7vvIzlkJHkuIvnp7vliqjml7bmiaPpmaTlt7Lnp7vlh7rnmoTliY3nva7pobnjgIIgKi8KZXhwb3J0IGZ1bmN0aW9uIG1vdmVNb2R1bGVPcmRlcigKICBvcmRlcjogcmVhZG9ubHkgUGFnZU1vZHVsZUlEW10sIHZpc2libGU6IHJlYWRvbmx5IFBhZ2VNb2R1bGVJRFtdLCBpbmRpY2VzOiByZWFkb25seSBudW1iZXJbXSwgbmV3T2Zmc2V0OiBudW1iZXIsCik6IFBhZ2VNb2R1bGVJRFtdIHsKICBjb25zdCBjdXJyZW50ID0gbm9ybWFsaXplTW9kdWxlT3JkZXIob3JkZXIpCiAgY29uc3QgdmlzaWJsZVNldCA9IG5ldyBTZXQodmlzaWJsZSkKICBjb25zdCBzaG93biA9IGN1cnJlbnQuZmlsdGVyKGlkID0+IHZpc2libGVTZXQuaGFzKGlkKSkKICBpZiAoIU51bWJlci5pc0ludGVnZXIobmV3T2Zmc2V0KSB8fCBuZXdPZmZzZXQgPCAwIHx8IG5ld09mZnNldCA+IHNob3duLmxlbmd0aCkgcmV0dXJuIGN1cnJlbnQKICBjb25zdCBzb3VyY2VzID0gWy4uLm5ldyBTZXQoaW5kaWNlcyldLnNvcnQoKGEsIGIpID0+IGEgLSBiKQogIGlmICghc291cmNlcy5sZW5ndGggfHwgc291cmNlcy5zb21lKGluZGV4ID0+ICFOdW1iZXIuaXNJbnRlZ2VyKGluZGV4KSB8fCBpbmRleCA8IDAgfHwgaW5kZXggPj0gc2hvd24ubGVuZ3RoKSkgewogICAgcmV0dXJuIGN1cnJlbnQKICB9CiAgY29uc3Qgc291cmNlU2V0ID0gbmV3IFNldChzb3VyY2VzKQogIGNvbnN0IG1vdmluZyA9IHNvdXJjZXMubWFwKGluZGV4ID0+IHNob3duW2luZGV4XSkKICBjb25zdCByZW1haW5pbmcgPSBzaG93bi5maWx0ZXIoKF8sIGluZGV4KSA9PiAhc291cmNlU2V0LmhhcyhpbmRleCkpCiAgY29uc3QgZGVzdGluYXRpb24gPSBuZXdPZmZzZXQgLSBzb3VyY2VzLmZpbHRlcihpbmRleCA9PiBpbmRleCA8IG5ld09mZnNldCkubGVuZ3RoCiAgcmVtYWluaW5nLnNwbGljZShkZXN0aW5hdGlvbiwgMCwgLi4ubW92aW5nKQogIGxldCBpbmRleCA9IDAKICAvLyDmiYvliqjmn6Xor6LmmoLml7bpmpDol4/lqpLkvZMvQUnvvJvmi5bliqjlj6/op4HliIbljLrml7bkv53nlZnpmpDol4/liIbljLrnmoTlrZjlgqjkvY3nva7jgIIKICByZXR1cm4gY3VycmVudC5tYXAoaWQgPT4gdmlzaWJsZVNldC5oYXMoaWQpID8gcmVtYWluaW5nW2luZGV4KytdIDogaWQpCn0KCg==
+export const PAGE_MODULES = [
+  "overview", "location", "attributes", "ippure", "cloudflare", "proxycheck",
+  "leak", "network", "media", "ai", "settings",
+] as const
+
+export type PageModuleID = typeof PAGE_MODULES[number]
+export type PageModule = { id: PageModuleID }
+const ORDER_KEY = "report-ip.page.module-order.v1"
+const known = new Set<string>(PAGE_MODULES)
+
+/** 保留已知分区的相对顺序；忽略损坏项，并在末尾补上以后新增的分区。 */
+export function normalizeModuleOrder(value: unknown): PageModuleID[] {
+  const saved = Array.isArray(value) ? value : []
+  const result: PageModuleID[] = []
+  const seen = new Set<string>()
+  for (const id of [...saved, ...PAGE_MODULES]) {
+    if (typeof id !== "string" || !known.has(id) || seen.has(id)) continue
+    seen.add(id)
+    result.push(id as PageModuleID)
+  }
+  return result
+}
+
+/** 当前可见集合：用户隐藏模式与数据条件隐藏都不改变完整保存顺序。 */
+export function visibleModuleOrder(
+  order: readonly PageModuleID[], manual: boolean, available: readonly PageModuleID[] = PAGE_MODULES,
+): PageModuleID[] {
+  const availableSet = new Set(available)
+  return normalizeModuleOrder(order).filter(id => availableSet.has(id)
+    && (!manual || (id !== "media" && id !== "ai")))
+}
+
+export function getModuleOrder(): PageModuleID[] {
+  try {
+    const saved = Storage.get<unknown>(ORDER_KEY)
+    return normalizeModuleOrder(typeof saved === "string" ? JSON.parse(saved) : saved)
+  } catch { return [...PAGE_MODULES] }
+}
+
+export function saveModuleOrder(order: readonly PageModuleID[]): boolean {
+  try { return Storage.set(ORDER_KEY, normalizeModuleOrder(order)) }
+  catch { return false }
+}
+
+/** newOffset 是移动前集合的插入位置，向下移动时扣除已移出的前置项。 */
+export function moveModuleOrder(
+  order: readonly PageModuleID[], visible: readonly PageModuleID[], indices: readonly number[], newOffset: number,
+): PageModuleID[] {
+  const current = normalizeModuleOrder(order)
+  const visibleSet = new Set(visible)
+  const shown = current.filter(id => visibleSet.has(id))
+  if (!Number.isInteger(newOffset) || newOffset < 0 || newOffset > shown.length) return current
+  const sources = [...new Set(indices)].sort((a, b) => a - b)
+  if (!sources.length || sources.some(index => !Number.isInteger(index) || index < 0 || index >= shown.length)) {
+    return current
+  }
+  const sourceSet = new Set(sources)
+  const moving = sources.map(index => shown[index])
+  const remaining = shown.filter((_, index) => !sourceSet.has(index))
+  const destination = newOffset - sources.filter(index => index < newOffset).length
+  remaining.splice(destination, 0, ...moving)
+  let index = 0
+  // 手动查询暂时隐藏媒体/AI；拖动可见分区时保留隐藏分区的存储位置。
+  return current.map(id => visibleSet.has(id) ? remaining[index++] : id)
+}
+

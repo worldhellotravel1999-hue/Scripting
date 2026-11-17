@@ -1,1 +1,384 @@
-aW1wb3J0IHsKICBCdXR0b24sIERldmljZSwgR2VvbWV0cnlSZWFkZXIsIEhTdGFjaywgSW1hZ2UsIFJlY3RhbmdsZSwgUm91bmRlZFJlY3RhbmdsZSwgU3BhY2VyLCBUZXh0LCBWU3RhY2ssIFpTdGFjaywKICBncmFkaWVudCwgbW9kaWZpZXJzLCB1c2VFZmZlY3QsIHVzZVJlZiwgdXNlU3RhdGUsCn0gZnJvbSAic2NyaXB0aW5nIgppbXBvcnQgdHlwZSB7IENvbG9yLCBEeW5hbWljU2hhcGVTdHlsZSwgVmlydHVhbE5vZGUgfSBmcm9tICJzY3JpcHRpbmciCgpleHBvcnQgY29uc3QgQUNDRU5UID0gewogIGJsdWU6ICIjMjc5RkM1IiBhcyBDb2xvciwKICB0ZWFsOiAiIzE2QjhBNiIgYXMgQ29sb3IsCiAgdmlvbGV0OiAiIzg2NzNFOCIgYXMgQ29sb3IsCiAgZ3JlZW46ICIjMjhCOTgyIiBhcyBDb2xvciwKICBhbWJlcjogIiNENkEwMTMiIGFzIENvbG9yLAogIG9yYW5nZTogIiNGMDgzMzUiIGFzIENvbG9yLAogIHBpbms6ICIjRjA2NTkxIiBhcyBDb2xvciwKICByZWQ6ICIjRTY0RjY3IiBhcyBDb2xvciwKfQpleHBvcnQgY29uc3QgQ09ERTogewogIHZhbHVlOiBEeW5hbWljU2hhcGVTdHlsZQogIG51bWJlcjogRHluYW1pY1NoYXBlU3R5bGUKICBpbnB1dDogRHluYW1pY1NoYXBlU3R5bGUKICByZWdpb246IER5bmFtaWNTaGFwZVN0eWxlCn0gPSB7CiAgdmFsdWU6IHsgbGlnaHQ6ICIjMjU1MzZCIiwgZGFyazogIiNCM0Q3RTciIH0sCiAgbnVtYmVyOiB7IGxpZ2h0OiAiI0E2NTIyNSIsIGRhcms6ICIjRkZCODc4IiB9LAogIGlucHV0OiB7IGxpZ2h0OiAiIzFGNjc5NiIsIGRhcms6ICIjOERENUZGIiB9LAogIHJlZ2lvbjogeyBsaWdodDogIiMyQTc0QjUiLCBkYXJrOiAiIzhFQzdGRiIgfSwKfQpleHBvcnQgY29uc3QgUEFHRV9CRyA9IHsgbGlnaHQ6ICIjRURGMUY2IiBhcyBDb2xvciwgZGFyazogIiMwOTBFMTYiIGFzIENvbG9yIH0KZXhwb3J0IGNvbnN0IFNVUkZBQ0UgPSB7IGxpZ2h0OiAiI0ZGRkZGRiIgYXMgQ29sb3IsIGRhcms6ICIjMTExODIzIiBhcyBDb2xvciB9CmV4cG9ydCBjb25zdCBCQU5EX0JHID0geyBsaWdodDogIiNGNkY4RkIiIGFzIENvbG9yLCBkYXJrOiAiIzE3MUYyQyIgYXMgQ29sb3IgfQpleHBvcnQgY29uc3QgTElORSA9IHsgbGlnaHQ6ICIjRTdFREYzIiBhcyBDb2xvciwgZGFyazogIiMyOTMzNDQiIGFzIENvbG9yIH0KZXhwb3J0IGNvbnN0IExBQkVMX1dJRFRIID0gOTEKY29uc3QgU1BFQ1RSVU0gPSBncmFkaWVudCgibGluZWFyIiwgewogIGNvbG9yczogW0FDQ0VOVC50ZWFsLCBBQ0NFTlQuYmx1ZSwgQUNDRU5ULnZpb2xldF0sIHN0YXJ0UG9pbnQ6ICJsZWFkaW5nIiwgZW5kUG9pbnQ6ICJ0cmFpbGluZyIsCn0pCi8qKiDlvLrosIPoibLovazljYrpgI/mmI7loavlhYXvvJvkvKDlhaXpnZ7ljYHlha3ov5vliLblgLzml7bljp/moLfov5Tlm57vvIzpgb/lhY3mi7zlh7rpnZ7ms5XpopzoibLjgIIgKi8KZXhwb3J0IGZ1bmN0aW9uIHRpbnRlZChjb2xvcjogQ29sb3IsIGFscGhhOiBudW1iZXIpOiBDb2xvciB7CiAgY29uc3QgaGV4ID0gU3RyaW5nKGNvbG9yKS50cmltKCkKICBpZiAoIS9eI1swLTlhLWZBLUZdezN9JHxeI1swLTlhLWZBLUZdezZ9JC8udGVzdChoZXgpKSByZXR1cm4gY29sb3IKICBjb25zdCBib2R5ID0gaGV4LnNsaWNlKDEpCiAgY29uc3QgZnVsbCA9IGJvZHkubGVuZ3RoID09PSAzID8gYm9keS5zcGxpdCgiIikubWFwKGNoYXIgPT4gY2hhciArIGNoYXIpLmpvaW4oIiIpIDogYm9keQogIGNvbnN0IHZhbHVlID0gW2Z1bGwuc2xpY2UoMCwgMiksIGZ1bGwuc2xpY2UoMiwgNCksIGZ1bGwuc2xpY2UoNCwgNildCiAgICAubWFwKHBhcnQgPT4gcGFyc2VJbnQocGFydCwgMTYpIHx8IDApCiAgY29uc3Qgb3BhY2l0eSA9IE1hdGgubWF4KDAsIE1hdGgubWluKDEsIGFscGhhKSkudG9GaXhlZCgzKQogIHJldHVybiBgcmdiYSgke3ZhbHVlWzBdfSwgJHt2YWx1ZVsxXX0sICR7dmFsdWVbMl19LCAke29wYWNpdHl9KWAgYXMgQ29sb3IKfQoKLyoqIOagh+mimOWbvuagh+eahOaflOWFieW6leeJh++8muaegea1heeahOmdkuiTnea4kOWPmO+8jOS4jeW9seWTjeato+aWh+WvueavlOW6puOAgiAqLwpjb25zdCBJQ09OX0NISVAgPSBncmFkaWVudCgibGluZWFyIiwgewogIGNvbG9yczogWyJyZ2JhKDM5LDE1OSwxOTcsMC4xNikiLCAicmdiYSgxMzQsMTE1LDIzMiwwLjEwKSJdLAogIHN0YXJ0UG9pbnQ6ICJ0b3BMZWFkaW5nIiwgZW5kUG9pbnQ6ICJib3R0b21UcmFpbGluZyIsCn0pCmNvbnN0IElDT05fQ0hJUF9FREdFID0gInJnYmEoMzksMTU5LDE5NywwLjI0KSIKCi8vIOWKqOeUu+Wksei0peaXtuS7jeaPkOS6pOeKtuaAge+8m+WumuaXtuWZqOWPqui0n+i0o+WQr+WKqOWOn+eUn+WKqOeUu++8jOS4jeWBmumAkOW4p+WIt+aWsOOAggpleHBvcnQgZnVuY3Rpb24gYW5pbWF0ZSh1cGRhdGU6ICgpID0+IHZvaWQsIGFuaW1hdGlvbiA9IEFuaW1hdGlvbi5zbW9vdGgoeyBkdXJhdGlvbjogMC4zNSB9KSkgewogIC8vIHdpdGhBbmltYXRpb24g55qE6Zet5YyF5Y+v6IO95bu25ZCO5omn6KGM77yMUHJvbWlzZSDkuZ/lj6/og73lvILmraUgcmVqZWN077ybCiAgLy8g55So5LiA5qyh5oCn5a6I5Y2r5L+d6K+BIHVwZGF0ZSDmgbDlpb3mj5DkuqTkuIDmrKHvvIzpgb/lhY3nirbmgIHooqvlkJ7mjonjgIIKICBsZXQgYXBwbGllZCA9IGZhbHNlCiAgY29uc3QgY29tbWl0ID0gKCkgPT4gewogICAgaWYgKGFwcGxpZWQpIHJldHVybgogICAgYXBwbGllZCA9IHRydWUKICAgIHVwZGF0ZSgpCiAgfQogIHRyeSB7IHZvaWQgd2l0aEFuaW1hdGlvbihhbmltYXRpb24sIGNvbW1pdCkuY2F0Y2goY29tbWl0KSB9CiAgY2F0Y2ggeyBjb21taXQoKSB9Cn0KCi8qKiB3aXRoQW5pbWF0aW9uIOeahOmXreWMheWPr+iDveW7tuWQjuaJp+ihjO+8jOeKtuaAgeaPkOS6pOaXtuimgemHjeaWsOaguOWvueafpeivoui9ruasoeOAgiAqLwpleHBvcnQgZnVuY3Rpb24gYW5pbWF0ZUlmQ3VycmVudChpc0N1cnJlbnQ6ICgpID0+IGJvb2xlYW4sIHVwZGF0ZTogKCkgPT4gdm9pZCwKICBhbmltYXRpb24gPSBBbmltYXRpb24uc21vb3RoKHsgZHVyYXRpb246IDAuMzUgfSkpIHsKICBpZiAoIWlzQ3VycmVudCgpKSByZXR1cm4KICBhbmltYXRlKCgpID0+IHsgaWYgKGlzQ3VycmVudCgpKSB1cGRhdGUoKSB9LCBhbmltYXRpb24pCn0KCmV4cG9ydCBmdW5jdGlvbiB1c2VFbnRyYW5jZShkZWxheSA9IDApIHsKICBjb25zdCBbdmlzaWJsZSwgc2V0VmlzaWJsZV0gPSB1c2VTdGF0ZShmYWxzZSkKICB1c2VFZmZlY3QoKCkgPT4gewogICAgY29uc3QgdGltZXIgPSBzZXRUaW1lb3V0KCgpID0+IHsKICAgICAgdHJ5IHsgc2V0VmlzaWJsZSh0cnVlKSB9CiAgICAgIGNhdGNoIChlcnJvcikgeyBjb25zb2xlLmxvZygiW0lQ5qOA5rWLXSDlhaXlnLrliqjnlLsiLCBTdHJpbmcoZXJyb3IpKSB9CiAgICB9LCAyNCArIGRlbGF5KQogICAgcmV0dXJuICgpID0+IGNsZWFyVGltZW91dCh0aW1lcikKICB9LCBbXSkKICByZXR1cm4gdmlzaWJsZQp9CgovKiog6Z2i5p2/5YWl5Zy65bu25pe26ZKp5a2Q77ya5omA5pyJ4oCc5oyC6L295ZCO5bu26L+f6L2s5Li65Y+v6KeB4oCd55qE5Yqo55S75YWx55So5ZCM5LiA5a6e546w44CCICovCgovKiog6L+e57ut6Z2i5p2/5Lit55qE6Imy5bim5YiG5Yy677yM5peg54us56uL5ZyG6KeS44CB6Zi05b2x5oiW5aSW6L656Led44CCaWNvbkVmZmVjdCDorqnlm77moIfmjaLlvaLml7bpop3lpJblvLnkuIDkuIvjgIIgKi8KZXhwb3J0IGZ1bmN0aW9uIEJhbmQoeyB0aXRsZSwgaWNvbiwgaGludCwgYWNjZXNzb3J5LCBzaGFkZWQgPSBmYWxzZSwgb3JkZXIgPSAwLCBpY29uRWZmZWN0ID0gZmFsc2UsIGNoaWxkcmVuIH06IHsKICB0aXRsZT86IHN0cmluZzsgaWNvbj86IHN0cmluZzsgaGludD86IHN0cmluZzsgYWNjZXNzb3J5PzogVmlydHVhbE5vZGUgfCBudWxsOyBzaGFkZWQ/OiBib29sZWFuOyBvcmRlcj86IG51bWJlcgogIGljb25FZmZlY3Q/OiBib29sZWFuCiAgY2hpbGRyZW4/OiBWaXJ0dWFsTm9kZSB8IChWaXJ0dWFsTm9kZSB8IFZpcnR1YWxOb2RlW10gfCBudWxsIHwgdW5kZWZpbmVkIHwgZmFsc2UpW10KfSkgewogIGNvbnN0IHZpc2libGUgPSB1c2VFbnRyYW5jZShvcmRlciAqIDU1KQogIHJldHVybiAoCiAgICA8VlN0YWNrIGFsaWdubWVudD0ibGVhZGluZyIgc3BhY2luZz17dGl0bGUgPyAxMCA6IDB9CiAgICAgIHBhZGRpbmc9e3sgaG9yaXpvbnRhbDogMTYsIHZlcnRpY2FsOiAxNSB9fQogICAgICBmcmFtZT17eyBtYXhXaWR0aDogImluZmluaXR5IiwgYWxpZ25tZW50OiAibGVhZGluZyIgfX0KICAgICAgYmFja2dyb3VuZD17c2hhZGVkID8gQkFORF9CRyA6IFNVUkZBQ0V9PgogICAgICB7dGl0bGUgPyA8VlN0YWNrIGFsaWdubWVudD0ibGVhZGluZyIgc3BhY2luZz17OX0gZnJhbWU9e3sgbWF4V2lkdGg6ICJpbmZpbml0eSIsIGFsaWdubWVudDogImxlYWRpbmciIH19PgogICAgICAgIDxIU3RhY2sgc3BhY2luZz17OX0gYWxpZ25tZW50PSJjZW50ZXIiIGZyYW1lPXt7IG1heFdpZHRoOiAiaW5maW5pdHkiIH19PgogICAgICAgICAge2ljb24gPyA8WlN0YWNrIGZyYW1lPXt7IHdpZHRoOiAyNiwgaGVpZ2h0OiAyNiB9fQogICAgICAgICAgICBiYWNrZ3JvdW5kPXt7IHN0eWxlOiBJQ09OX0NISVAsIHNoYXBlOiB7IHR5cGU6ICJyZWN0IiwgY29ybmVyUmFkaXVzOiA4IH0gfX0KICAgICAgICAgICAgb3ZlcmxheT17PFJvdW5kZWRSZWN0YW5nbGUgY29ybmVyUmFkaXVzPXs4fQogICAgICAgICAgICAgIHN0cm9rZT17eyBzaGFwZVN0eWxlOiBJQ09OX0NISVBfRURHRSwgc3Ryb2tlU3R5bGU6IHsgbGluZVdpZHRoOiAxIH0gfX0gLz59PgogICAgICAgICAgICA8SW1hZ2Ugc3lzdGVtTmFtZT17aWNvbn0gZm9udD17MTJ9IGZvbnRXZWlnaHQ9InNlbWlib2xkIiBmb3JlZ3JvdW5kU3R5bGU9e0FDQ0VOVC5ibHVlfQogICAgICAgICAgICAgIGNvbnRlbnRUcmFuc2l0aW9uPSJzeW1ib2xFZmZlY3RSZXBsYWNlIgogICAgICAgICAgICAgIHN5bWJvbEVmZmVjdD17aWNvbkVmZmVjdCA/IHsgZWZmZWN0OiAiYm91bmNlIiwgdmFsdWU6IGljb24sIG9wdGlvbnM6IHsgc3BlZWQ6IDEuNCB9IH0gOiB1bmRlZmluZWR9CiAgICAgICAgICAgICAgYW5pbWF0aW9uPXt7IGFuaW1hdGlvbjogQW5pbWF0aW9uLnNtb290aCh7IGR1cmF0aW9uOiAwLjI0IH0pLCB2YWx1ZTogaWNvbiB9fSAvPgogICAgICAgICAgPC9aU3RhY2s+IDogbnVsbH0KICAgICAgICAgIDxUZXh0IGZvbnQ9ezE2fSBmb250V2VpZ2h0PSJib2xkIiBmb3JlZ3JvdW5kU3R5bGU9e0NPREUudmFsdWV9IGxpbmVMaW1pdD17MX0KICAgICAgICAgICAgbWluU2NhbGVGYWN0b3I9ezAuOH0gZml4ZWRTaXplPXt7IGhvcml6b250YWw6IHRydWUsIHZlcnRpY2FsOiBmYWxzZSB9fQogICAgICAgICAgICBjb250ZW50VHJhbnNpdGlvbj0ib3BhY2l0eSIKICAgICAgICAgICAgYW5pbWF0aW9uPXt7IGFuaW1hdGlvbjogQW5pbWF0aW9uLnNtb290aCh7IGR1cmF0aW9uOiAwLjI2IH0pLCB2YWx1ZTogdGl0bGUgfHwgIiIgfX0+e3RpdGxlfTwvVGV4dD4KICAgICAgICAgIDxTcGFjZXIgLz4KICAgICAgICAgIHtoaW50ID8gPFRleHQgZm9udD17OX0gZm9udFdlaWdodD0ibWVkaXVtIiBmb3JlZ3JvdW5kU3R5bGU9InNlY29uZGFyeUxhYmVsIgogICAgICAgICAgICBsaW5lTGltaXQ9ezF9IG1pblNjYWxlRmFjdG9yPXswLjc1fSBjb250ZW50VHJhbnNpdGlvbj0ib3BhY2l0eSIKICAgICAgICAgICAgYW5pbWF0aW9uPXt7IGFuaW1hdGlvbjogQW5pbWF0aW9uLnNtb290aCh7IGR1cmF0aW9uOiAwLjMgfSksIHZhbHVlOiBoaW50IH19CiAgICAgICAgICAgIHBhZGRpbmc9e3sgaG9yaXpvbnRhbDogNywgdmVydGljYWw6IDMgfX0KICAgICAgICAgICAgYmFja2dyb3VuZD17eyBzdHlsZTogc2hhZGVkID8gU1VSRkFDRSA6IEJBTkRfQkcsIHNoYXBlOiB7IHR5cGU6ICJyZWN0IiwgY29ybmVyUmFkaXVzOiA3IH0gfX0KICAgICAgICAgICAgb3ZlcmxheT17PFJvdW5kZWRSZWN0YW5nbGUgY29ybmVyUmFkaXVzPXs3fQogICAgICAgICAgICAgIHN0cm9rZT17eyBzaGFwZVN0eWxlOiBMSU5FLCBzdHJva2VTdHlsZTogeyBsaW5lV2lkdGg6IDEgfSB9fSAvPn0+e2hpbnR9PC9UZXh0PiA6IG51bGx9CiAgICAgICAgICB7YWNjZXNzb3J5fQogICAgICAgIDwvSFN0YWNrPgogICAgICAgIHsvKiDmoIfpopjkuIvnmoTmuJDpmpDlvanmnaHvvJrpmo/liIbljLrlhaXlnLrku47lt6bkvqfnlJ/plb/vvIzkvZzkuLrliIbljLrliIfmjaLnmoTop4bop4nplJrngrnjgIIgKi99CiAgICAgICAgPEJhbmRSdWxlIGFjdGl2ZT17dmlzaWJsZX0gLz4KICAgICAgPC9WU3RhY2s+IDogbnVsbH0KICAgICAgPFZTdGFjayBhbGlnbm1lbnQ9ImxlYWRpbmciIHNwYWNpbmc9ezB9IGZyYW1lPXt7IG1heFdpZHRoOiAiaW5maW5pdHkiLCBhbGlnbm1lbnQ6ICJsZWFkaW5nIiB9fQogICAgICAgIG9wYWNpdHk9e3Zpc2libGUgPyAxIDogMH0gb2Zmc2V0PXt7IHg6IDAsIHk6IHZpc2libGUgPyAwIDogNyB9fQogICAgICAgIGFuaW1hdGlvbj17eyBhbmltYXRpb246IEFuaW1hdGlvbi5lYXNlT3V0KDAuNDgpLCB2YWx1ZTogdmlzaWJsZSB9fT4KICAgICAgICB7Y2hpbGRyZW59CiAgICAgIDwvVlN0YWNrPgogICAgPC9WU3RhY2s+CiAgKQp9CgovKiog6Z2i5p2/5YiH5o2i5pe255qE5YWl5Zy677ya5Y+q5oyC6L295b2T5YmN6Z2i5p2/77yM6Z2g5pi+5byP6L+b5bqm5YGa5reh5YWl5LiO6L275b6u5LiK56e744CCICovCmV4cG9ydCBmdW5jdGlvbiBSZXZlYWwoeyBjaGlsZHJlbiwgZGlzdGFuY2UgPSA5IH06IHsKICBjaGlsZHJlbj86IFZpcnR1YWxOb2RlIHwgKFZpcnR1YWxOb2RlIHwgVmlydHVhbE5vZGVbXSB8IG51bGwgfCB1bmRlZmluZWQgfCBmYWxzZSlbXQogIGRpc3RhbmNlPzogbnVtYmVyCn0pIHsKICBjb25zdCB2aXNpYmxlID0gdXNlRW50cmFuY2UoKQogIHJldHVybiA8VlN0YWNrIGFsaWdubWVudD0ibGVhZGluZyIgc3BhY2luZz17MH0gZnJhbWU9e3sgbWF4V2lkdGg6ICJpbmZpbml0eSIsIGFsaWdubWVudDogImxlYWRpbmciIH19CiAgICBvcGFjaXR5PXt2aXNpYmxlID8gMSA6IDB9IG9mZnNldD17eyB4OiAwLCB5OiB2aXNpYmxlID8gMCA6IGRpc3RhbmNlIH19CiAgICBhbmltYXRpb249e3sgYW5pbWF0aW9uOiBBbmltYXRpb24uZWFzZU91dCgwLjQyKSwgdmFsdWU6IHZpc2libGUgfX0+CiAgICB7Y2hpbGRyZW59CiAgPC9WU3RhY2s+Cn0KCi8qKiDliIbljLrmoIfpopjkuIvnmoTnu4bliIbpmpTnur/vvJrlupXnurnluLjpqbvvvIzlvanoibLmuJDlj5jmnaHpmo/lhaXlnLrku47lt6bkvqfpk7rlvIDjgIIgKi8KZnVuY3Rpb24gQmFuZFJ1bGUoeyBhY3RpdmUgfTogeyBhY3RpdmU6IGJvb2xlYW4gfSkgewogIHJldHVybiA8WlN0YWNrIGFsaWdubWVudD0ibGVhZGluZyIgZnJhbWU9e3sgaGVpZ2h0OiAyLCBtYXhXaWR0aDogImluZmluaXR5IiB9fT4KICAgIDxaU3RhY2sgZnJhbWU9e3sgaGVpZ2h0OiAyLCBtYXhXaWR0aDogImluZmluaXR5IiB9fSBiYWNrZ3JvdW5kPXtMSU5FfSBvcGFjaXR5PXswLjZ9IC8+CiAgICA8WlN0YWNrIGZyYW1lPXt7IGhlaWdodDogMiwgbWF4V2lkdGg6ICJpbmZpbml0eSIgfX0gYmFja2dyb3VuZD17U1BFQ1RSVU19CiAgICAgIG9wYWNpdHk9e2FjdGl2ZSA/IDAuOSA6IDB9IHNjYWxlRWZmZWN0PXthY3RpdmUgPyB7IHg6IDEsIHk6IDEsIGFuY2hvcjogImxlYWRpbmciIH0gOiB7IHg6IDAuMDIsIHk6IDEsIGFuY2hvcjogImxlYWRpbmciIH19CiAgICAgIGFuaW1hdGlvbj17eyBhbmltYXRpb246IEFuaW1hdGlvbi5lYXNlT3V0KDAuNjIpLCB2YWx1ZTogYWN0aXZlIH19IC8+CiAgPC9aU3RhY2s+Cn0KCmV4cG9ydCBmdW5jdGlvbiBSb3coeyBsYWJlbCwgdmFsdWUsIG1vbm8gPSBmYWxzZSwgY29sb3IsIGNoaWxkcmVuIH06IHsKICBsYWJlbDogc3RyaW5nOyB2YWx1ZT86IHN0cmluZzsgbW9ubz86IGJvb2xlYW47IGNvbG9yPzogQ29sb3IgfCBEeW5hbWljU2hhcGVTdHlsZTsgY2hpbGRyZW4/OiBWaXJ0dWFsTm9kZQp9KSB7CiAgY29uc3QgaGFzQ2hpbGRyZW4gPSBBcnJheS5pc0FycmF5KGNoaWxkcmVuKSA/IGNoaWxkcmVuLmxlbmd0aCA+IDAgOiAhIWNoaWxkcmVuCiAgcmV0dXJuIDxIU3RhY2sgc3BhY2luZz17MTB9IGFsaWdubWVudD0idG9wIiBwYWRkaW5nPXt7IHZlcnRpY2FsOiA2IH19CiAgICBmcmFtZT17eyBtYXhXaWR0aDogImluZmluaXR5IiwgYWxpZ25tZW50OiAibGVhZGluZyIgfX0+CiAgICA8VGV4dCBmb250PXsxM30gZm9yZWdyb3VuZFN0eWxlPSJzZWNvbmRhcnlMYWJlbCIKICAgICAgZnJhbWU9e3sgd2lkdGg6IExBQkVMX1dJRFRILCBhbGlnbm1lbnQ6ICJsZWFkaW5nIiB9fT57bGFiZWx9PC9UZXh0PgogICAge2hhc0NoaWxkcmVuID8gY2hpbGRyZW4gOiA8VGV4dCBmb250PXsxM30gZm9udERlc2lnbj17bW9ubyA/ICJtb25vc3BhY2VkIiA6IHVuZGVmaW5lZH0KICAgICAgZm9yZWdyb3VuZFN0eWxlPXtjb2xvciB8fCAobW9ubyA/IENPREUubnVtYmVyIDogQ09ERS52YWx1ZSl9IGNvbnRlbnRUcmFuc2l0aW9uPSJvcGFjaXR5IgogICAgICBhbmltYXRpb249e3sgYW5pbWF0aW9uOiBBbmltYXRpb24uZWFzZU91dCgwLjI4KSwgdmFsdWU6IHZhbHVlIHx8ICIiIH19CiAgICAgIGZpeGVkU2l6ZT17eyBob3Jpem9udGFsOiBmYWxzZSwgdmVydGljYWw6IHRydWUgfX0KICAgICAgZnJhbWU9e3sgbWF4V2lkdGg6ICJpbmZpbml0eSIsIGFsaWdubWVudDogImxlYWRpbmciIH19Pnt2YWx1ZSB8fCAi4oCUIn08L1RleHQ+fQogIDwvSFN0YWNrPgp9CgovKiog5qCH562+77yb5paH5pys5pS55Y+Y5pe25aSW5ZyI55+t5L+D5Lqu5LiA5LiL77yM5o+Q56S66K+l5bGe5oCn5Yi35paw5LqG44CCICovCmV4cG9ydCBmdW5jdGlvbiBUYWcoeyB0ZXh0LCBjb2xvciA9IEFDQ0VOVC5ibHVlIH06IHsgdGV4dDogc3RyaW5nOyBjb2xvcj86IENvbG9yIH0pIHsKICBjb25zdCBbZmxhc2gsIHNldEZsYXNoXSA9IHVzZVN0YXRlKGZhbHNlKQogIGNvbnN0IHByZXZpb3VzID0gdXNlUmVmKHRleHQpCiAgdXNlRWZmZWN0KCgpID0+IHsKICAgIGlmIChwcmV2aW91cy5jdXJyZW50ID09PSB0ZXh0KSByZXR1cm4KICAgIHByZXZpb3VzLmN1cnJlbnQgPSB0ZXh0CiAgICBzZXRGbGFzaCh0cnVlKQogICAgY29uc3QgdGltZXIgPSBzZXRUaW1lb3V0KCgpID0+IHsKICAgICAgdHJ5IHsgc2V0Rmxhc2goZmFsc2UpIH0KICAgICAgY2F0Y2ggKGVycm9yKSB7IGNvbnNvbGUubG9nKCJbSVDmo4DmtYtdIOagh+etvumrmOS6riIsIFN0cmluZyhlcnJvcikpIH0KICAgIH0sIDYyMCkKICAgIHJldHVybiAoKSA9PiBjbGVhclRpbWVvdXQodGltZXIpCiAgfSwgW3RleHRdKQogIHJldHVybiA8VGV4dCBmb250PXsxMX0gZm9udFdlaWdodD0ic2VtaWJvbGQiIGZvcmVncm91bmRTdHlsZT0iI0ZGRkZGRiIKICAgIHBhZGRpbmc9e3sgaG9yaXpvbnRhbDogOSwgdmVydGljYWw6IDQgfX0KICAgIGJhY2tncm91bmQ9e3sgc3R5bGU6IGNvbG9yLCBzaGFwZTogeyB0eXBlOiAicmVjdCIsIGNvcm5lclJhZGl1czogNiB9IH19CiAgICBvdmVybGF5PXs8Um91bmRlZFJlY3RhbmdsZSBjb3JuZXJSYWRpdXM9ezZ9CiAgICAgIHN0cm9rZT17eyBzaGFwZVN0eWxlOiBjb2xvciwgc3Ryb2tlU3R5bGU6IHsgbGluZVdpZHRoOiAxLjQgfSB9fQogICAgICBvcGFjaXR5PXtmbGFzaCA/IDAgOiAwLjd9IHNjYWxlRWZmZWN0PXtmbGFzaCA/IDEuNSA6IDF9CiAgICAgIGFuaW1hdGlvbj17eyBhbmltYXRpb246IEFuaW1hdGlvbi5lYXNlT3V0KDAuNjIpLCB2YWx1ZTogZmxhc2ggfX0gLz59CiAgICBjb250ZW50VHJhbnNpdGlvbj0ib3BhY2l0eSIKICAgIGFuaW1hdGlvbj17eyBhbmltYXRpb246IEFuaW1hdGlvbi5lYXNlT3V0KDAuMzYpLCB2YWx1ZTogdGV4dCB9fT57dGV4dH08L1RleHQ+Cn0KCi8qKiDku4XlnKjpmLPmgKflkb3kuK3ml7bmjILovb3vvJrmlbTooYzlvLnlhaXvvIzmoIfnrb7lpJblnIjlvqrnjq/miavlh7rkuIDpgZPlhYnnjq/jgIIgKi8KZXhwb3J0IGZ1bmN0aW9uIEZsYWdSb3coeyBsYWJlbCwgZGVsYXkgPSAwLCBjb2xvciA9IEFDQ0VOVC5vcmFuZ2UgfTogewogIGxhYmVsOiBzdHJpbmc7IGRlbGF5PzogbnVtYmVyOyBjb2xvcj86IENvbG9yCn0pIHsKICAvLyDlvLnlhaXlrprml7blmajkuI4gdXNlRW50cmFuY2Ug55u45ZCM77yI5oyC6L295ZCO5bu26L+f572uIHRydWXvvInvvIznm7TmjqXlpI3nlKjjgIIKICBjb25zdCBzaG93biA9IHVzZUVudHJhbmNlKGRlbGF5KQogIHJldHVybiA8SFN0YWNrIHNwYWNpbmc9ezEwfSBhbGlnbm1lbnQ9InRvcCIgcGFkZGluZz17eyB2ZXJ0aWNhbDogNiB9fQogICAgZnJhbWU9e3sgbWF4V2lkdGg6ICJpbmZpbml0eSIsIGFsaWdubWVudDogImxlYWRpbmciIH19CiAgICBvcGFjaXR5PXtzaG93biA/IDEgOiAwfSBvZmZzZXQ9e3sgeDogc2hvd24gPyAwIDogLTEyLCB5OiAwIH19IHNjYWxlRWZmZWN0PXtzaG93biA/IDEgOiAwLjk2fQogICAgYWNjZXNzaWJpbGl0eUxhYmVsPXtgJHtsYWJlbH0g5bey5qCH6K6wYH0+CiAgICA8VGV4dCBmb250PXsxM30gZm9yZWdyb3VuZFN0eWxlPSJzZWNvbmRhcnlMYWJlbCIKICAgICAgZnJhbWU9e3sgd2lkdGg6IExBQkVMX1dJRFRILCBhbGlnbm1lbnQ6ICJsZWFkaW5nIiB9fT57bGFiZWx9PC9UZXh0PgogICAgPFRleHQgZm9udD17MTF9IGZvbnRXZWlnaHQ9InNlbWlib2xkIiBmb3JlZ3JvdW5kU3R5bGU9IiNGRkZGRkYiCiAgICAgIHBhZGRpbmc9e3sgaG9yaXpvbnRhbDogOSwgdmVydGljYWw6IDQgfX0KICAgICAgYmFja2dyb3VuZD17eyBzdHlsZTogY29sb3IsIHNoYXBlOiB7IHR5cGU6ICJyZWN0IiwgY29ybmVyUmFkaXVzOiA2IH0gfX0KICAgICAgb3ZlcmxheT17PFJvdW5kZWRSZWN0YW5nbGUgY29ybmVyUmFkaXVzPXs2fQogICAgICAgIHN0cm9rZT17eyBzaGFwZVN0eWxlOiBjb2xvciwgc3Ryb2tlU3R5bGU6IHsgbGluZVdpZHRoOiAxIH0gfX0KICAgICAgICBvcGFjaXR5PXtzaG93biA/IDAgOiAwLjU1fSBzY2FsZUVmZmVjdD17c2hvd24gPyAxLjU1IDogMX0KICAgICAgICBhbmltYXRpb249e3sgYW5pbWF0aW9uOiBBbmltYXRpb24uZWFzZU91dCgxLjA1KS5yZXBlYXRGb3JldmVyKGZhbHNlKSwgdmFsdWU6IHNob3duIH19IC8+fQogICAgICBvcGFjaXR5PXtzaG93biA/IDEgOiAwfSBzY2FsZUVmZmVjdD17c2hvd24gPyAxIDogMC43fQogICAgICBhbmltYXRpb249e3sgYW5pbWF0aW9uOiBBbmltYXRpb24uc3ByaW5nKHsgZHVyYXRpb246IDAuNDYsIGJvdW5jZTogMC4yNCB9KSwgdmFsdWU6IHNob3duIH19PgogICAgICDlt7LmoIforrAKICAgIDwvVGV4dD4KICA8L0hTdGFjaz4KfQoKZXhwb3J0IGZ1bmN0aW9uIE5vdGUoeyB0ZXh0IH06IHsgdGV4dDogc3RyaW5nIH0pIHsKICByZXR1cm4gPFRleHQgZm9udD17MTB9IGZvcmVncm91bmRTdHlsZT0ic2Vjb25kYXJ5TGFiZWwiIGxpbmVTcGFjaW5nPXszfQogICAgZml4ZWRTaXplPXt7IGhvcml6b250YWw6IGZhbHNlLCB2ZXJ0aWNhbDogdHJ1ZSB9fSBwYWRkaW5nPXt7IHRvcDogNyB9fT57dGV4dH08L1RleHQ+Cn0KCmV4cG9ydCBmdW5jdGlvbiBJY29uQnV0dG9uKHsgaWNvbiwgbGFiZWwsIGFjdGlvbiwgYWN0aXZlID0gZmFsc2UsIGRpc2FibGVkID0gZmFsc2UsIGljb25TaXplID0gMTQsIHByZXNzZWQgPSBmYWxzZSB9OiB7CiAgaWNvbjogc3RyaW5nOyBsYWJlbDogc3RyaW5nOyBhY3Rpb246ICgpID0+IHZvaWQ7IGFjdGl2ZT86IGJvb2xlYW47IGRpc2FibGVkPzogYm9vbGVhbgogIGljb25TaXplPzogbnVtYmVyOyBwcmVzc2VkPzogYm9vbGVhbgp9KSB7CiAgcmV0dXJuIDxCdXR0b24gYWN0aW9uPXthY3Rpb259IGJ1dHRvblN0eWxlPSJwbGFpbiIgZGlzYWJsZWQ9e2Rpc2FibGVkfSBhY2Nlc3NpYmlsaXR5TGFiZWw9e2xhYmVsfT4KICAgIDxJbWFnZSBzeXN0ZW1OYW1lPXtpY29ufSBmb250PXtpY29uU2l6ZX0gZm9udFdlaWdodD0ibWVkaXVtIiBjb250ZW50VHJhbnNpdGlvbj0ic3ltYm9sRWZmZWN0UmVwbGFjZSIKICAgICAgZm9yZWdyb3VuZFN0eWxlPXthY3RpdmUgfHwgcHJlc3NlZCA/IEFDQ0VOVC50ZWFsIDogInNlY29uZGFyeUxhYmVsIn0KICAgICAgZnJhbWU9e3sgd2lkdGg6IDM0LCBoZWlnaHQ6IDM0IH19CiAgICAgIGJhY2tncm91bmQ9e3sgc3R5bGU6IEJBTkRfQkcsIHNoYXBlOiB7IHR5cGU6ICJyZWN0IiwgY29ybmVyUmFkaXVzOiA4IH0gfX0KICAgICAgb3ZlcmxheT17PFJvdW5kZWRSZWN0YW5nbGUgY29ybmVyUmFkaXVzPXs4fQogICAgICAgIHN0cm9rZT17eyBzaGFwZVN0eWxlOiBMSU5FLCBzdHJva2VTdHlsZTogeyBsaW5lV2lkdGg6IDEgfSB9fSAvPn0KICAgICAgc2NhbGVFZmZlY3Q9e3ByZXNzZWQgPyAwLjc4IDogMX0KICAgICAgYW5pbWF0aW9uPXt7IGFuaW1hdGlvbjogQW5pbWF0aW9uLnNuYXBweSh7IGR1cmF0aW9uOiAwLjE4IH0pLCB2YWx1ZTogcHJlc3NlZCB9fSAvPgogIDwvQnV0dG9uPgp9CgpmdW5jdGlvbiBTd2VlcCgpIHsKICBjb25zdCB2aXNpYmxlID0gdXNlRW50cmFuY2UoKQogIHJldHVybiA8SFN0YWNrIHNwYWNpbmc9ezB9IGZyYW1lPXt7IG1heFdpZHRoOiAiaW5maW5pdHkiLCBoZWlnaHQ6IDMgfX0+CiAgICA8R2VvbWV0cnlSZWFkZXI+eyh7IHNpemUgfSkgPT4gPFpTdGFjayBhbGlnbm1lbnQ9ImxlYWRpbmciIGZyYW1lPXt7IHdpZHRoOiBzaXplLndpZHRoLCBoZWlnaHQ6IDMgfX0+CiAgICAgIDxaU3RhY2sgZnJhbWU9e3sgd2lkdGg6IDExMCwgaGVpZ2h0OiAzIH19IGJhY2tncm91bmQ9e1NQRUNUUlVNfQogICAgICAgIG9mZnNldD17eyB4OiB2aXNpYmxlID8gc2l6ZS53aWR0aCA6IC0xMTAsIHk6IDAgfX0KICAgICAgICBhbmltYXRpb249e3sgYW5pbWF0aW9uOiBBbmltYXRpb24ubGluZWFyKDEuNSkucmVwZWF0Rm9yZXZlcihmYWxzZSksIHZhbHVlOiB2aXNpYmxlIH19IC8+CiAgICA8L1pTdGFjaz59PC9HZW9tZXRyeVJlYWRlcj4KICA8L0hTdGFjaz4KfQoKLyoqIOaJq+aPj+aAgeS4juWujOaIkOaAgeS6pOWPiea3oeWFpe+8mui/m+W6puadoeS4jeeqgeeEtui3s+WbnumdmeaAgea4kOWPmOOAgiAqLwpleHBvcnQgZnVuY3Rpb24gU2NhbkxpbmUoeyBhY3RpdmUgfTogeyBhY3RpdmU6IGJvb2xlYW4gfSkgewogIHJldHVybiA8UmVjdGFuZ2xlIGZpbGw9e0xJTkV9IGZyYW1lPXt7IGhlaWdodDogMyB9fSBjbGlwcGVkCiAgICBvdmVybGF5PXs8WlN0YWNrIGZyYW1lPXt7IG1heFdpZHRoOiAiaW5maW5pdHkiLCBoZWlnaHQ6IDMgfX0+CiAgICAgIDxSZWN0YW5nbGUgZmlsbD17U1BFQ1RSVU19IGZyYW1lPXt7IGhlaWdodDogMyB9fQogICAgICAgIG9wYWNpdHk9e2FjdGl2ZSA/IDAgOiAwLjc1fQogICAgICAgIHNjYWxlRWZmZWN0PXthY3RpdmUgPyB7IHg6IDAuMjQsIHk6IDEsIGFuY2hvcjogImxlYWRpbmciIH0gOiB7IHg6IDEsIHk6IDEsIGFuY2hvcjogImxlYWRpbmciIH19CiAgICAgICAgYW5pbWF0aW9uPXt7IGFuaW1hdGlvbjogQW5pbWF0aW9uLmVhc2VPdXQoMC42MiksIHZhbHVlOiBhY3RpdmUgfX0gLz4KICAgICAge2FjdGl2ZSA/IDxTd2VlcCAvPiA6IG51bGx9CiAgICA8L1pTdGFjaz59IC8+Cn0KCmV4cG9ydCBmdW5jdGlvbiBTdGF0dXNEb3QoeyBhY3RpdmUsIGNvbG9yIH06IHsgYWN0aXZlOiBib29sZWFuOyBjb2xvcjogQ29sb3IgfSkgewogIGNvbnN0IHZpc2libGUgPSB1c2VFbnRyYW5jZSgpCiAgcmV0dXJuIDxaU3RhY2sgZnJhbWU9e3sgd2lkdGg6IDE0LCBoZWlnaHQ6IDE0IH19PgogICAge2FjdGl2ZSA/IDxaU3RhY2sgZnJhbWU9e3sgd2lkdGg6IDEzLCBoZWlnaHQ6IDEzIH19IGJhY2tncm91bmQ9e2NvbG9yfSBjbGlwU2hhcGU9ImNpcmNsZSIKICAgICAgb3BhY2l0eT17dmlzaWJsZSA/IDAuMTIgOiAwLjR9IHNjYWxlRWZmZWN0PXt2aXNpYmxlID8gMSA6IDAuNjV9CiAgICAgIGFuaW1hdGlvbj17eyBhbmltYXRpb246IEFuaW1hdGlvbi5lYXNlSW4oMSkucmVwZWF0Rm9yZXZlcih0cnVlKSwgdmFsdWU6IHZpc2libGUgfX0gLz4gOiBudWxsfQogICAgPFpTdGFjayBmcmFtZT17eyB3aWR0aDogNiwgaGVpZ2h0OiA2IH19IGJhY2tncm91bmQ9e2NvbG9yfSBjbGlwU2hhcGU9ImNpcmNsZSIgLz4KICA8L1pTdGFjaz4KfQoKZnVuY3Rpb24gcmlza0NvbG9yKHZhbHVlOiBudW1iZXIpOiBDb2xvciB7CiAgcmV0dXJuIHZhbHVlID49IDcwID8gQUNDRU5ULnJlZCA6IHZhbHVlID49IDUwID8gQUNDRU5ULm9yYW5nZSA6IHZhbHVlID49IDQwID8gQUNDRU5ULmFtYmVyCiAgICA6IHZhbHVlID49IDI1ID8gIiM4OEI4MkMiIDogdmFsdWUgPj0gMTUgPyBBQ0NFTlQuZ3JlZW4gOiAiIzI2OEM2MiIKfQpmdW5jdGlvbiByaXNrTGFiZWwodmFsdWU6IG51bWJlcik6IHN0cmluZyB7CiAgcmV0dXJuIHZhbHVlID49IDcwID8gIumrmOmjjumZqSIgOiB2YWx1ZSA+PSA1MCA/ICLkuK3luqbpo47pmakiIDogdmFsdWUgPj0gMjUgPyAi6L275bqm6aOO6ZmpIiA6ICLkvY7po47pmakiCn0KCmNvbnN0IFJJU0tfTU9WRU1FTlQgPSBBbmltYXRpb24uZWFzZU91dCgxLjgpCi8vIOezu+e7n+eJiOacrOWPr+iDveW4puWJjee8gOaIluihpeS4geWPt++8jOWPluesrOS4gOauteaVsOWtl+WNs+WPr+WIpOaWrSBBUEkg5piv5ZCm5Y+v55So44CCCmNvbnN0IFNZU1RFTV9NQUpPUiA9IE51bWJlcigoU3RyaW5nKERldmljZS5zeXN0ZW1WZXJzaW9uKS5tYXRjaCgvXGQrLykgfHwgWyIwIl0pWzBdKSB8fCAwCmNvbnN0IFNDUk9MTF9WSVNJQklMSVRZX1NVUFBPUlRFRCA9IFNZU1RFTV9NQUpPUiA+PSAxOAovLyDliLvluqblj5blgLzlm7rlrprvvIzmj5DliLDmqKHlnZfnuqfpgb/lhY3mr4/mrKHmuLLmn5Pph43lu7rmlbDnu4TjgIIKY29uc3QgUklTS19NQVJLUyA9IFswLCAxNSwgMjUsIDQwLCA1MCwgNzAsIDEwMF0gYXMgY29uc3QKY29uc3QgUklTS19DT0xPUlM6IENvbG9yW10gPSBbIiMyNjhDNjIiLCAiIzI4Qjk4MiIsICIjOTFDQTJEIiwgIiNFOUJFMkIiLCAiI0YwODMzNSIsICIjRTY0RjY3Il0KCi8qKiDmsJTms6HjgIHmjIfpkojjgIHliLvluqblnYfmjInlrp7pmYXnmb7liIbmr5TlrprkvY3vvIwwIOWSjCAxMDAg5pe25Lmf5LiN6LaK55WM44CCICovCmV4cG9ydCBmdW5jdGlvbiBSaXNrU2NhbGUoeyB2YWx1ZSB9OiB7IHZhbHVlOiBudW1iZXIgfSkgewogIGNvbnN0IHNjb3JlID0gTWF0aC5tYXgoMCwgTWF0aC5taW4oMTAwLCB2YWx1ZSkpCiAgY29uc3QgW3Bvc2l0aW9uLCBzZXRQb3NpdGlvbl0gPSB1c2VTdGF0ZSgwKQogIGNvbnN0IFt2aXNpYmxlLCBzZXRWaXNpYmxlXSA9IHVzZVN0YXRlKCFTQ1JPTExfVklTSUJJTElUWV9TVVBQT1JURUQpCiAgY29uc3QgZW50ZXJlZCA9IHVzZVJlZighU0NST0xMX1ZJU0lCSUxJVFlfU1VQUE9SVEVEKQogIHVzZUVmZmVjdCgoKSA9PiB7CiAgICAvLyDlhZzlupXvvJrlm57osIPlj6/og73lm6DpppbmrKHmuLLmn5Plt7LlnKjop4blj6PlhoXogIzkuI3op6blj5HvvIzpgb/lhY3mlbDlgLzmmL7npLrnnJ/lrp7liIbmlbDjgIHmjIfpkojljbTlgZzlnKggMCXjgIIKICAgIGlmICh2aXNpYmxlKSByZXR1cm4KICAgIGNvbnN0IHRpbWVyID0gc2V0VGltZW91dCgoKSA9PiB7CiAgICAgIHRyeSB7IHNldFZpc2libGUodHJ1ZSkgfQogICAgICBjYXRjaCAoZXJyb3IpIHsgY29uc29sZS5sb2coIltJUOajgOa1i10g6aOO6Zmp5p2h5Y+v6KeB5oCnIiwgU3RyaW5nKGVycm9yKSkgfQogICAgfSwgNzUwKQogICAgcmV0dXJuICgpID0+IGNsZWFyVGltZW91dCh0aW1lcikKICB9LCBbdmlzaWJsZV0pCiAgdXNlRWZmZWN0KCgpID0+IHsKICAgIGlmICghdmlzaWJsZSkgcmV0dXJuCiAgICAvLyDov5vlhaXlsY/luZXlkI7lhYjlkYjnjrDotbfngrnvvJtHZW9tZXRyeVJlYWRlciDnmoTkvY3np7vnlLHmmL7lvI8gYW5pbWF0aW9uIOaPkuWAvOOAggogICAgY29uc3QgdGltZXIgPSBzZXRUaW1lb3V0KCgpID0+IHsKICAgICAgdHJ5IHsgYW5pbWF0ZSgoKSA9PiBzZXRQb3NpdGlvbihzY29yZSksIFJJU0tfTU9WRU1FTlQpIH0KICAgICAgY2F0Y2ggKGVycm9yKSB7IGNvbnNvbGUubG9nKCJbSVDmo4DmtYtdIOmjjumZqeWKqOeUuyIsIFN0cmluZyhlcnJvcikpIH0KICAgIH0sIDEyMCkKICAgIHJldHVybiAoKSA9PiBjbGVhclRpbWVvdXQodGltZXIpCiAgfSwgW3Njb3JlLCB2aXNpYmxlXSkKICBjb25zdCBtYXJrcyA9IFJJU0tfTUFSS1MKICBjb25zdCBjb2xvcnMgPSBSSVNLX0NPTE9SUwogIGNvbnN0IHRpbnQgPSByaXNrQ29sb3Ioc2NvcmUpCiAgLy8g5LiJ6KGM5ZCE6Ieq5Y2g5o2u55yf5a6e6auY5bqm77yb5Zu65a6a6auY5bqm5LiO5by55oCn5a695bqm5YiG5Yir57qm5p2f77yM6YG/5YWN5Yi75bqm5rqi5Ye65Yiw5LiL5pa5IE5vdGXjgIIKICByZXR1cm4gPFZTdGFjayBzcGFjaW5nPXs1fQogICAgbW9kaWZpZXJzPXttb2RpZmllcnMoKS5mcmFtZSh7IG1heFdpZHRoOiAiaW5maW5pdHkiLCBhbGlnbm1lbnQ6ICJsZWFkaW5nIiB9KS5wYWRkaW5nKHsgdG9wOiA3LCBib3R0b206IDggfSl9CiAgICBvblNjcm9sbFZpc2liaWxpdHlDaGFuZ2U9e1NDUk9MTF9WSVNJQklMSVRZX1NVUFBPUlRFRCA/IHsKICAgICAgdGhyZXNob2xkOiAwLjM1LAogICAgICBvbkNoYW5nZWQ6IGlzVmlzaWJsZSA9PiB7CiAgICAgICAgaWYgKGlzVmlzaWJsZSAmJiAhZW50ZXJlZC5jdXJyZW50KSB7CiAgICAgICAgICBlbnRlcmVkLmN1cnJlbnQgPSB0cnVlCiAgICAgICAgICBzZXRWaXNpYmxlKHRydWUpCiAgICAgICAgfQogICAgICB9LAogICAgfSA6IHVuZGVmaW5lZH0KICAgIGFjY2Vzc2liaWxpdHlMYWJlbD17YOmjjumZqeWIhiAke01hdGgucm91bmQoc2NvcmUpfe+8jCR7cmlza0xhYmVsKHNjb3JlKX1gfT4KICAgIDxIU3RhY2sgc3BhY2luZz17MH0gbW9kaWZpZXJzPXttb2RpZmllcnMoKS5mcmFtZSh7IGhlaWdodDogMzYsIGFsaWdubWVudDogInRvcExlYWRpbmciIH0pLmZyYW1lKHsgbWF4V2lkdGg6ICJpbmZpbml0eSIsIGFsaWdubWVudDogImxlYWRpbmciIH0pfT4KICAgICAgPEdlb21ldHJ5UmVhZGVyPnsoeyBzaXplIH0pID0+IHsKICAgICAgICBjb25zdCB3aWR0aCA9IE1hdGgubWF4KDEsIHNpemUud2lkdGgpCiAgICAgICAgY29uc3QgeCA9IHdpZHRoICogcG9zaXRpb24gLyAxMDAKICAgICAgICBjb25zdCBidWJibGUgPSBNYXRoLm1pbigxMzIsIHdpZHRoKQogICAgICAgIGNvbnN0IGJ1YmJsZVggPSBNYXRoLm1heCgwLCBNYXRoLm1pbih3aWR0aCAtIGJ1YmJsZSwgeCAtIGJ1YmJsZSAvIDIpKQogICAgICAgIHJldHVybiA8WlN0YWNrIGFsaWdubWVudD0idG9wTGVhZGluZyIgZnJhbWU9e3sgd2lkdGgsIGhlaWdodDogMzYsIGFsaWdubWVudDogInRvcExlYWRpbmciIH19PgogICAgICAgICAgPFRleHQgZm9udD17MTJ9IGZvbnRXZWlnaHQ9ImJvbGQiIGZvcmVncm91bmRTdHlsZT0iI0ZGRkZGRiIgY29udGVudFRyYW5zaXRpb249Im51bWVyaWNUZXh0IgogICAgICAgICAgICBmcmFtZT17eyB3aWR0aDogYnViYmxlLCBoZWlnaHQ6IDI4IH19CiAgICAgICAgICAgIGJhY2tncm91bmQ9e3sgc3R5bGU6IHRpbnQsIHNoYXBlOiB7IHR5cGU6ICJyZWN0IiwgY29ybmVyUmFkaXVzOiA3IH0gfX0KICAgICAgICAgICAgc2hhZG93PXt7IGNvbG9yOiAicmdiYSg0NSw2MCw4MCwwLjEyKSIsIHJhZGl1czogNSwgeTogMiB9fQogICAgICAgICAgICBvZmZzZXQ9e3sgeDogYnViYmxlWCwgeTogMCB9fQogICAgICAgICAgICBhbmltYXRpb249e3sgYW5pbWF0aW9uOiBSSVNLX01PVkVNRU5ULCB2YWx1ZTogcG9zaXRpb24gfX0+e2Ake01hdGgucm91bmQoc2NvcmUpfSUgICR7cmlza0xhYmVsKHNjb3JlKX1gfTwvVGV4dD4KICAgICAgICAgIDxaU3RhY2sgZnJhbWU9e3sgd2lkdGg6IDcsIGhlaWdodDogNyB9fSBiYWNrZ3JvdW5kPXt0aW50fSByb3RhdGlvbkVmZmVjdD17NDV9CiAgICAgICAgICAgIG9mZnNldD17eyB4OiBNYXRoLm1heCgwLCBNYXRoLm1pbih3aWR0aCAtIDcsIHggLSAzLjUpKSwgeTogMjcgfX0KICAgICAgICAgICAgYW5pbWF0aW9uPXt7IGFuaW1hdGlvbjogUklTS19NT1ZFTUVOVCwgdmFsdWU6IHBvc2l0aW9uIH19IC8+CiAgICAgICAgPC9aU3RhY2s+CiAgICAgIH19PC9HZW9tZXRyeVJlYWRlcj4KICAgIDwvSFN0YWNrPgogICAgPEhTdGFjayBzcGFjaW5nPXswfSBtb2RpZmllcnM9e21vZGlmaWVycygpLmZyYW1lKHsgaGVpZ2h0OiAxMywgYWxpZ25tZW50OiAibGVhZGluZyIgfSkuZnJhbWUoeyBtYXhXaWR0aDogImluZmluaXR5IiwgYWxpZ25tZW50OiAibGVhZGluZyIgfSl9PgogICAgICA8R2VvbWV0cnlSZWFkZXI+eyh7IHNpemUgfSkgPT4gewogICAgICAgIGNvbnN0IHdpZHRoID0gTWF0aC5tYXgoMSwgc2l6ZS53aWR0aCkKICAgICAgICBjb25zdCB4ID0gd2lkdGggKiBwb3NpdGlvbiAvIDEwMAogICAgICAgIHJldHVybiA8WlN0YWNrIGFsaWdubWVudD0ibGVhZGluZyIgZnJhbWU9e3sgd2lkdGgsIGhlaWdodDogMTMgfX0+CiAgICAgICAgICA8SFN0YWNrIHNwYWNpbmc9ezB9IGZyYW1lPXt7IHdpZHRoLCBoZWlnaHQ6IDcgfX0gY2xpcFNoYXBlPSJjYXBzdWxlIj4KICAgICAgICAgICAge2NvbG9ycy5tYXAoKGNvbG9yLCBpKSA9PiA8WlN0YWNrIGtleT17aX0KICAgICAgICAgICAgICBmcmFtZT17eyB3aWR0aDogd2lkdGggKiAobWFya3NbaSArIDFdIC0gbWFya3NbaV0pIC8gMTAwLCBoZWlnaHQ6IDcgfX0gYmFja2dyb3VuZD17Y29sb3J9IC8+KX0KICAgICAgICAgIDwvSFN0YWNrPgogICAgICAgICAgPFpTdGFjayBmcmFtZT17eyB3aWR0aDogMywgaGVpZ2h0OiAxMyB9fSBiYWNrZ3JvdW5kPXtTVVJGQUNFfSBjbGlwU2hhcGU9ImNhcHN1bGUiCiAgICAgICAgICAgIG9mZnNldD17eyB4OiBNYXRoLm1heCgwLCBNYXRoLm1pbih3aWR0aCAtIDMsIHggLSAxLjUpKSwgeTogMCB9fQogICAgICAgICAgICBhbmltYXRpb249e3sgYW5pbWF0aW9uOiBSSVNLX01PVkVNRU5ULCB2YWx1ZTogcG9zaXRpb24gfX0gLz4KICAgICAgICA8L1pTdGFjaz4KICAgICAgfX08L0dlb21ldHJ5UmVhZGVyPgogICAgPC9IU3RhY2s+CiAgICA8SFN0YWNrIHNwYWNpbmc9ezB9IG1vZGlmaWVycz17bW9kaWZpZXJzKCkuZnJhbWUoeyBoZWlnaHQ6IDE0LCBhbGlnbm1lbnQ6ICJ0b3BMZWFkaW5nIiB9KS5mcmFtZSh7IG1heFdpZHRoOiAiaW5maW5pdHkiLCBhbGlnbm1lbnQ6ICJsZWFkaW5nIiB9KX0+CiAgICAgIDxHZW9tZXRyeVJlYWRlcj57KHsgc2l6ZSB9KSA9PiB7CiAgICAgICAgY29uc3Qgd2lkdGggPSBNYXRoLm1heCgxLCBzaXplLndpZHRoKQogICAgICAgIHJldHVybiA8WlN0YWNrIGFsaWdubWVudD0idG9wTGVhZGluZyIgZnJhbWU9e3sgd2lkdGgsIGhlaWdodDogMTQsIGFsaWdubWVudDogInRvcExlYWRpbmciIH19PgogICAgICAgICAge21hcmtzLm1hcChtYXJrID0+IDxUZXh0IGtleT17bWFya30gZm9udD17OX0gbW9ub3NwYWNlZERpZ2l0IGZvcmVncm91bmRTdHlsZT0ic2Vjb25kYXJ5TGFiZWwiCiAgICAgICAgICAgIGZyYW1lPXt7IHdpZHRoOiAyNSwgaGVpZ2h0OiAxNCB9fQogICAgICAgICAgICBvZmZzZXQ9e3sgeDogTWF0aC5tYXgoMCwgTWF0aC5taW4od2lkdGggLSAyNSwgd2lkdGggKiBtYXJrIC8gMTAwIC0gMTIuNSkpLCB5OiAwIH19PnttYXJrfTwvVGV4dD4pfQogICAgICAgIDwvWlN0YWNrPgogICAgICB9fTwvR2VvbWV0cnlSZWFkZXI+CiAgICA8L0hTdGFjaz4KICA8L1ZTdGFjaz4KfQo=
+import {
+  Button, Device, GeometryReader, HStack, Image, Rectangle, RoundedRectangle, Spacer, Text, VStack, ZStack,
+  gradient, modifiers, useEffect, useRef, useState,
+} from "scripting"
+import type { Color, DynamicShapeStyle, VirtualNode } from "scripting"
+
+export const ACCENT = {
+  blue: "#279FC5" as Color,
+  teal: "#16B8A6" as Color,
+  violet: "#8673E8" as Color,
+  green: "#28B982" as Color,
+  amber: "#D6A013" as Color,
+  orange: "#F08335" as Color,
+  pink: "#F06591" as Color,
+  red: "#E64F67" as Color,
+}
+export const CODE: {
+  value: DynamicShapeStyle
+  number: DynamicShapeStyle
+  input: DynamicShapeStyle
+  region: DynamicShapeStyle
+} = {
+  value: { light: "#25536B", dark: "#B3D7E7" },
+  number: { light: "#A65225", dark: "#FFB878" },
+  input: { light: "#1F6796", dark: "#8DD5FF" },
+  region: { light: "#2A74B5", dark: "#8EC7FF" },
+}
+export const PAGE_BG = { light: "#EDF1F6" as Color, dark: "#090E16" as Color }
+export const SURFACE = { light: "#FFFFFF" as Color, dark: "#111823" as Color }
+export const BAND_BG = { light: "#F6F8FB" as Color, dark: "#171F2C" as Color }
+export const LINE = { light: "#E7EDF3" as Color, dark: "#293344" as Color }
+export const LABEL_WIDTH = 91
+const SPECTRUM = gradient("linear", {
+  colors: [ACCENT.teal, ACCENT.blue, ACCENT.violet], startPoint: "leading", endPoint: "trailing",
+})
+/** 强调色转半透明填充；传入非十六进制值时原样返回，避免拼出非法颜色。 */
+export function tinted(color: Color, alpha: number): Color {
+  const hex = String(color).trim()
+  if (!/^#[0-9a-fA-F]{3}$|^#[0-9a-fA-F]{6}$/.test(hex)) return color
+  const body = hex.slice(1)
+  const full = body.length === 3 ? body.split("").map(char => char + char).join("") : body
+  const value = [full.slice(0, 2), full.slice(2, 4), full.slice(4, 6)]
+    .map(part => parseInt(part, 16) || 0)
+  const opacity = Math.max(0, Math.min(1, alpha)).toFixed(3)
+  return `rgba(${value[0]}, ${value[1]}, ${value[2]}, ${opacity})` as Color
+}
+
+/** 标题图标的柔光底片：极浅的青蓝渐变，不影响正文对比度。 */
+const ICON_CHIP = gradient("linear", {
+  colors: ["rgba(39,159,197,0.16)", "rgba(134,115,232,0.10)"],
+  startPoint: "topLeading", endPoint: "bottomTrailing",
+})
+const ICON_CHIP_EDGE = "rgba(39,159,197,0.24)"
+
+// 动画失败时仍提交状态；定时器只负责启动原生动画，不做逐帧刷新。
+export function animate(update: () => void, animation = Animation.smooth({ duration: 0.35 })) {
+  // withAnimation 的闭包可能延后执行，Promise 也可能异步 reject；
+  // 用一次性守卫保证 update 恰好提交一次，避免状态被吞掉。
+  let applied = false
+  const commit = () => {
+    if (applied) return
+    applied = true
+    update()
+  }
+  try { void withAnimation(animation, commit).catch(commit) }
+  catch { commit() }
+}
+
+/** withAnimation 的闭包可能延后执行，状态提交时要重新核对查询轮次。 */
+export function animateIfCurrent(isCurrent: () => boolean, update: () => void,
+  animation = Animation.smooth({ duration: 0.35 })) {
+  if (!isCurrent()) return
+  animate(() => { if (isCurrent()) update() }, animation)
+}
+
+export function useEntrance(delay = 0) {
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try { setVisible(true) }
+      catch (error) { console.log("[IP检测] 入场动画", String(error)) }
+    }, 24 + delay)
+    return () => clearTimeout(timer)
+  }, [])
+  return visible
+}
+
+/** 面板入场延时钩子：所有“挂载后延迟转为可见”的动画共用同一实现。 */
+
+/** 连续面板中的色带分区，无独立圆角、阴影或外边距。iconEffect 让图标换形时额外弹一下。 */
+export function Band({ title, icon, hint, accessory, shaded = false, order = 0, iconEffect = false, children }: {
+  title?: string; icon?: string; hint?: string; accessory?: VirtualNode | null; shaded?: boolean; order?: number
+  iconEffect?: boolean
+  children?: VirtualNode | (VirtualNode | VirtualNode[] | null | undefined | false)[]
+}) {
+  const visible = useEntrance(order * 55)
+  return (
+    <VStack alignment="leading" spacing={title ? 10 : 0}
+      padding={{ horizontal: 16, vertical: 15 }}
+      frame={{ maxWidth: "infinity", alignment: "leading" }}
+      background={shaded ? BAND_BG : SURFACE}>
+      {title ? <VStack alignment="leading" spacing={9} frame={{ maxWidth: "infinity", alignment: "leading" }}>
+        <HStack spacing={9} alignment="center" frame={{ maxWidth: "infinity" }}>
+          {icon ? <ZStack frame={{ width: 26, height: 26 }}
+            background={{ style: ICON_CHIP, shape: { type: "rect", cornerRadius: 8 } }}
+            overlay={<RoundedRectangle cornerRadius={8}
+              stroke={{ shapeStyle: ICON_CHIP_EDGE, strokeStyle: { lineWidth: 1 } }} />}>
+            <Image systemName={icon} font={12} fontWeight="semibold" foregroundStyle={ACCENT.blue}
+              contentTransition="symbolEffectReplace"
+              symbolEffect={iconEffect ? { effect: "bounce", value: icon, options: { speed: 1.4 } } : undefined}
+              animation={{ animation: Animation.smooth({ duration: 0.24 }), value: icon }} />
+          </ZStack> : null}
+          <Text font={16} fontWeight="bold" foregroundStyle={CODE.value} lineLimit={1}
+            minScaleFactor={0.8} fixedSize={{ horizontal: true, vertical: false }}
+            contentTransition="opacity"
+            animation={{ animation: Animation.smooth({ duration: 0.26 }), value: title || "" }}>{title}</Text>
+          <Spacer />
+          {hint ? <Text font={9} fontWeight="medium" foregroundStyle="secondaryLabel"
+            lineLimit={1} minScaleFactor={0.75} contentTransition="opacity"
+            animation={{ animation: Animation.smooth({ duration: 0.3 }), value: hint }}
+            padding={{ horizontal: 7, vertical: 3 }}
+            background={{ style: shaded ? SURFACE : BAND_BG, shape: { type: "rect", cornerRadius: 7 } }}
+            overlay={<RoundedRectangle cornerRadius={7}
+              stroke={{ shapeStyle: LINE, strokeStyle: { lineWidth: 1 } }} />}>{hint}</Text> : null}
+          {accessory}
+        </HStack>
+        {/* 标题下的渐隐彩条：随分区入场从左侧生长，作为分区切换的视觉锚点。 */}
+        <BandRule active={visible} />
+      </VStack> : null}
+      <VStack alignment="leading" spacing={0} frame={{ maxWidth: "infinity", alignment: "leading" }}
+        opacity={visible ? 1 : 0} offset={{ x: 0, y: visible ? 0 : 7 }}
+        animation={{ animation: Animation.easeOut(0.48), value: visible }}>
+        {children}
+      </VStack>
+    </VStack>
+  )
+}
+
+/** 面板切换时的入场：只挂载当前面板，靠显式进度做淡入与轻微上移。 */
+export function Reveal({ children, distance = 9 }: {
+  children?: VirtualNode | (VirtualNode | VirtualNode[] | null | undefined | false)[]
+  distance?: number
+}) {
+  const visible = useEntrance()
+  return <VStack alignment="leading" spacing={0} frame={{ maxWidth: "infinity", alignment: "leading" }}
+    opacity={visible ? 1 : 0} offset={{ x: 0, y: visible ? 0 : distance }}
+    animation={{ animation: Animation.easeOut(0.42), value: visible }}>
+    {children}
+  </VStack>
+}
+
+/** 分区标题下的细分隔线：底纹常驻，彩色渐变条随入场从左侧铺开。 */
+function BandRule({ active }: { active: boolean }) {
+  return <ZStack alignment="leading" frame={{ height: 2, maxWidth: "infinity" }}>
+    <ZStack frame={{ height: 2, maxWidth: "infinity" }} background={LINE} opacity={0.6} />
+    <ZStack frame={{ height: 2, maxWidth: "infinity" }} background={SPECTRUM}
+      opacity={active ? 0.9 : 0} scaleEffect={active ? { x: 1, y: 1, anchor: "leading" } : { x: 0.02, y: 1, anchor: "leading" }}
+      animation={{ animation: Animation.easeOut(0.62), value: active }} />
+  </ZStack>
+}
+
+export function Row({ label, value, mono = false, color, children }: {
+  label: string; value?: string; mono?: boolean; color?: Color | DynamicShapeStyle; children?: VirtualNode
+}) {
+  const hasChildren = Array.isArray(children) ? children.length > 0 : !!children
+  return <HStack spacing={10} alignment="top" padding={{ vertical: 6 }}
+    frame={{ maxWidth: "infinity", alignment: "leading" }}>
+    <Text font={13} foregroundStyle="secondaryLabel"
+      frame={{ width: LABEL_WIDTH, alignment: "leading" }}>{label}</Text>
+    {hasChildren ? children : <Text font={13} fontDesign={mono ? "monospaced" : undefined}
+      foregroundStyle={color || (mono ? CODE.number : CODE.value)} contentTransition="opacity"
+      animation={{ animation: Animation.easeOut(0.28), value: value || "" }}
+      fixedSize={{ horizontal: false, vertical: true }}
+      frame={{ maxWidth: "infinity", alignment: "leading" }}>{value || "—"}</Text>}
+  </HStack>
+}
+
+/** 标签；文本改变时外圈短促亮一下，提示该属性刷新了。 */
+export function Tag({ text, color = ACCENT.blue }: { text: string; color?: Color }) {
+  const [flash, setFlash] = useState(false)
+  const previous = useRef(text)
+  useEffect(() => {
+    if (previous.current === text) return
+    previous.current = text
+    setFlash(true)
+    const timer = setTimeout(() => {
+      try { setFlash(false) }
+      catch (error) { console.log("[IP检测] 标签高亮", String(error)) }
+    }, 620)
+    return () => clearTimeout(timer)
+  }, [text])
+  return <Text font={11} fontWeight="semibold" foregroundStyle="#FFFFFF"
+    padding={{ horizontal: 9, vertical: 4 }}
+    background={{ style: color, shape: { type: "rect", cornerRadius: 6 } }}
+    overlay={<RoundedRectangle cornerRadius={6}
+      stroke={{ shapeStyle: color, strokeStyle: { lineWidth: 1.4 } }}
+      opacity={flash ? 0 : 0.7} scaleEffect={flash ? 1.5 : 1}
+      animation={{ animation: Animation.easeOut(0.62), value: flash }} />}
+    contentTransition="opacity"
+    animation={{ animation: Animation.easeOut(0.36), value: text }}>{text}</Text>
+}
+
+/** 仅在阳性命中时挂载：整行弹入，标签外圈循环扫出一道光环。 */
+export function FlagRow({ label, delay = 0, color = ACCENT.orange }: {
+  label: string; delay?: number; color?: Color
+}) {
+  // 弹入定时器与 useEntrance 相同（挂载后延迟置 true），直接复用。
+  const shown = useEntrance(delay)
+  return <HStack spacing={10} alignment="top" padding={{ vertical: 6 }}
+    frame={{ maxWidth: "infinity", alignment: "leading" }}
+    opacity={shown ? 1 : 0} offset={{ x: shown ? 0 : -12, y: 0 }} scaleEffect={shown ? 1 : 0.96}
+    accessibilityLabel={`${label} 已标记`}>
+    <Text font={13} foregroundStyle="secondaryLabel"
+      frame={{ width: LABEL_WIDTH, alignment: "leading" }}>{label}</Text>
+    <Text font={11} fontWeight="semibold" foregroundStyle="#FFFFFF"
+      padding={{ horizontal: 9, vertical: 4 }}
+      background={{ style: color, shape: { type: "rect", cornerRadius: 6 } }}
+      overlay={<RoundedRectangle cornerRadius={6}
+        stroke={{ shapeStyle: color, strokeStyle: { lineWidth: 1 } }}
+        opacity={shown ? 0 : 0.55} scaleEffect={shown ? 1.55 : 1}
+        animation={{ animation: Animation.easeOut(1.05).repeatForever(false), value: shown }} />}
+      opacity={shown ? 1 : 0} scaleEffect={shown ? 1 : 0.7}
+      animation={{ animation: Animation.spring({ duration: 0.46, bounce: 0.24 }), value: shown }}>
+      已标记
+    </Text>
+  </HStack>
+}
+
+export function Note({ text }: { text: string }) {
+  return <Text font={10} foregroundStyle="secondaryLabel" lineSpacing={3}
+    fixedSize={{ horizontal: false, vertical: true }} padding={{ top: 7 }}>{text}</Text>
+}
+
+export function IconButton({ icon, label, action, active = false, disabled = false, iconSize = 14, pressed = false }: {
+  icon: string; label: string; action: () => void; active?: boolean; disabled?: boolean
+  iconSize?: number; pressed?: boolean
+}) {
+  return <Button action={action} buttonStyle="plain" disabled={disabled} accessibilityLabel={label}>
+    <Image systemName={icon} font={iconSize} fontWeight="medium" contentTransition="symbolEffectReplace"
+      foregroundStyle={active || pressed ? ACCENT.teal : "secondaryLabel"}
+      frame={{ width: 34, height: 34 }}
+      background={{ style: BAND_BG, shape: { type: "rect", cornerRadius: 8 } }}
+      overlay={<RoundedRectangle cornerRadius={8}
+        stroke={{ shapeStyle: LINE, strokeStyle: { lineWidth: 1 } }} />}
+      scaleEffect={pressed ? 0.78 : 1}
+      animation={{ animation: Animation.snappy({ duration: 0.18 }), value: pressed }} />
+  </Button>
+}
+
+function Sweep() {
+  const visible = useEntrance()
+  return <HStack spacing={0} frame={{ maxWidth: "infinity", height: 3 }}>
+    <GeometryReader>{({ size }) => <ZStack alignment="leading" frame={{ width: size.width, height: 3 }}>
+      <ZStack frame={{ width: 110, height: 3 }} background={SPECTRUM}
+        offset={{ x: visible ? size.width : -110, y: 0 }}
+        animation={{ animation: Animation.linear(1.5).repeatForever(false), value: visible }} />
+    </ZStack>}</GeometryReader>
+  </HStack>
+}
+
+/** 扫描态与完成态交叉淡入：进度条不突然跳回静态渐变。 */
+export function ScanLine({ active }: { active: boolean }) {
+  return <Rectangle fill={LINE} frame={{ height: 3 }} clipped
+    overlay={<ZStack frame={{ maxWidth: "infinity", height: 3 }}>
+      <Rectangle fill={SPECTRUM} frame={{ height: 3 }}
+        opacity={active ? 0 : 0.75}
+        scaleEffect={active ? { x: 0.24, y: 1, anchor: "leading" } : { x: 1, y: 1, anchor: "leading" }}
+        animation={{ animation: Animation.easeOut(0.62), value: active }} />
+      {active ? <Sweep /> : null}
+    </ZStack>} />
+}
+
+export function StatusDot({ active, color }: { active: boolean; color: Color }) {
+  const visible = useEntrance()
+  return <ZStack frame={{ width: 14, height: 14 }}>
+    {active ? <ZStack frame={{ width: 13, height: 13 }} background={color} clipShape="circle"
+      opacity={visible ? 0.12 : 0.4} scaleEffect={visible ? 1 : 0.65}
+      animation={{ animation: Animation.easeIn(1).repeatForever(true), value: visible }} /> : null}
+    <ZStack frame={{ width: 6, height: 6 }} background={color} clipShape="circle" />
+  </ZStack>
+}
+
+function riskColor(value: number): Color {
+  return value >= 70 ? ACCENT.red : value >= 50 ? ACCENT.orange : value >= 40 ? ACCENT.amber
+    : value >= 25 ? "#88B82C" : value >= 15 ? ACCENT.green : "#268C62"
+}
+function riskLabel(value: number): string {
+  return value >= 70 ? "高风险" : value >= 50 ? "中度风险" : value >= 25 ? "轻度风险" : "低风险"
+}
+
+const RISK_MOVEMENT = Animation.easeOut(1.8)
+// 系统版本可能带前缀或补丁号，取第一段数字即可判断 API 是否可用。
+const SYSTEM_MAJOR = Number((String(Device.systemVersion).match(/\d+/) || ["0"])[0]) || 0
+const SCROLL_VISIBILITY_SUPPORTED = SYSTEM_MAJOR >= 18
+// 刻度取值固定，提到模块级避免每次渲染重建数组。
+const RISK_MARKS = [0, 15, 25, 40, 50, 70, 100] as const
+const RISK_COLORS: Color[] = ["#268C62", "#28B982", "#91CA2D", "#E9BE2B", "#F08335", "#E64F67"]
+
+/** 气泡、指针、刻度均按实际百分比定位，0 和 100 时也不越界。 */
+export function RiskScale({ value }: { value: number }) {
+  const score = Math.max(0, Math.min(100, value))
+  const [position, setPosition] = useState(0)
+  const [visible, setVisible] = useState(!SCROLL_VISIBILITY_SUPPORTED)
+  const entered = useRef(!SCROLL_VISIBILITY_SUPPORTED)
+  useEffect(() => {
+    // 兜底：回调可能因首次渲染已在视口内而不触发，避免数值显示真实分数、指针却停在 0%。
+    if (visible) return
+    const timer = setTimeout(() => {
+      try { setVisible(true) }
+      catch (error) { console.log("[IP检测] 风险条可见性", String(error)) }
+    }, 750)
+    return () => clearTimeout(timer)
+  }, [visible])
+  useEffect(() => {
+    if (!visible) return
+    // 进入屏幕后先呈现起点；GeometryReader 的位移由显式 animation 插值。
+    const timer = setTimeout(() => {
+      try { animate(() => setPosition(score), RISK_MOVEMENT) }
+      catch (error) { console.log("[IP检测] 风险动画", String(error)) }
+    }, 120)
+    return () => clearTimeout(timer)
+  }, [score, visible])
+  const marks = RISK_MARKS
+  const colors = RISK_COLORS
+  const tint = riskColor(score)
+  // 三行各自占据真实高度；固定高度与弹性宽度分别约束，避免刻度溢出到下方 Note。
+  return <VStack spacing={5}
+    modifiers={modifiers().frame({ maxWidth: "infinity", alignment: "leading" }).padding({ top: 7, bottom: 8 })}
+    onScrollVisibilityChange={SCROLL_VISIBILITY_SUPPORTED ? {
+      threshold: 0.35,
+      onChanged: isVisible => {
+        if (isVisible && !entered.current) {
+          entered.current = true
+          setVisible(true)
+        }
+      },
+    } : undefined}
+    accessibilityLabel={`风险分 ${Math.round(score)}，${riskLabel(score)}`}>
+    <HStack spacing={0} modifiers={modifiers().frame({ height: 36, alignment: "topLeading" }).frame({ maxWidth: "infinity", alignment: "leading" })}>
+      <GeometryReader>{({ size }) => {
+        const width = Math.max(1, size.width)
+        const x = width * position / 100
+        const bubble = Math.min(132, width)
+        const bubbleX = Math.max(0, Math.min(width - bubble, x - bubble / 2))
+        return <ZStack alignment="topLeading" frame={{ width, height: 36, alignment: "topLeading" }}>
+          <Text font={12} fontWeight="bold" foregroundStyle="#FFFFFF" contentTransition="numericText"
+            frame={{ width: bubble, height: 28 }}
+            background={{ style: tint, shape: { type: "rect", cornerRadius: 7 } }}
+            shadow={{ color: "rgba(45,60,80,0.12)", radius: 5, y: 2 }}
+            offset={{ x: bubbleX, y: 0 }}
+            animation={{ animation: RISK_MOVEMENT, value: position }}>{`${Math.round(score)}%  ${riskLabel(score)}`}</Text>
+          <ZStack frame={{ width: 7, height: 7 }} background={tint} rotationEffect={45}
+            offset={{ x: Math.max(0, Math.min(width - 7, x - 3.5)), y: 27 }}
+            animation={{ animation: RISK_MOVEMENT, value: position }} />
+        </ZStack>
+      }}</GeometryReader>
+    </HStack>
+    <HStack spacing={0} modifiers={modifiers().frame({ height: 13, alignment: "leading" }).frame({ maxWidth: "infinity", alignment: "leading" })}>
+      <GeometryReader>{({ size }) => {
+        const width = Math.max(1, size.width)
+        const x = width * position / 100
+        return <ZStack alignment="leading" frame={{ width, height: 13 }}>
+          <HStack spacing={0} frame={{ width, height: 7 }} clipShape="capsule">
+            {colors.map((color, i) => <ZStack key={i}
+              frame={{ width: width * (marks[i + 1] - marks[i]) / 100, height: 7 }} background={color} />)}
+          </HStack>
+          <ZStack frame={{ width: 3, height: 13 }} background={SURFACE} clipShape="capsule"
+            offset={{ x: Math.max(0, Math.min(width - 3, x - 1.5)), y: 0 }}
+            animation={{ animation: RISK_MOVEMENT, value: position }} />
+        </ZStack>
+      }}</GeometryReader>
+    </HStack>
+    <HStack spacing={0} modifiers={modifiers().frame({ height: 14, alignment: "topLeading" }).frame({ maxWidth: "infinity", alignment: "leading" })}>
+      <GeometryReader>{({ size }) => {
+        const width = Math.max(1, size.width)
+        return <ZStack alignment="topLeading" frame={{ width, height: 14, alignment: "topLeading" }}>
+          {marks.map(mark => <Text key={mark} font={9} monospacedDigit foregroundStyle="secondaryLabel"
+            frame={{ width: 25, height: 14 }}
+            offset={{ x: Math.max(0, Math.min(width - 25, width * mark / 100 - 12.5)), y: 0 }}>{mark}</Text>)}
+        </ZStack>
+      }}</GeometryReader>
+    </HStack>
+  </VStack>
+}

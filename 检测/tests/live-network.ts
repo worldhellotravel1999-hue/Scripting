@@ -1,1 +1,17 @@
-aW1wb3J0IHsgQWJvcnRDb250cm9sbGVyLCBTY3JpcHQgfSBmcm9tICJzY3JpcHRpbmciCmltcG9ydCB7IGRpYWdub3NlTmV0d29yayB9IGZyb20gIi4uL3V0aWxzL25ldHdvcmsiCgphc3luYyBmdW5jdGlvbiBydW4oKSB7CiAgY29uc3QgY29udHJvbGxlciA9IG5ldyBBYm9ydENvbnRyb2xsZXIoKQogIGNvbnN0IHRpbWVyID0gc2V0VGltZW91dCgoKSA9PiB7IHRyeSB7IGNvbnRyb2xsZXIuYWJvcnQoKSB9IGNhdGNoIHt9IH0sIDI1XzAwMCkKICB0cnkgewogICAgY29uc3QgcmVwb3J0ID0gYXdhaXQgZGlhZ25vc2VOZXR3b3JrKG51bGwsIGNvbnRyb2xsZXIuc2lnbmFsKQogICAgLy8g5pys5YWl5Y+j5LuF5YGa5Lq65bel5YaS54Of6aqM6K+B77yM5LiN5L+d5a2Y5b+r54Wn77yM5LiN6L6T5Ye6IElQ44CB5a+G6ZKl5oiW6IqC54K55ZCN44CCCiAgICBTY3JpcHQuZXhpdCh7IGNvbXBsZXRlZDogIWNvbnRyb2xsZXIuc2lnbmFsLmFib3J0ZWQsIGR1cmF0aW9uTXM6IHJlcG9ydC5kdXJhdGlvbk1zLAogICAgICBsb2NhbDogeyBraW5kOiByZXBvcnQubG9jYWwua2luZCwgaGFzSVB2NDogISFyZXBvcnQubG9jYWwuaXB2NCwgaGFzSVB2NjogISFyZXBvcnQubG9jYWwuaXB2NiwgdHVubmVsOiByZXBvcnQubG9jYWwudHVubmVsIH0sCiAgICAgIGRvbWVzdGljRXhpdFJlY2VpdmVkOiAhIXJlcG9ydC5kb21lc3RpY0V4aXQsIGxhdGVuY3k6IHJlcG9ydC5sYXRlbmN5LCBxdWljOiByZXBvcnQucXVpYywKICAgICAgc2VydmljZXM6IHJlcG9ydC5zZXJ2aWNlcy5tYXAocm93ID0+ICh7IGlkOiByb3cuaWQsIHN0YXRlOiByb3cuc3RhdGUsIHN0YXR1czogcm93LnN0YXR1cywgbXM6IHJvdy5tcywgcmVnaW9uQ29kZTogcm93LnJlZ2lvbkNvZGUsIHJlZ2lvblNvdXJjZTogcm93LnJlZ2lvblNvdXJjZSB9KSkgfSkKICB9IGNhdGNoIChlcnJvcikgeyBTY3JpcHQuZXhpdCh7IGVycm9yOiBTdHJpbmcoZXJyb3IpIH0pIH0KICBmaW5hbGx5IHsgY2xlYXJUaW1lb3V0KHRpbWVyKSB9Cn0Kdm9pZCBydW4oKQo=
+import { AbortController, Script } from "scripting"
+import { diagnoseNetwork } from "../utils/network"
+
+async function run() {
+  const controller = new AbortController()
+  const timer = setTimeout(() => { try { controller.abort() } catch {} }, 25_000)
+  try {
+    const report = await diagnoseNetwork(null, controller.signal)
+    // 本入口仅做人工冒烟验证，不保存快照，不输出 IP、密钥或节点名。
+    Script.exit({ completed: !controller.signal.aborted, durationMs: report.durationMs,
+      local: { kind: report.local.kind, hasIPv4: !!report.local.ipv4, hasIPv6: !!report.local.ipv6, tunnel: report.local.tunnel },
+      domesticExitReceived: !!report.domesticExit, latency: report.latency, quic: report.quic,
+      services: report.services.map(row => ({ id: row.id, state: row.state, status: row.status, ms: row.ms, regionCode: row.regionCode, regionSource: row.regionSource })) })
+  } catch (error) { Script.exit({ error: String(error) }) }
+  finally { clearTimeout(timer) }
+}
+void run()

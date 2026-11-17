@@ -1,1 +1,28 @@
-aW1wb3J0IHsgU2Nyb2xsVmlldywgVGV4dCwgVlN0YWNrIH0gZnJvbSAic2NyaXB0aW5nIgppbXBvcnQgeyBOZXR3b3JrV2lkZ2V0IH0gZnJvbSAiLi4vbmV0d29ya193aWRnZXQiCmltcG9ydCB7IGJ1aWxkV2lkZ2V0U25hcHNob3QgfSBmcm9tICIuLi91dGlscy93aWRnZXRfc3luYyIKaW1wb3J0IHsgcHJldmlld1JlcG9ydCB9IGZyb20gIi4vcHJldmlldy1uZXR3b3JrIgoKY29uc3Qgc25hcHNob3QgPSBidWlsZFdpZGdldFNuYXBzaG90KHsKICBpcDogIjguOC44LjgiLCBpbmZvOiB7IHF1ZXJ5OiAiOC44LjguOCIsIHN0YXR1czogInN1Y2Nlc3MiLCBjb3VudHJ5OiAi576O5Zu9IiwgY291bnRyeUNvZGU6ICJVUyIsCiAgICByZWdpb25OYW1lOiAiQ2FsaWZvcm5pYSIsIGNpdHk6ICJNb3VudGFpbiBWaWV3IiwgaXNwOiAiR29vZ2xlIiwgb3JnOiAiR29vZ2xlIExMQyIsIGFzOiAiQVMxNTE2OSBHb29nbGUiLAogICAgbGF0OiAzNy40LCBsb246IC0xMjIuMSB9LAogIHJlcHV0YXRpb246IG51bGwsIHB1cmU6IG51bGwsIG5ldHdvcms6IHByZXZpZXdSZXBvcnQsCn0pCmV4cG9ydCBkZWZhdWx0IGZ1bmN0aW9uIFByZXZpZXdOZXR3b3JrV2lkZ2V0KHsgbW9kZSA9ICJzdGFsZSIsIGRhcmsgPSBmYWxzZSwgZmFtaWx5ID0gInN5c3RlbUxhcmdlIiwgaXB2NiA9IGZhbHNlIH06IHsKICBtb2RlPzogc3RyaW5nOyBkYXJrPzogYm9vbGVhbjsgZmFtaWx5Pzogc3RyaW5nOyBpcHY2PzogYm9vbGVhbgp9KSB7CiAgY29uc3QgYWRkcmVzcyA9IGlwdjYgPyAiMjAwMTphYmNkOjEyMzQ6NTY3ODo5MGFiOmNkZWY6MTIzNDphYmNkIiA6IHNuYXBzaG90LmlwCiAgY29uc3Qgc2hvd24gPSB7IC4uLnNuYXBzaG90LCBpcDogYWRkcmVzcywgbWFudWFsOiBtb2RlID09PSAibWFudWFsIiwgcmlzazogNDIsCiAgICByaXNrU291cmNlOiAicHJveHljaGVjayIgYXMgY29uc3QsIGFjY2Vzc1R5cGU6ICLkvY/lroUgSVAiLCB2cG5TdGF0dXM6ICJWUE4iLAogICAgbmV0d29yazogc25hcHNob3QubmV0d29yayA/IHsgLi4uc25hcHNob3QubmV0d29yaywgY29udGV4dElQOiBhZGRyZXNzIH0gOiBudWxsIH0KICBjb25zdCBzaXplID0gZmFtaWx5ID09PSAic3lzdGVtU21hbGwiID8geyB3aWR0aDogMTU4LCBoZWlnaHQ6IDE1OCB9CiAgICA6IGZhbWlseSA9PT0gInN5c3RlbU1lZGl1bSIgPyB7IHdpZHRoOiAzMzgsIGhlaWdodDogMTU4IH0gOiB7IHdpZHRoOiAzMzgsIGhlaWdodDogMzU0IH0KICBjb25zdCBub3cgPSBEYXRlLm5vdygpICsgKG1vZGUgPT09ICJzdGFsZSIgPyA2MCAqIDYwXzAwMCA6IDApCiAgcmV0dXJuIDxTY3JvbGxWaWV3IHByZWZlcnJlZENvbG9yU2NoZW1lPXtkYXJrID8gImRhcmsiIDogImxpZ2h0In0+CiAgICA8VlN0YWNrIHNwYWNpbmc9ezEyfSBwYWRkaW5nPXsxMn0+CiAgICAgIDxUZXh0Pnttb2RlID09PSAibWFudWFsIiA/ICLmiYvliqjmn6Xor6LvvJror4rmlq3kuI3mt7fnlKgiIDogIuemu+e6v+mihOiniO+8mue8k+WtmOi/h+acn+S4juWPl+mZkOeKtuaAgSJ9PC9UZXh0PgogICAgICA8TmV0d29ya1dpZGdldCBzbmFwc2hvdD17c2hvd259IHNpemU9e3NpemV9IGZhbWlseT17ZmFtaWx5fSBub3c9e25vd30gcHJpdmFjeU1vZGU9eyFpcHY2fSAvPgogICAgPC9WU3RhY2s+CiAgPC9TY3JvbGxWaWV3Pgp9Cg==
+import { ScrollView, Text, VStack } from "scripting"
+import { NetworkWidget } from "../network_widget"
+import { buildWidgetSnapshot } from "../utils/widget_sync"
+import { previewReport } from "./preview-network"
+
+const snapshot = buildWidgetSnapshot({
+  ip: "8.8.8.8", info: { query: "8.8.8.8", status: "success", country: "美国", countryCode: "US",
+    regionName: "California", city: "Mountain View", isp: "Google", org: "Google LLC", as: "AS15169 Google",
+    lat: 37.4, lon: -122.1 },
+  reputation: null, pure: null, network: previewReport,
+})
+export default function PreviewNetworkWidget({ mode = "stale", dark = false, family = "systemLarge", ipv6 = false }: {
+  mode?: string; dark?: boolean; family?: string; ipv6?: boolean
+}) {
+  const address = ipv6 ? "2001:abcd:1234:5678:90ab:cdef:1234:abcd" : snapshot.ip
+  const shown = { ...snapshot, ip: address, manual: mode === "manual", risk: 42,
+    riskSource: "proxycheck" as const, accessType: "住宅 IP", vpnStatus: "VPN",
+    network: snapshot.network ? { ...snapshot.network, contextIP: address } : null }
+  const size = family === "systemSmall" ? { width: 158, height: 158 }
+    : family === "systemMedium" ? { width: 338, height: 158 } : { width: 338, height: 354 }
+  const now = Date.now() + (mode === "stale" ? 60 * 60_000 : 0)
+  return <ScrollView preferredColorScheme={dark ? "dark" : "light"}>
+    <VStack spacing={12} padding={12}>
+      <Text>{mode === "manual" ? "手动查询：诊断不混用" : "离线预览：缓存过期与受限状态"}</Text>
+      <NetworkWidget snapshot={shown} size={size} family={family} now={now} privacyMode={!ipv6} />
+    </VStack>
+  </ScrollView>
+}

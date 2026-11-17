@@ -1,1 +1,52 @@
-aW1wb3J0IHsgUmVvcmRlcmFibGVGb3JFYWNoLCBWU3RhY2ssIHVzZUVmZmVjdCwgdXNlT2JzZXJ2YWJsZSwgdXNlUmVmIH0gZnJvbSAic2NyaXB0aW5nIgppbXBvcnQgdHlwZSB7IFZpcnR1YWxOb2RlIH0gZnJvbSAic2NyaXB0aW5nIgppbXBvcnQgeyBQQUdFX01PRFVMRVMsIGdldE1vZHVsZU9yZGVyLCBtb3ZlTW9kdWxlT3JkZXIsIHNhdmVNb2R1bGVPcmRlciwgdmlzaWJsZU1vZHVsZU9yZGVyIH0gZnJvbSAiLi91dGlscy9tb2R1bGVfb3JkZXIiCmltcG9ydCB0eXBlIHsgUGFnZU1vZHVsZSwgUGFnZU1vZHVsZUlEIH0gZnJvbSAiLi91dGlscy9tb2R1bGVfb3JkZXIiCgpleHBvcnQgdHlwZSBQYWdlTW9kdWxlVmlld3MgPSBSZWNvcmQ8UGFnZU1vZHVsZUlELCBWaXJ0dWFsTm9kZSB8IG51bGw+CgovKiog5L+d5oyB6L+e57ut6Z2i5p2/77yb5YW85a656ZW/5oyJ5o6S5bqP77yM6YG/5byAIGlPUyAyNyDljp/nlJ/mi5bmi70gcGF5bG9hZCDmlq3oqIDjgIIgKi8KZXhwb3J0IGZ1bmN0aW9uIFNvcnRhYmxlTW9kdWxlcyh7IG1vZHVsZXMsIG1hbnVhbCwgaW5pdGlhbE9yZGVyLCBvbk9yZGVyQ2hhbmdlIH06IHsKICBtb2R1bGVzOiBQYWdlTW9kdWxlVmlld3M7IG1hbnVhbDogYm9vbGVhbgogIGluaXRpYWxPcmRlcj86IFBhZ2VNb2R1bGVJRFtdOyBvbk9yZGVyQ2hhbmdlPzogKG9yZGVyOiBQYWdlTW9kdWxlSURbXSkgPT4gdm9pZAp9KSB7CiAgY29uc3Qgb3JkZXIgPSB1c2VPYnNlcnZhYmxlKCgpID0+IGluaXRpYWxPcmRlciB8fCBnZXRNb2R1bGVPcmRlcigpKQogIGNvbnN0IGFjdGl2ZSA9IHVzZU9ic2VydmFibGU8UGFnZU1vZHVsZSB8IG51bGw+KG51bGwpCiAgY29uc3QgYXZhaWxhYmxlID0gUEFHRV9NT0RVTEVTLmZpbHRlcihpZCA9PiBtb2R1bGVzW2lkXSAhPSBudWxsKQogIC8vIOWQjOS4gOi9rua4suafk+Wwseenu+mZpOepuuWIhuWMuu+8jOS4jeetieW+hSBlZmZlY3Qg5omN5ZCM5q2l5Y+m5LiA5Lu95YiX6KGo44CCCiAgY29uc3Qgc2hvd24gPSB2aXNpYmxlTW9kdWxlT3JkZXIob3JkZXIudmFsdWUsIG1hbnVhbCwgYXZhaWxhYmxlKQogIGNvbnN0IGl0ZW1zOiBQYWdlTW9kdWxlW10gPSBzaG93bi5tYXAoaWQgPT4gKHsgaWQgfSkpCiAgY29uc3QgdmlzaWJpbGl0eSA9IGAke21hbnVhbH18JHthdmFpbGFibGUuam9pbigifCIpfWAKICAvLyDmj5DkuqTlkI7miY3og73ku6PooajigJzlvZPliY3luIPlsYDigJ3vvJvmuLLmn5PmnJ/otYvlgLzkvJrorqnlrojljavmgZLnrYnvvIzmsLjov5zmi6bkuI3kvY/ml6fmi5bmi73kvJror53jgIIKICBjb25zdCBjb21taXR0ZWRWaXNpYmlsaXR5ID0gdXNlUmVmKHZpc2liaWxpdHkpCgogIC8vIOWPquS+nei1luWPr+eUqOmhueetvuWQje+8jOmBv+WFjeWGheWuueabtOaWsOaIluaOkuW6j+acrOi6q+mHjee9ruaLluaLveOAggogIHVzZUVmZmVjdCgoKSA9PiB7CiAgICBjb21taXR0ZWRWaXNpYmlsaXR5LmN1cnJlbnQgPSB2aXNpYmlsaXR5CiAgICBhY3RpdmUuc2V0VmFsdWUobnVsbCkKICB9LCBbdmlzaWJpbGl0eV0pCgogIGZ1bmN0aW9uIGNvbW1pdChuZXh0OiBQYWdlTW9kdWxlSURbXSkgewogICAgaWYgKG5leHQuZXZlcnkoKGlkLCBpbmRleCkgPT4gaWQgPT09IG9yZGVyLnZhbHVlW2luZGV4XSkpIHJldHVybgogICAgLy8g5Y+v6KeB6aG555Sx5a6M5pW06aG65bqP5o6o5a+877yb6ZqQ6JeP6aG55aeL57uI5L+d55WZ5Y6f5a2Y5YKo5qe95L2N44CCCiAgICBvcmRlci5zZXRWYWx1ZShuZXh0KQogICAgaWYgKG9uT3JkZXJDaGFuZ2UpIG9uT3JkZXJDaGFuZ2UobmV4dCkKICAgIGVsc2UgaWYgKCFzYXZlTW9kdWxlT3JkZXIobmV4dCkpIGNvbnNvbGUubG9nKCJbSVDmo4DmtYtdIOWIhuWMuumhuuW6j+acquiDveS/neWtmCIpCiAgfQoKICBmdW5jdGlvbiBtb3ZlKGluZGljZXM6IG51bWJlcltdLCBuZXdPZmZzZXQ6IG51bWJlcikgewogICAgLy8g5Y+v6KeB6ZuG5ZCI5Yia5pS55Y+Y5pe277yM5ouS57ud5pen5ouW5ou95Lya6K+d5oyJ5pen57Si5byV5o+Q5Lqk44CCCiAgICBpZiAodmlzaWJpbGl0eSAhPT0gY29tbWl0dGVkVmlzaWJpbGl0eS5jdXJyZW50KSByZXR1cm4KICAgIGNvbW1pdChtb3ZlTW9kdWxlT3JkZXIob3JkZXIudmFsdWUsIHNob3duLCBpbmRpY2VzLCBuZXdPZmZzZXQpKQogIH0KICBmdW5jdGlvbiBidWlsZChpdGVtOiBQYWdlTW9kdWxlKSB7CiAgICByZXR1cm4gPFZTdGFjayBrZXk9e2l0ZW0uaWR9IHNwYWNpbmc9ezB9IGZyYW1lPXt7IG1heFdpZHRoOiAiaW5maW5pdHkiLCBhbGlnbm1lbnQ6ICJsZWFkaW5nIiB9fT4KICAgICAge21vZHVsZXNbaXRlbS5pZF19CiAgICA8L1ZTdGFjaz4KICB9CgogIHJldHVybiA8VlN0YWNrIHNwYWNpbmc9ezB9IGZyYW1lPXt7IG1heFdpZHRoOiAiaW5maW5pdHkiLCBhbGlnbm1lbnQ6ICJsZWFkaW5nIiB9fQogICAgYW5pbWF0aW9uPXt7IGFuaW1hdGlvbjogQW5pbWF0aW9uLnNuYXBweSh7IGR1cmF0aW9uOiAwLjIyIH0pLCB2YWx1ZTogb3JkZXIudmFsdWUuam9pbigifCIpIH19PgogICAgPFJlb3JkZXJhYmxlRm9yRWFjaCBhY3RpdmU9e2FjdGl2ZX0gZGF0YT17aXRlbXN9IG9uTW92ZT17bW92ZX0gYnVpbGRlcj17YnVpbGR9IC8+CiAgPC9WU3RhY2s+Cn0K
+import { ReorderableForEach, VStack, useEffect, useObservable, useRef } from "scripting"
+import type { VirtualNode } from "scripting"
+import { PAGE_MODULES, getModuleOrder, moveModuleOrder, saveModuleOrder, visibleModuleOrder } from "./utils/module_order"
+import type { PageModule, PageModuleID } from "./utils/module_order"
+
+export type PageModuleViews = Record<PageModuleID, VirtualNode | null>
+
+/** 保持连续面板；兼容长按排序，避开 iOS 27 原生拖拽 payload 断言。 */
+export function SortableModules({ modules, manual, initialOrder, onOrderChange }: {
+  modules: PageModuleViews; manual: boolean
+  initialOrder?: PageModuleID[]; onOrderChange?: (order: PageModuleID[]) => void
+}) {
+  const order = useObservable(() => initialOrder || getModuleOrder())
+  const active = useObservable<PageModule | null>(null)
+  const available = PAGE_MODULES.filter(id => modules[id] != null)
+  // 同一轮渲染就移除空分区，不等待 effect 才同步另一份列表。
+  const shown = visibleModuleOrder(order.value, manual, available)
+  const items: PageModule[] = shown.map(id => ({ id }))
+  const visibility = `${manual}|${available.join("|")}`
+  // 提交后才能代表“当前布局”；渲染期赋值会让守卫恒等，永远拦不住旧拖拽会话。
+  const committedVisibility = useRef(visibility)
+
+  // 只依赖可用项签名，避免内容更新或排序本身重置拖拽。
+  useEffect(() => {
+    committedVisibility.current = visibility
+    active.setValue(null)
+  }, [visibility])
+
+  function commit(next: PageModuleID[]) {
+    if (next.every((id, index) => id === order.value[index])) return
+    // 可见项由完整顺序推导；隐藏项始终保留原存储槽位。
+    order.setValue(next)
+    if (onOrderChange) onOrderChange(next)
+    else if (!saveModuleOrder(next)) console.log("[IP检测] 分区顺序未能保存")
+  }
+
+  function move(indices: number[], newOffset: number) {
+    // 可见集合刚改变时，拒绝旧拖拽会话按旧索引提交。
+    if (visibility !== committedVisibility.current) return
+    commit(moveModuleOrder(order.value, shown, indices, newOffset))
+  }
+  function build(item: PageModule) {
+    return <VStack key={item.id} spacing={0} frame={{ maxWidth: "infinity", alignment: "leading" }}>
+      {modules[item.id]}
+    </VStack>
+  }
+
+  return <VStack spacing={0} frame={{ maxWidth: "infinity", alignment: "leading" }}
+    animation={{ animation: Animation.snappy({ duration: 0.22 }), value: order.value.join("|") }}>
+    <ReorderableForEach active={active} data={items} onMove={move} builder={build} />
+  </VStack>
+}
