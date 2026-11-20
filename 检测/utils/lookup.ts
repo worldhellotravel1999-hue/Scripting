@@ -1,12 +1,11 @@
 import { AbortSignal, fetch } from "scripting"
-import { expandIPv6, fetchIPInfo, IPInfo } from "./ip"
+import { canonicalAddress, fetchIPInfo, IPInfo } from "./ip"
 import { sameIP, withTimeout } from "./geo"
 
 export interface LookupResult {
   info: IPInfo | null
   infoSource?: "ip-api.com" | "ipwho.is"
   connection: { asn: string; organization: string; domain: string } | null
-  alternateLocation: { country: string; region: string; city: string; countryCode?: string } | null
   reputation: {
     risk: number | null
     range: string
@@ -26,8 +25,8 @@ export interface LookupResult {
   } | null
 }
 
-const PRIMARY_TIMEOUT_MS = 5000
-const SECONDARY_TIMEOUT_MS = 4500
+const IP_API_TIMEOUT_MS = 5000
+const IPWHO_TIMEOUT_MS = 4500
 const REPUTATION_TIMEOUT_MS = 6000
 
 function requestSignal(signal: AbortSignal | undefined, timeout: number): AbortSignal {
@@ -36,10 +35,7 @@ function requestSignal(signal: AbortSignal | undefined, timeout: number): AbortS
 }
 
 export function validIPAddress(value: string): boolean {
-  if (!value || value.length > 45) return false
-  if (value.includes(":")) return !value.includes("%") && expandIPv6(value) !== null
-  const groups = value.split(".")
-  return groups.length === 4 && groups.every(group => /^\d{1,3}$/.test(group) && Number(group) <= 255)
+  return value.length <= 45 && value === value.trim() && canonicalAddress(value) !== null
 }
 
 type IPWhoData = {
@@ -58,14 +54,14 @@ type IPWhoData = {
   timezone?: { id?: string; offset?: number }
 }
 
-/** ipwho.is 数据 → IPInfo 结构（主源失败时作为备选） */
-function mapIPWhoToIPInfo(data: IPWhoData, ip: string): IPInfo {
+/** 将 HTTPS 归属数据转换为页面和小组件共用的结构。 */
+function mapIPWhoToIPInfo(data: IPWhoData & { ip: string }): IPInfo {
   const connection = data.connection && typeof data.connection === "object" ? data.connection : {}
   const asn = typeof connection.asn === "number" && Number.isSafeInteger(connection.asn) && connection.asn > 0
     ? `AS${connection.asn}` : ""
   const organization = optionalText(connection.org) || optionalText(connection.isp) || ""
   return {
-    query: data.ip || ip,
+    query: data.ip,
     country: optionalText(data.country) || "",
     countryCode: (optionalText(data.country_code) || "").toUpperCase(),
     regionName: optionalText(data.region) || "",
@@ -90,13 +86,13 @@ async function queryIPWho(ip: string, signal?: AbortSignal): Promise<IPWhoData |
   try {
     return await withTimeout(async () => {
       const response = await fetch(`https://ipwho.is/${encodeURIComponent(ip)}`, {
-        timeout: Math.ceil(SECONDARY_TIMEOUT_MS / 1000), signal: requestSignal(signal, SECONDARY_TIMEOUT_MS),
+        timeout: Math.ceil(IPWHO_TIMEOUT_MS / 1000), signal: requestSignal(signal, IPWHO_TIMEOUT_MS),
       })
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       return await response.json() as IPWhoData
-    }, SECONDARY_TIMEOUT_MS, "ipwho.is 请求超时")
+    }, IPWHO_TIMEOUT_MS, "ipwho.is 请求超时")
   } catch (error) {
-    if (!signal?.aborted) console.log("[IP检测] ipwho.is 补充查询失败", error)
+    if (!signal?.aborted) console.log("[IP检测] ipwho.is 查询失败", error)
     return null
   }
 }
@@ -168,22 +164,21 @@ async function queryReputation(ip: string, signal?: AbortSignal): Promise<Lookup
   }
 }
 
+function matchingIPWho(data: IPWhoData | null, ip: string): data is IPWhoData & { success: true; ip: string } {
+  return data?.success === true && typeof data.ip === "string" && sameIP(data.ip, ip)
+}
+
 export function assembleLookupResult(
-  ip: string, primary: IPInfo | null, whoData: IPWhoData | null,
+  ip: string, fallback: IPInfo | null, whoData: IPWhoData | null,
   reputation: LookupResult["reputation"],
 ): LookupResult {
-  const whoMatches = whoData?.success === true && typeof whoData.ip === "string" && sameIP(whoData.ip, ip)
-
-  // 主源可用且确实是这个地址才采信；否则退到 ipwho.is
-  let info: IPInfo | null = null
-  const primaryMatches = primary && sameIP(primary.query, ip)
-  if (primary && primaryMatches) info = primary
-  else if (whoData && whoMatches) info = mapIPWhoToIPInfo(whoData, ip)
-  else if (!reputation) throw new Error("IP 归属查询失败，稍后重试")
+  const whoMatches = matchingIPWho(whoData, ip)
+  const info = whoMatches ? mapIPWhoToIPInfo(whoData)
+    : fallback && sameIP(fallback.query, ip) ? fallback : null
+  if (!info && !reputation) throw new Error("IP 归属查询失败，稍后重试")
 
   let connection: LookupResult["connection"] = null
-  let alternateLocation: LookupResult["alternateLocation"] = null
-  if (whoData && whoMatches) {
+  if (whoMatches) {
     const whoConnection = whoData.connection && typeof whoData.connection === "object" ? whoData.connection : null
     connection = whoConnection ? {
       asn: typeof whoConnection.asn === "number" && Number.isSafeInteger(whoConnection.asn) && whoConnection.asn > 0
@@ -191,29 +186,19 @@ export function assembleLookupResult(
       organization: optionalText(whoConnection.org) || "—",
       domain: optionalText(whoConnection.domain) || "—",
     } : null
-    alternateLocation = {
-      country: optionalText(whoData.country) || "—",
-      region: optionalText(whoData.region) || "—",
-      city: optionalText(whoData.city) || "—",
-      countryCode: (optionalText(whoData.country_code) || "").toUpperCase(),
-    }
   }
 
-  return { info, infoSource: info ? primaryMatches ? "ip-api.com" : "ipwho.is" : undefined, connection, alternateLocation, reputation }
+  return { info, infoSource: info ? whoMatches ? "ipwho.is" : "ip-api.com" : undefined, connection, reputation }
 }
 
 export async function lookupAddress(address: string, withReputation = false, signal?: AbortSignal): Promise<LookupResult> {
   const ip = address.trim()
   if (!validIPAddress(ip)) throw new Error("请输入有效的 IPv4 或 IPv6 地址")
 
-  const [primary, whoData, reputation] = await Promise.all([
-    withTimeout(() => fetchIPInfo(ip, requestSignal(signal, PRIMARY_TIMEOUT_MS)), PRIMARY_TIMEOUT_MS, "ip-api.com 请求超时")
-      .catch((error) => {
-        if (!signal?.aborted) console.log("[IP检测] 主源 ip-api.com 查询失败", error)
-        return null
-      }),
-    queryIPWho(ip, signal),
-    withReputation ? queryReputation(ip, signal) : Promise.resolve<LookupResult["reputation"]>(null),
-  ])
-  return assembleLookupResult(ip, primary, whoData, reputation)
+  const reputationTask = withReputation ? queryReputation(ip, signal) : Promise.resolve(null)
+  const whoData = await queryIPWho(ip, signal)
+  const fallback = matchingIPWho(whoData, ip) || signal?.aborted ? null
+    : await withTimeout(() => fetchIPInfo(ip, requestSignal(signal, IP_API_TIMEOUT_MS)), IP_API_TIMEOUT_MS, "ip-api.com 请求超时")
+      .catch(() => null)
+  return assembleLookupResult(ip, fallback, whoData, await reputationTask)
 }

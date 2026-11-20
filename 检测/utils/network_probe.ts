@@ -9,18 +9,33 @@ type Probe = ServiceRegion & {
   ms: number | null
   text: string
   bodyReadOK: boolean
+  trusted: boolean
+  loginPath: boolean
 }
-const emptyProbe = (): Probe => ({ status: null, ms: null, text: "", bodyReadOK: false, ...NO_SERVICE_REGION })
+const emptyProbe = (): Probe => ({ status: null, ms: null, text: "", bodyReadOK: false, trusted: false, loginPath: false, ...NO_SERVICE_REGION })
 
-function serviceHostMatches(serviceID: string, url: string): boolean {
+function serviceHostMatches(serviceID: string, url: string, config = false): boolean {
   try {
     const definition = SERVICES.find(item => item.id === serviceID)
     if (!definition) return false
     const expected = new URL(definition.url), actual = new URL(url)
     if (actual.protocol !== "https:") return false
-    if (serviceID === "spotify" && actual.hostname === "spclient.wg.spotify.com") return true
+    if (config) return serviceID === "spotify" && actual.hostname === "spclient.wg.spotify.com"
+      && actual.pathname === "/signup/public/v1/account"
     if (serviceID === "youtube") return ["youtube.com", "www.youtube.com", "m.youtube.com"].includes(actual.hostname)
     return actual.hostname.replace(/^www\./, "") === expected.hostname.replace(/^www\./, "")
+  } catch { return false }
+}
+
+function serviceLoginLanding(serviceID: string, url: string, trusted: boolean): boolean {
+  try {
+    const { protocol, hostname, pathname } = new URL(url)
+    if (trusted) return /\/(?:login|signin|sign-in)(?:\/|$)/i.test(pathname)
+    return protocol === "https:" && (
+      (serviceID === "gemini" || serviceID === "youtube") && hostname === "accounts.google.com"
+      || serviceID === "spotify" && hostname === "accounts.spotify.com"
+      || serviceID === "chatgpt" && hostname === "auth.openai.com"
+    )
   } catch { return false }
 }
 
@@ -38,28 +53,35 @@ export async function readProbeResponse(response: Response, options: {
   url: string; serviceID?: string; trace?: boolean; config?: boolean; readBody?: boolean; ms: number
 }): Promise<Probe> {
   const { serviceID = "", trace = false, config = false, readBody = false } = options
-  const trusted = serviceHostMatches(serviceID, options.url)
+  const trusted = serviceHostMatches(serviceID, options.url, config)
+  const loginPath = !config && !trace && serviceLoginLanding(serviceID, options.url, trusted)
   let observed = trusted && !trace && !config ? serviceHeaderRegion(response.headers, serviceID) : NO_SERVICE_REGION
+  const chunks: string[] = []
   let text = "", bodyReadOK = true
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   try {
     if (readBody) {
-      // 服务页面配置常位于 CSS/JS 之后，扩大至 1 MiB；trace 不需要大页面。
+      // 服务页面配置常位于 CSS/JS 之后，只有还没取到地区时才需要下载整页；
+      // 响应头已给出地区时读到可判定可达性的长度即可，省下最多 850 KiB。
       const limit = trace ? 16_384 : config ? 65_536 : serviceID ? 1_048_576 : 160_000
+      const enough = trace || config ? limit : serviceID ? 200_000 : limit
       let bytes = 0
       while (bytes < limit) {
+        if (bytes >= enough && observed.regionCode) break
         const chunk = await reader.read()
         if (chunk.done) break
         if (!chunk.value) { bodyReadOK = false; break }
         const slice = chunk.value.subarray(0, limit - bytes)
-        text += decoder.decode(slice, { stream: true })
+        chunks.push(decoder.decode(slice, { stream: true }))
         bytes += slice.length
       }
     }
   } catch { bodyReadOK = false }
   finally {
-    text += decoder.decode()
+    // 分片拼接一次，避免逐片复制整段已解码字符串。
+    chunks.push(decoder.decode())
+    text = chunks.join("")
     await reader.cancel().catch(() => {})
   }
   if (trusted && trace && validServiceTrace(response, options.url, serviceID)) {
@@ -67,14 +89,13 @@ export async function readProbeResponse(response: Response, options: {
     if (code) observed = { regionCode: code, regionSource: "trace" }
   } else if (trusted && config && bodyReadOK && response.status >= 200 && response.status < 300
     && /^application\/json(?:\s*;|$)/i.test(response.headers.get("content-type") || "")
-    && serviceID === "spotify" && new URL(options.url).hostname === "spclient.wg.spotify.com"
-    && new URL(options.url).pathname === "/signup/public/v1/account") {
+    && serviceID === "spotify") {
     observed = serviceConfigRegion(text, serviceID)
   } else if (trusted && !trace && !config && !observed.regionCode) {
     observed = servicePageRegion(text, serviceID)
     if (!observed.regionCode && serviceID === "netflix") observed = netflixRedirectRegion(options.url)
   }
-  return { status: response.status, ms: options.ms, text: text.slice(0, 200_000), bodyReadOK, ...observed }
+  return { status: response.status, ms: options.ms, text: text.slice(0, 200_000), bodyReadOK, trusted, loginPath, ...observed }
 }
 
 export async function probe(url: string, signal: AbortSignal, readBody = false, serviceID = "", kind: "page" | "trace" | "config" = "page"): Promise<Probe> {
@@ -97,6 +118,6 @@ export async function probe(url: string, signal: AbortSignal, readBody = false, 
     if (!trace && !config && serviceHostMatches(serviceID, finalURL)) observed = serviceHeaderRegion(response.headers, serviceID)
     return await readProbeResponse(response, { url: finalURL, serviceID, trace, config, readBody, ms })
   } catch {
-    return { status, ms, text: "", bodyReadOK: false, ...observed }
+    return { status, ms, text: "", bodyReadOK: false, trusted: false, loginPath: false, ...observed }
   } finally { clearTimeout(timer) }
 }

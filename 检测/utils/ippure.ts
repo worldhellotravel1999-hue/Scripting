@@ -28,21 +28,70 @@ const percent = (value: unknown): number | null => typeof value === "number" && 
 const asn = (value: unknown): string | null => typeof value === "number" && Number.isSafeInteger(value)
   && value > 0 && value <= 4294967295 ? `AS${value}` : null
 
-function ipPureURL(ip: string): string {
-  return `https://ippure.com/?ip=${encodeURIComponent(ip)}`
-}
+/** 页面只提供安全客户端与资源；具体地址由脚本入参 target 决定，不依赖 URL 参数。 */
+const PAGE_URL = "https://ippure.com/"
 
-// 使用网站自己的查询动作；资源名从当前页面发现，不固定带 hash 的脚本文件名。
+// 使用网站自己的安全客户端；资源名从当前页面发现，不固定带 hash 的脚本文件名。
+// 直接从脚本 fetch 会得到 {ok:false}，因为安全客户端负责 x-k/x-t 签名和失败重试。
 // 仅返回查询数据，不读取浏览器指纹、Cookie 或身份信息。
 const PAGE_QUERY = `
   const started = Date.now();
+  const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+  const assets = [...document.querySelectorAll('link[href]')].map(e => e.href);
+  const securityURL = assets.find(url => /security\\.[^/]+\\.js/.test(url));
+  const summaryURL = assets.find(url => /getCfEntSummary\\.[^/]+\\.js/.test(url));
+  const result = { queriedIP: target, basic: null, risk: null, riskIP: null, traffic: null, bilibili: null, cf: null };
+
+  let client = null;
+  try { client = securityURL ? (await import(securityURL)).s : null; } catch { /* 页面资源变更时走 Pinia 兜底 */ }
+  if (client) {
+    const readJSON = async (promise) => {
+      try {
+        const response = await promise;
+        if (!response?.ok) return null;
+        return await response.json();
+      } catch { return null; }
+    };
+    const basicURL = '/api/info/ip-basic/' + encodeURIComponent(target);
+    const riskURL = target.includes(':') ? null : '/api/info/ip-risk/' + encodeURIComponent(target);
+    const bilibiliURL = '/api/gateway/bilibili?ip=' + encodeURIComponent(target);
+    // 风险、B 站归属和 Cloudflare 风险彼此无关，一次并发；它们都不阻塞主体。
+    const summaryTask = summaryURL ? (async () => {
+      try {
+        const value = await (await import(summaryURL)).g(target, true);
+        if (value) result.cf = { ip: value.ip, risk_score: value.risk_score, geo: value.geo };
+      } catch { /* Cloudflare 风险是可选项 */ }
+    })() : Promise.resolve();
+    const [basic, risk, bilibili] = await Promise.all([
+      readJSON(client.get(basicURL)),
+      riskURL ? readJSON(client.get(riskURL)) : Promise.resolve(null),
+      readJSON(client.get(bilibiliURL)),
+    ]);
+    result.basic = basic?.data ?? null;
+    result.risk = risk?.data?.risk_score ?? null;
+    result.riskIP = risk?.my_ip ?? null;
+    result.bilibili = bilibili?.data ?? null;
+    const asn = result.basic?.asn?.number;
+    if (asn) {
+      // ASN 级流量统计是第二跳，个别 ASN 会慢到 3s；给个上限，超时就算本次未取得。
+      result.traffic = await Promise.race([
+        readJSON(client.get('/api/info/asn/botclass/' + asn)).then(bot => bot?.data ?? null),
+        wait(2500).then(() => null),
+      ]);
+    }
+    // Cloudflare 风险属于补充项；这里只等到极短预算，等不到就不显示，不把整块拖死。
+    await Promise.race([summaryTask, wait(1200)]);
+    if (result.basic || result.risk !== null || result.traffic || result.bilibili) return JSON.stringify(result);
+  }
+
+  // 安全客户端暂不可用时保留原有 Pinia 路径，避免站点升级导致整项失灵。
   let store = null;
   while (!store && Date.now() - started < 2500) {
     store = document.querySelector('#app')?.__vue_app__?.config?.globalProperties?.$pinia?._s?.get('ipinfo');
-    if (!store) await new Promise(resolve => setTimeout(resolve, 100));
+    if (!store) await wait(100);
   }
   if (!store || typeof store.getBasicIpInfo !== 'function') return null;
-  let cf = null, finished = false;
+  let cf = result.cf, finished = false;
   const tasks = [
     Promise.resolve().then(() => store.getBasicIpInfo(target, false)).then(() => {
       const asn = store.basicInfo?.data?.asn?.number;
@@ -52,13 +101,11 @@ const PAGE_QUERY = `
       ? null : store.getIpQuality(target, false)),
     Promise.resolve().then(() => store.getBilibili(target)),
   ];
-  const asset = [...document.querySelectorAll('link[href]')].map(e => e.href)
-    .find(url => /getCfEntSummary\\.[^/]+\\.js/.test(url));
-  if (asset) tasks.push(import(asset).then(module => module.g(target, true)).then(value => {
+  if (summaryURL) tasks.push(import(summaryURL).then(module => module.g(target, true)).then(value => {
     if (value) cf = {ip:value.ip, risk_score:value.risk_score, geo:value.geo};
   }));
   Promise.allSettled(tasks).then(() => { finished = true; });
-  while (!finished && Date.now() - started < 10000) await new Promise(resolve => setTimeout(resolve, 150));
+  while (!finished && Date.now() - started < 10000) await wait(100);
   return JSON.stringify({
     queriedIP: target,
     basic: store.basicInfo?.data,
@@ -70,26 +117,67 @@ const PAGE_QUERY = `
   });
 `
 
+type PageLease = { web: WebViewController; ready: Promise<boolean> }
+let warmPage: PageLease | null = null
+
+function disposePage(web: WebViewController) {
+  try { if (!web.isDisposed) web.dispose() } catch { /* 已释放 */ }
+}
+
+/**
+ * 出口探测期间就开始加载页面：加载只需一次，查询换地址不必重新导航。
+ * 顺序执行时这段加载完全落在关键路径上，预热后与出口探测重叠。
+ */
+export function prewarmIPPurePage(): void {
+  if (warmPage) return
+  try {
+    const web = new WebViewController({ ephemeral: true, settings: { inactiveSchedulingPolicy: "none" } })
+    const ready = withTimeout(web.loadRequest({ url: PAGE_URL, timeoutInterval: 6 }), 6500)
+      .then(loaded => loaded === true)
+      .catch(() => false)
+    warmPage = { web, ready }
+    // 本轮若没走到页面查询（例如出口获取失败），释放这个隐藏页面。
+    setTimeout(() => {
+      if (warmPage?.web !== web) return
+      warmPage = null
+      disposePage(web)
+    }, 12_000)
+  } catch { warmPage = null }
+}
+
+function takeWarmPage(): PageLease | null {
+  const lease = warmPage
+  warmPage = null
+  return lease
+}
+
 async function pageData(ip: string, isCurrent: () => boolean): Promise<ObjectData | null> {
   if (!isCurrent()) return null
   let web: WebViewController | null = null
   let cancellation: ReturnType<typeof setInterval> | undefined
   try {
-    web = new WebViewController({ ephemeral: true, settings: { inactiveSchedulingPolicy: "none" } })
+    const lease = takeWarmPage()
+    if (lease) web = await lease.ready && isCurrent() ? lease.web : null
+    if (!web && lease) disposePage(lease.web)
+    if (!web) {
+      if (!isCurrent()) return null
+      const created = new WebViewController({ ephemeral: true, settings: { inactiveSchedulingPolicy: "none" } })
+      web = created
+      const loaded = await withTimeout(created.loadRequest({ url: PAGE_URL, timeoutInterval: 6 }), 6500)
+      if (!loaded || !isCurrent()) return null
+    }
     const controller = web
     cancellation = setInterval(() => {
       try { if (!isCurrent() && !controller.isDisposed) controller.dispose() } catch { /* 旧请求已释放 */ }
     }, 250)
-    const loaded = await withTimeout(web.loadRequest({ url: ipPureURL(ip), timeoutInterval: 7 }), 7500)
-    if (!loaded || !isCurrent()) return null
-    const raw = await withTimeout(web.callAsyncJavaScript<string | null>(PAGE_QUERY, { target: ip }), 11000)
+    const raw = await withTimeout(web.callAsyncJavaScript<string | null>(PAGE_QUERY, { target: ip }), 7000)
     return raw ? JSON.parse(raw) : null
   } catch (error) {
     console.log("[IP检测] IPPure 网页暂不可用", String(error))
     return null
   } finally {
     if (cancellation !== undefined) clearInterval(cancellation)
-    try { if (web && !web.isDisposed) web.dispose() } catch { /* 取消轮询可能已释放 */ }
+    if (web) disposePage(web)
   }
 }
 

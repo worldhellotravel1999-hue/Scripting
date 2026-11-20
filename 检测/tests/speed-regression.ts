@@ -1,6 +1,6 @@
-import { Script } from "scripting"
+import { AbortController, Script } from "scripting"
 import {
-  EMPTY_SPEED, SPEED_BUDGET, advanceTimeline, approach, formatMbps, formatTraffic, linkKind, mbpsFrom,
+  EMPTY_SPEED, SPEED_BUDGET, advanceTimeline, approach, awaitSpeedOperation, formatMbps, formatTraffic, linkKind, mbpsFrom,
   median, niceMax, parseSpeedRecord, peakSpeed, phaseLabel, recordFromState, samplesOf, speedGrade,
   steadySpeed, summarizeLatency,
 } from "../utils/speedtest"
@@ -41,6 +41,14 @@ check("抖动取相邻成功样本差的中位数", () => {
   const summary = summarizeLatency([40, 50, 46])
   return near(summary.jitter ?? -1, 7)
 })
+check("仅一个成功探测时抖动未知", () => summarizeLatency([null, 42, null]).jitter === null)
+check("成功探测被失败隔开时抖动未知", () => summarizeLatency([40, null, 50]).jitter === null)
+check("相邻成功探测相同时抖动为零", () => summarizeLatency([40, 40]).jitter === 0)
+check("非法时延不能参与相邻抖动", () => {
+  const result = summarizeLatency([40, Number.NaN, 50, -1, 55])
+  return result.jitter === null && near(result.loss, 0.4)
+})
+check("失败分隔的有效相邻样本独立计算", () => summarizeLatency([40, 50, null, 90, 94]).jitter === 7)
 check("全部失败时保留丢包与未知时延", () => {
   const summary = summarizeLatency([null, null])
   return summary.min === null && summary.jitter === null && summary.loss === 1
@@ -125,4 +133,36 @@ check("测速记录过滤超长文本", () => {
   return !!record && record.node.length === 40 && record.kind === ""
 })
 
-Script.exit({ passed, failed: failures.length, failures, offline: true })
+async function checkAsync(name: string, assertion: () => Promise<boolean>) {
+  try {
+    if (!await assertion()) throw new Error("断言失败")
+    passed++
+  } catch (error) { failures.push(`${name}: ${String(error)}`) }
+}
+
+async function runAsyncChecks() {
+  await checkAsync("未完成的操作在取消时及时结束", async () => {
+    const controller = new AbortController()
+    const started = Date.now()
+    const result = awaitSpeedOperation(new Promise<number>(() => {}), controller.signal)
+      .then(() => false, () => true)
+    setTimeout(() => controller.abort(), 30)
+    return await result && Date.now() - started < 1000
+  })
+  await checkAsync("预取消信号立即结束等待", async () => {
+    const controller = new AbortController()
+    controller.abort()
+    return await awaitSpeedOperation(new Promise<number>(() => {}), controller.signal).then(() => false, () => true)
+  })
+  await checkAsync("正常完成的操作保留结果", async () => {
+    const controller = new AbortController()
+    return await awaitSpeedOperation(Promise.resolve(42), controller.signal) === 42
+  })
+  await checkAsync("操作失败时保留原始错误", async () => {
+    const controller = new AbortController()
+    const error = new Error("失败")
+    return await awaitSpeedOperation(Promise.reject(error), controller.signal).then(() => false, result => result === error)
+  })
+  Script.exit({ passed, failed: failures.length, failures, offline: true })
+}
+void runAsyncChecks().catch(error => Script.exit({ failed: 1, failures: [String(error)] }))

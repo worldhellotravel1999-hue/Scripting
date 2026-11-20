@@ -16,7 +16,7 @@ const services = pendingServices().map((item, index) => ({ ...item,
 }))
 export const previewReport: NetworkReport = {
   version: 1, measuredAt: Date.now(), contextIP: "8.8.8.8", source: "device",
-  local: { kind: "Wi-Fi 接口", ipv4: "192.168.3.24", ipv6: "2001:db8::1", tunnel: true,
+  local: { kind: "Wi-Fi 接口", ipv4: "192.168.3.24", ipv6: "2001:db8::1", tunnel: true, tunnelTypes: ["utun"],
     interfaces: ["en0"], gateway: "", dns: "" },
   domesticExit: { ip: "1.2.3.4", location: "上海", isp: "中国电信" },
   latency: { domestic: 44, overseas: 208 }, quic: "other", httpProtocol: "HTTP/2", services,

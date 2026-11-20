@@ -76,7 +76,7 @@ export function median(values: readonly number[]): number {
   return rows.length % 2 ? rows[middle] : (rows[middle - 1] + rows[middle]) / 2
 }
 
-/** 取成功请求的最小时延；抖动取相邻成功样本差的中位数，失败计入丢包。 */
+/** 取成功请求的最小时延；抖动取相邻成功样本差的中位数，统计 HTTP 请求失败比例。 */
 export function summarizeLatency(samples: readonly (number | null)[]): {
   min: number | null; jitter: number | null; loss: number
 } {
@@ -87,10 +87,11 @@ export function summarizeLatency(samples: readonly (number | null)[]): {
   const diffs: number[] = []
   for (let index = 1; index < samples.length; index++) {
     const previous = samples[index - 1], current = samples[index]
-    if (previous == null || current == null) continue
+    if (previous == null || current == null || !Number.isFinite(previous) || !Number.isFinite(current)
+      || previous < 0 || current < 0) continue
     diffs.push(Math.abs(current - previous))
   }
-  return { min: Math.min(...ok), jitter: diffs.length ? median(diffs) : 0, loss }
+  return { min: Math.min(...ok), jitter: diffs.length ? median(diffs) : null, loss }
 }
 
 export function samplesOf(samples: readonly SpeedSample[], phase: "download" | "upload"): SpeedSample[] {
@@ -173,21 +174,44 @@ export function linkKind(kind: string): { label: string; cellular: boolean } {
 type Meter = { bytes: number }
 type Progress = (sample: SpeedSample, totalBytes: number) => void
 
+/** 即使底层请求或读流未响应取消，也能在信号触发时结束等待。 */
+export function awaitSpeedOperation<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const aborted = () => { cleanup(); reject(new Error("测速操作已取消")) }
+    const cleanup = () => signal.removeEventListener("abort", aborted)
+    operation.then(value => { cleanup(); resolve(value) }, error => { cleanup(); reject(error) })
+    if (signal.aborted) { aborted(); return }
+    signal.addEventListener("abort", aborted)
+    if (signal.aborted) aborted()
+  })
+}
+
+/** 取消正文是尽力清理，不能让清理本身阻塞阶段结束。 */
+function discardResponse(response: { body?: { getReader(): { cancel(): Promise<void> } } | null }) {
+  try { void response.body?.getReader().cancel().catch(() => {}) } catch {}
+}
+
+function speedFetch(request: ReturnType<typeof fetch>, signal: AbortSignal) {
+  // 请求在超时后仍返回时，释放迟到的响应体。
+  void request.then(response => { if (signal.aborted) discardResponse(response) }, () => {})
+  return awaitSpeedOperation(request, signal)
+}
+
 async function latencyProbe(signal: AbortSignal): Promise<number | null> {
   const controller = new AbortController()
   const timer = setTimeout(() => { try { controller.abort() } catch {} }, SPEED_BUDGET.latencyTimeoutMs)
   const started = Date.now()
+  const phaseSignal = AbortSignal.any([signal, controller.signal])
   try {
-    const response = await fetch(`${ENDPOINT}/__down?bytes=0&_=${started}`, {
+    const response = await speedFetch(fetch(`${ENDPOINT}/__down?bytes=0&_=${started}`, {
       headers: { "Cache-Control": "no-cache" },
       timeout: 5,
-      signal: AbortSignal.any([signal, controller.signal]),
-    })
-    if (!response.ok) return null
+      signal: phaseSignal,
+    }), phaseSignal)
     const ms = Date.now() - started
-    // ReadableStream 本身没有 cancel；锁住 reader 再取消才能释放正文。
-    try { await response.body.getReader().cancel() } catch {}
-    return ms  } catch {
+    discardResponse(response)
+    return response.ok ? ms : null
+  } catch {
     return null
   } finally { clearTimeout(timer) }
 }
@@ -196,22 +220,23 @@ async function latencyProbe(signal: AbortSignal): Promise<number | null> {
 async function measureDownload(signal: AbortSignal, startedAt: number, meter: Meter, progress: Progress) {
   const samples: SpeedSample[] = []
   const controller = new AbortController()
-  const timer = setTimeout(() => { try { controller.abort() } catch {} }, SPEED_BUDGET.downloadMs + 3000)
+  const timer = setTimeout(() => { try { controller.abort() } catch {} }, SPEED_BUDGET.downloadMs)
+  const phaseSignal = AbortSignal.any([signal, controller.signal])
   const started = Date.now()
   let phaseBytes = 0, lastAt = started, lastBytes = 0
   try {
-    const response = await fetch(`${ENDPOINT}/__down?bytes=${SPEED_BUDGET.downloadBytes}&_=${started}`, {
+    const response = await speedFetch(fetch(`${ENDPOINT}/__down?bytes=${SPEED_BUDGET.downloadBytes}&_=${started}`, {
       headers: { "Cache-Control": "no-cache" },
       timeout: 22,
-      signal: AbortSignal.any([signal, controller.signal]),
-    })
-    if (!response.ok) return { mbps: null, samples }
+      signal: phaseSignal,
+    }), phaseSignal)
+    if (!response.ok) { discardResponse(response); return { mbps: null, samples } }
     const reader = response.body.getReader()
     try {
-      while (!signal.aborted) {
+      while (!phaseSignal.aborted) {
         const now = Date.now()
         if (now - started >= SPEED_BUDGET.downloadMs) break
-        const chunk = await reader.read()
+        const chunk = await awaitSpeedOperation(reader.read(), phaseSignal)
         if (chunk.done) break
         const size = chunk.value?.byteLength ?? 0
         if (size <= 0) continue
@@ -228,7 +253,7 @@ async function measureDownload(signal: AbortSignal, startedAt: number, meter: Me
         }
         if (phaseBytes >= SPEED_BUDGET.downloadBytes) break
       }
-    } finally { try { await reader.cancel() } catch {} }
+    } finally { try { void reader.cancel().catch(() => {}) } catch {} }
   } catch {
     // 失败或取消时保留已观测的采样，由调用方判断是否有效。
   } finally { clearTimeout(timer) }
@@ -261,38 +286,36 @@ function uploadPayload(size: number): Uint8Array {
 async function measureUpload(signal: AbortSignal, startedAt: number, meter: Meter, progress: Progress) {
   const samples: SpeedSample[] = []
   const started = Date.now()
+  const controller = new AbortController()
+  const timer = setTimeout(() => { try { controller.abort() } catch {} }, SPEED_BUDGET.uploadMs)
+  const phaseSignal = AbortSignal.any([signal, controller.signal])
   const sizes = [640 * 1024, 1536 * 1024, 3 * 1024 * 1024, 5 * 1024 * 1024, 5 * 1024 * 1024]
   let uploaded = 0, failures = 0
-  // 无论成败都要释放响应体，否则连接会被占住直到超时。
-  const discard = async (response: { body?: { getReader(): { cancel(): Promise<void> } } | null }) => {
-    try { await response.body?.getReader().cancel() } catch {}
-  }
-  for (const size of sizes) {
-    if (signal.aborted) break
+  try { for (const size of sizes) {
+    if (phaseSignal.aborted) break
     if (Date.now() - started >= SPEED_BUDGET.uploadMs || uploaded >= SPEED_BUDGET.uploadBytes) break
     const bytes = Math.min(size, SPEED_BUDGET.uploadBytes - uploaded)
     if (bytes < 128 * 1024) break
     const payload = uploadPayload(bytes)
-    const controller = new AbortController()
-    const timer = setTimeout(() => { try { controller.abort() } catch {} }, 12_000)
     const at = Date.now()
+    if (phaseSignal.aborted || at - started >= SPEED_BUDGET.uploadMs) break
     try {
-      const response = await fetch(`${ENDPOINT}/__up?_=${at}`, {
+      const response = await speedFetch(fetch(`${ENDPOINT}/__up?_=${at}`, {
         method: "POST", body: payload,
         headers: { "Content-Type": "application/octet-stream", "Cache-Control": "no-cache" },
         timeout: 20,
-        signal: AbortSignal.any([signal, controller.signal]),
-      })
+        signal: phaseSignal,
+      }), phaseSignal)
       const ms = Date.now() - at
       uploaded += bytes
       meter.bytes += bytes
       if (!response.ok) {
-        await discard(response)
+        discardResponse(response)
         failures++
         if (failures >= 2) break
         continue
       }
-      await discard(response)
+      discardResponse(response)
       const sample: SpeedSample = { t: (Date.now() - startedAt) / 1000, mbps: mbpsFrom(bytes, ms), phase: "upload" }
       samples.push(sample)
       progress(sample, meter.bytes)
@@ -302,9 +325,9 @@ async function measureUpload(signal: AbortSignal, startedAt: number, meter: Mete
       uploaded += bytes
       meter.bytes += bytes
       failures++
-      if (signal.aborted || failures >= 2) break
-    } finally { clearTimeout(timer) }
-  }
+      if (phaseSignal.aborted || failures >= 2) break
+    }
+  } } finally { clearTimeout(timer) }
   return { mbps: uploaded >= 256 * 1024 ? steadySpeed(samples, "upload") : null, samples }
 }
 
@@ -321,7 +344,9 @@ export async function runSpeedTest(options: {
   const publish = (patch: Partial<SpeedTestState>, force = false) => {
     state = { ...state, ...patch, elapsedMs: Date.now() - startedAt }
     const at = Date.now()
-    if (!force && at - lastEmit < 130) return
+    // 采样约 150 ms 一次，界面每帧都在重绘仪表与曲线；
+    // 文字层没必要跟着抖，这里把进度推送合并到 ~200 ms 一档。
+    if (!force && at - lastEmit < 200) return
     lastEmit = at
     if (signal.aborted) return
     try { onUpdate(state) }

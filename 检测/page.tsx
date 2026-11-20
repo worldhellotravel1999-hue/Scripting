@@ -1,7 +1,7 @@
 import {
   AbortController, Button, Circle, GeometryReader, HStack, Image, Map, MapCircle, MapCompass, MapScaleView,
   Marker, Navigation, NavigationStack, ProgressView, Rectangle, ScrollView, Spacer, Text, TextField,
-  VStack, ZStack, modifiers, useEffect, useObservable, useRef, useState,
+  VStack, ZStack, modifiers, useEffect, useMemo, useObservable, useRef, useState,
 } from "scripting"
 import type { Color } from "scripting"
 import { fetchExitProbe, formatIPAddress, formatIPLocation, getPrivacyMode, setPrivacyMode } from "./utils/ip"
@@ -20,12 +20,12 @@ import { scoreModules } from "./score_modules"
 import { NetworkSettingsPanel } from "./network_settings"
 import { fetchGeoReport, sameIP, withTimeout } from "./utils/geo"
 import type { ExitObservation, GeoReport, GeoRow } from "./utils/geo"
-import { fetchIPPure } from "./utils/ippure"
+import { fetchIPPure, prewarmIPPurePage } from "./utils/ippure"
 import type { IPPureReport } from "./utils/ippure"
 import { assessWebRTC, fetchWebRTC, normalizeRTCAddress } from "./utils/webrtc"
 import type { WebRTCReport } from "./utils/webrtc"
 import {
-  ACCENT, Band, CODE, FlagRow, IconButton, LABEL_WIDTH, LINE, Note, PAGE_BG,
+  ACCENT, Band, CODE, FlagRow, GradientTitle, IconButton, LABEL_WIDTH, LINE, Note, PAGE_BG,
   Reveal, RiskScale, Row, SURFACE, ScanLine, StatusDot, Tag, animate, animateIfCurrent, useEntrance,
 } from "./theme"
 
@@ -36,6 +36,7 @@ type PageState = {
   source: string
   manual: boolean
   result: LookupResult | null
+  lookupLoading: boolean
   geo: GeoReport | null
   pure: IPPureReport | null
   pureLoading: boolean
@@ -47,7 +48,7 @@ type PageState = {
 }
 const EMPTY: PageState = {
   loading: true, error: null, ip: "", source: "", manual: false,
-  result: null, geo: null, pure: null, pureLoading: true, rtc: null, rtcLoading: true,
+  result: null, lookupLoading: true, geo: null, pure: null, pureLoading: true, rtc: null, rtcLoading: true,
   network: null, networkLoading: true, updatedAt: "",
 }
 const GEO_SOURCES = ["Cloudflare", "IP2Location", "DB-IP", "MaxMind", "IPInfo.io", "Bilibili"]
@@ -55,9 +56,16 @@ const TITLE_COLORS: Color[] = [
   "#16B8A6", "#1FAEC0", "#279FC5", "#3F93D9", "#5A86E2",
   "#7278E8", "#8673E8", "#9A6DE0", "#C05FB5",
 ]
+// “Report ip” 逐字拆分与配色按索引固定，拆一次即可；
+// AnimatedTitle 每次重渲直接复用，不再重复 split / 取色。
+const TITLE_LETTERS = "Report ip".split("").map((char, index) => ({
+  char, index, color: TITLE_COLORS[index] as Color, delay: 0.11 + index * 0.08,
+}))
 function clean(...values: (string | null | undefined)[]) {
   return values.find(value => value && value !== "—") || "—"
 }
+// 地图外观固定，提到模块级避免每次渲染重建配置对象。
+const MAP_STYLE = { style: "standard", elevation: "realistic", showsTraffic: false } as const
 
 /** 顶部状态文案；把它抽成字符串，动画才能按文案变化触发而不是每次渲染都触发。 */
 function statusLine(state: PageState): string {
@@ -77,15 +85,18 @@ function CloseGlyph() {
   </ZStack>
 }
 
-function RevealLetter({ char, color, delay }: { char: string; color: Color; delay: number }) {
-  // 挂载后延迟转为可见，与 theme 的 useEntrance 是同一个模式，直接复用。
-  const visible = useEntrance(delay - 24)
+const LETTER_EASE = Animation.easeOut(0.5)
+
+/** 单个字母的入场。整行共用一个可见性状态，逐字错峰只交给动画 delay。 */
+function RevealLetter({ char, color, delay, visible }: {
+  char: string; color: Color; delay: number; visible: boolean
+}) {
   return <Text font={15} fontWeight="semibold" foregroundStyle={color}
     opacity={visible ? 1 : 0}
     blur={visible ? 0 : 3}
     offset={{ x: 0, y: visible ? 0 : 4 }}
     scaleEffect={visible ? 1 : 0.86}
-    animation={{ animation: Animation.easeOut(0.5), value: visible }}>
+    animation={{ animation: delay > 0 ? LETTER_EASE.delay(delay) : LETTER_EASE, value: visible }}>
     {char}
   </Text>
 }
@@ -97,25 +108,31 @@ function AnimatedTitle() {
     scaleEffect={shown ? 1 : 0.95}
     animation={{ animation: Animation.easeOut(0.55), value: shown }}
     accessibilityLabel="Report ip">
-    {"Report ip".split("").map((char, index) => char === " "
+    {TITLE_LETTERS.map(({ char, index, color, delay }) => char === " "
       ? <ZStack key={`space-${index}`} frame={{ width: 4.4, height: 18 }} />
-      : <RevealLetter key={`${char}-${index}`} char={char} color={TITLE_COLORS[index]}
-        delay={140 + index * 80} />)}
+      : <RevealLetter key={`${char}-${index}`} char={char} color={color}
+        delay={delay} visible={shown} />)}
   </HStack>
 }
 
-function LocationMap({ info }: { info: NonNullable<LookupResult["info"]> }) {
-  const camera = useObservable(MapCameraPosition.region({
-    center: { latitude: info.lat, longitude: info.lon },
-    span: { latitudeDelta: 0.08, longitudeDelta: 0.08 },
-  }))
+function LocationMap({ info, privacy }: { info: NonNullable<LookupResult["info"]>; privacy: boolean }) {
+  // 相机位置只在挂载时创建一次：以前每次父组件重渲染都会新建一个 observable，
+  // 地图会跟着重新定位（检测期间反复提交状态时尤其明显）。
+  const cameraRef = useRef<ReturnType<typeof MapCameraPosition.region> | null>(null)
+  if (cameraRef.current == null) {
+    cameraRef.current = MapCameraPosition.region({
+      center: { latitude: info.lat, longitude: info.lon },
+      span: { latitudeDelta: 0.08, longitudeDelta: 0.08 },
+    })
+  }
+  const camera = useObservable(cameraRef.current)
   const [copied, setCopied] = useState(false)
   const [openingMap, setOpeningMap] = useState(false)
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const coordinate = `${info.lat.toFixed(4)}, ${info.lon.toFixed(4)}`
-  const title = [info.city, info.country].filter(Boolean).join(" · ") || info.query
+  const title = [info.city, info.country].filter(Boolean).join(" · ") || formatIPAddress(info.query, privacy)
   const radius = approximateRadiusMeters(info)
 
   useEffect(() => () => {
@@ -180,7 +197,7 @@ function LocationMap({ info }: { info: NonNullable<LookupResult["info"]> }) {
     </HStack>
     <Map
       cameraPosition={camera}
-      mapStyle={{ style: "standard", elevation: "realistic", showsTraffic: false }}
+      mapStyle={MAP_STYLE}
       annotationTitles="visible"
       controls={<><MapCompass /><MapScaleView /></>}
       modifiers={modifiers()
@@ -233,20 +250,14 @@ function LocationSection({ result, pure, rows, privacy, expanded, onToggle }: {
     {showingMap && info ? <VStack key="location-map" alignment="leading" spacing={0}
       frame={{ maxWidth: "infinity", alignment: "leading" }}
       transition={Transition.opacity().combined(Transition.scale(0.97)).combined(Transition.offset({ x: 0, y: 10 }))}>
-      <LocationMap key={`${info.query}-${info.lat},${info.lon}`} info={info} />
+      <LocationMap key={`${info.query}-${info.lat},${info.lon}`} info={info} privacy={privacy} />
     </VStack> : <VStack key="location-list" alignment="leading" spacing={0}
       frame={{ maxWidth: "infinity", alignment: "leading" }}
       transition={Transition.opacity().combined(Transition.offset({ x: 0, y: 8 }))}>
       {info && !available ? <Note text="归属数据未提供有效经纬度，暂时无法显示地图。" /> : null}
       {rows.map(row => <LocationRow key={row.source} row={row} privacy={privacy} />)}
       {info ? <Row label={result?.infoSource || "归属参考"} value={formatIPLocation(info)} /> : null}
-      {result?.alternateLocation && result.infoSource !== "ipwho.is" ? <Row label="ipwho.is"
-        value={formatIPLocation({
-          country: clean(result.alternateLocation.country) === "—" ? "" : result.alternateLocation.country,
-          countryCode: result.alternateLocation.countryCode || "",
-          regionName: result.alternateLocation.region === "—" ? "" : result.alternateLocation.region,
-          city: result.alternateLocation.city === "—" ? "" : result.alternateLocation.city,
-        }, "暂不可用")} /> : null}
+      {result?.infoSource === "ip-api.com" ? <Note text="本次归属使用 HTTP 回退，传输未加密。" /> : null}
       {locationDetails(info).map(row => <Row key={row.label} label={row.label} value={row.value} />)}
       <Note text={pure?.locations.length
         ? `IPPure 补充：${pure.locations.map(row => row.source).join("、")}。各服务实际出口见下方。`
@@ -321,41 +332,112 @@ function ReputationDetails({ reputation }: { reputation: LookupResult["reputatio
 function WebRTCRows({ report, exits, loading, manual, privacy }: {
   report: WebRTCReport | null; exits: ExitObservation[]; loading: boolean; manual: boolean; privacy: boolean
 }) {
-  const result = assessWebRTC(report, exits, loading, manual)
+  const result = useMemo(() => assessWebRTC(report, exits, loading, manual), [report, exits, loading, manual])
   const color = result.tone === "ok" ? ACCENT.green : result.tone === "warning" ? ACCENT.orange : ACCENT.violet
-  const candidates = manual || loading ? [] : report?.candidates || []
+  // 只依赖候选列表身份；地址匹配与标签拼装按候选缓存，检测期间反复重渲不再重复算。
+  const rows = useMemo(() => {
+    const candidates = manual || loading ? [] : report?.candidates || []
+    return {
+      hasMdns: candidates.some(c => c.scope === "mdns"),
+      items: candidates.filter(c => c.scope !== "mdns").map(candidate => {
+        const matches = exits.filter(exit => sameIP(normalizeRTCAddress(exit.ip) || "", candidate.address))
+        const label = candidate.type === "relay" ? "中继地址" : candidate.scope === "local" ? "本地地址"
+          : candidate.type === "srflx" ? "STUN 公网" : "WebRTC 公网"
+        return { key: `${candidate.type}-${candidate.address}-${candidate.protocol}`, label, candidate, matches }
+      }),
+    }
+  }, [report, exits, loading, manual])
   return <>
     <Row label="WebRTC"><HStack spacing={7}>
       {loading && !manual ? <ProgressView controlSize="small" /> : null}
       <Tag text={result.label} color={color} />
     </HStack></Row>
     <Note text={result.note} />
-    {candidates.filter(c => c.scope !== "mdns").map(candidate => {
-      const matches = exits.filter(exit => sameIP(normalizeRTCAddress(exit.ip) || "", candidate.address))
-      const label = candidate.type === "relay" ? "中继地址" : candidate.scope === "local" ? "本地地址"
-        : candidate.type === "srflx" ? "STUN 公网" : "WebRTC 公网"
-      return <Row key={`${candidate.type}-${candidate.address}-${candidate.protocol}`} label={label}>
+    {rows.items.map(({ key, label, candidate, matches }) =>
+      <Row key={key} label={label}>
         <VStack alignment="leading" spacing={3} frame={{ maxWidth: "infinity", alignment: "leading" }}>
           <Text font={13} fontDesign="monospaced" foregroundStyle={candidate.scope === "public" ? ACCENT.blue : "secondaryLabel"}
             fixedSize={{ horizontal: false, vertical: true }}>{formatIPAddress(candidate.address, privacy)}</Text>
           <Text font={10} foregroundStyle="secondaryLabel" fixedSize={{ horizontal: false, vertical: true }}>
             {`${candidate.type} · ${candidate.protocol.toUpperCase()}${matches.length ? " · 与 " + matches.map(exit => exit.source).join(" / ") + " 一致" : ""}`}</Text>
         </VStack>
-      </Row>
-    })}
-    {candidates.some(c => c.scope === "mdns") ? <Row label="本地候选" value="mDNS 已隐藏地址" /> : null}
+      </Row>)}
+    {rows.hasMdns ? <Row label="本地候选" value="mDNS 已隐藏地址" /> : null}
   </>
 }
 
+/**
+ * 查询输入框自己持有输入状态：每敲一个字只重渲染这一格，
+ * 不再把整棵分区树（十几个 Band、仪表、曲线）重建一遍。
+ */
+function SearchField({ onCommit, onDirty }: {
+  onCommit: (value: string) => void
+  onDirty: () => void
+}) {
+  const [value, setValue] = useState("")
+  return <TextField title="IP 地址" prompt="输入 IPv4 / IPv6"
+    value={value} onChanged={next => { setValue(next); onDirty() }}
+    autofocus textFieldStyle="plain" font={17} fontDesign="monospaced"
+    foregroundStyle={CODE.input}
+    keyboardType="asciiCapable" textInputAutocapitalization="never" autocorrectionDisabled
+    submitLabel="search" onSubmit={() => onCommit(value)}
+    frame={{ maxWidth: "infinity", minHeight: 34, alignment: "leading" }}
+    transition={Transition.opacity().combined(Transition.offset({ x: 0, y: 7 }))} />
+}
+
+function IPScanValue({ ip, scanning, privacy }: { ip: string; scanning: boolean; privacy: boolean }) {
+  const [frame, setFrame] = useState(0)
+  const [drifting, setDrifting] = useState(false)
+
+  useEffect(() => {
+    if (!scanning || ip) return
+    const timer = setInterval(() => {
+      try { setFrame(value => value + 1) }
+      catch (error) { console.log("[IP检测] IP 滚动动画", String(error)) }
+    }, 105)
+    return () => clearInterval(timer)
+  }, [scanning, ip])
+
+  useEffect(() => {
+    if (!scanning || ip) {
+      setDrifting(false)
+      return
+    }
+    const timer = setInterval(() => {
+      try { setDrifting(value => !value) }
+      catch (error) { console.log("[IP检测] IP 浮动动画", String(error)) }
+    }, 850)
+    return () => clearInterval(timer)
+  }, [scanning, ip])
+
+  const rollingIP = [0, 1, 2, 3].map(index =>
+    String((frame * (47 + index * 18) + 29 + index * 61) % 256)).join(".")
+  const display = ip ? formatIPAddress(ip, privacy) : scanning ? formatIPAddress(rollingIP, privacy) : "—"
+
+  return <HStack key={ip ? "resolved" : "pending"} spacing={3} frame={{ maxWidth: "infinity", alignment: "leading" }}
+    offset={{ x: scanning && !ip && drifting ? 1.2 : 0, y: scanning && !ip && drifting ? -0.65 : 0 }}
+    animation={{ animation: Animation.smooth({ duration: 0.82, extraBounce: 0.02 }), value: drifting }}>
+    <Text font={22} fontDesign="monospaced" fontWeight="medium" foregroundStyle={CODE.input}
+      lineLimit={2} minScaleFactor={0.55} contentTransition="numericText"
+      animation={{ animation: Animation.easeOut(0.16), value: display }}
+      frame={{ maxWidth: "infinity", alignment: "leading" }}>{display}</Text>
+  </HStack>
+}
+
 function ExitRows({ state, privacy }: { state: PageState; privacy: boolean }) {
-  const exits: ExitObservation[] = state.manual ? [] : [
-    ...(state.ip ? [{ source: state.source || "当前出口", ip: state.ip, location: "" }] : []),
-    ...(state.geo?.exits || []),
-    ...(state.pure?.exit ? [state.pure.exit] : []),
-    ...(state.network?.domesticExit ? [{ source: "IPIP.net", ip: state.network.domesticExit.ip,
-      location: [state.network.domesticExit.location, state.network.domesticExit.isp].filter(Boolean).join(" · ") }] : []),
-  ]
-  const differs = exits.some(exit => state.ip && !sameIP(exit.ip, state.ip))
+  // 出口对照行按状态派生数据缓存；网络诊断落地时会重渲十几次，
+  // 拼接与 sameIP 比对不必每次都做一遍。
+  const { exits, differs, hasLocation } = useMemo(() => {
+    const exits: ExitObservation[] = state.manual ? [] : [
+      ...(state.ip ? [{ source: state.source || "当前出口", ip: state.ip, location: "" }] : []),
+      ...(state.geo?.exits || []),
+      ...(state.pure?.exit ? [state.pure.exit] : []),
+      ...(state.network?.domesticExit ? [{ source: "IPIP.net", ip: state.network.domesticExit.ip,
+        location: [state.network.domesticExit.location, state.network.domesticExit.isp].filter(Boolean).join(" · ") }] : []),
+    ]
+    return { exits, differs: exits.some(exit => state.ip && !sameIP(exit.ip, state.ip)),
+      hasLocation: exits.some(exit => !!exit.location) }
+  }, [state.manual, state.ip, state.source, state.geo, state.pure, state.network])
   return <>
     <WebRTCRows report={state.rtc} exits={exits} loading={state.rtcLoading} manual={state.manual} privacy={privacy} />
     {!state.manual ? <Note text="HTTP 出口对照 · 国内探针同样遵循当前分流规则" /> : null}
@@ -387,7 +469,6 @@ export default function IPPage({ initialAddress }: { initialAddress?: string }) 
   const [state, setState] = useState<PageState>(EMPTY)
   const [searchOpen, setSearchOpen] = useState(false)
   const [mapExpanded, setMapExpanded] = useState(false)
-  const [query, setQuery] = useState("")
   const [queryError, setQueryError] = useState("")
   const [copied, setCopied] = useState(false)
   const request = useRef(0)
@@ -399,6 +480,8 @@ export default function IPPage({ initialAddress }: { initialAddress?: string }) 
     const controller = new AbortController()
     networkController.current = controller
     const manual = !!address
+    // 页面加载与出口探测互不依赖，提前并行；手动查询没有这段空档，预热无益反而多留一个隐藏页。
+    if (!manual) prewarmIPPurePage()
     animateIfCurrent(() => run === request.current, () => {
       setCopied(false)
       setMapExpanded(false)
@@ -409,12 +492,43 @@ export default function IPPage({ initialAddress }: { initialAddress?: string }) 
     }, Animation.easeOut(0.28))
     let ip = address || ""
     let source = manual ? "手动查询" : ""
-    // 支持函数式补丁：错误文案需要按“更重要”的信息决定是否覆盖。
-    const update = (patch: Partial<PageState> | ((previous: PageState) => Partial<PageState>)) => {
+    // 合并同一时间窗内的状态补丁：网络诊断会并发落地十几项服务，
+    // 若每项各提交一次，整棵分区树会被反复重建（滚动就会卡）。
+    // 这里按 ~48 ms 节流，多条补丁合成一次 setState，数据一条不丢。
+    type Patch = Partial<PageState> | ((previous: PageState) => Partial<PageState>)
+    let pending: Patch[] = []
+    let flushTimer: ReturnType<typeof setTimeout> | null = null
+    let lastFlush = 0
+    const flush = () => {
+      flushTimer = null
+      if (!pending.length) return
+      const patches = pending
+      pending = []
+      lastFlush = Date.now()
       animateIfCurrent(() => run === request.current, () => {
-        setState(previous => run === request.current
-          ? { ...previous, ...(typeof patch === "function" ? patch(previous) : patch) } : previous)
+        setState(previous => {
+          if (run !== request.current) return previous
+          // 按提交顺序逐条叠加，函数式补丁仍能看到前一条的结果。
+          let next = previous
+          for (const patch of patches) {
+            next = { ...next, ...(typeof patch === "function" ? patch(next) : patch) }
+          }
+          return next
+        })
       })
+    }
+    const flushNow = () => {
+      if (flushTimer !== null) { clearTimeout(flushTimer); flushTimer = null }
+      flush()
+    }
+    const DELAY = 48
+    // 支持函数式补丁：错误文案需要按“更重要”的信息决定是否覆盖。
+    const update = (patch: Patch) => {
+      if (run !== request.current) return
+      pending.push(patch)
+      if (flushTimer !== null) return
+      const wait = Math.max(0, DELAY - (Date.now() - lastFlush))
+      flushTimer = wait === 0 ? setTimeout(flush, 0) : setTimeout(flush, wait)
     }
     // 次要错误（位置源、快照写入）不得抹掉更重要的查询错误。
     const updateError = (message: string) => update(previous => previous.error ? {} : { error: message })
@@ -469,15 +583,12 @@ export default function IPPage({ initialAddress }: { initialAddress?: string }) 
         .then(result => {
           latestResult = result
           coreResultReady = true
-          update({ result, error: result.info ? null : "归属查询暂不可用，已保留同地址风险数据" })
+          update({ result, lookupLoading: false, error: result.info ? null : "归属查询暂不可用，已保留同地址风险数据" })
           saveSnapshot()
           return result
         })
         .catch(error => {
-          latestResult = null
-          coreResultReady = true
-          update({ error: String(error).replace(/^Error: /, "") })
-          saveSnapshot()
+          update({ lookupLoading: false, error: String(error).replace(/^Error: /, "") })
           return null
         })
       const geoTask = fetchGeoReport(ip, !manual, controller.signal)
@@ -500,18 +611,21 @@ export default function IPPage({ initialAddress }: { initialAddress?: string }) 
       await Promise.all([lookupTask, geoTask])
       if (run !== request.current) return
       update({ loading: false, updatedAt: new Date().toLocaleTimeString("zh-CN", { hour12: false }) })
+      flushNow()
       await Promise.all([rtcTask, pureTask, networkTask])
       if (run !== request.current) return
       saveSnapshot()
     } catch (error) {
       if (run !== request.current) return
       if (!manual && !networkTask) startNetwork(null)
-      update({ loading: false, pureLoading: false, error: String(error).replace(/^Error: /, "") })
+      update({ loading: false, lookupLoading: false, pureLoading: false, error: String(error).replace(/^Error: /, "") })
     }
+    // 收尾提交不等待节流窗口，避免最后一条结果多停留一帧。
+    flushNow()
   }
 
-  function search() {
-    const ip = query.trim()
+  function search(value: string) {
+    const ip = value.trim()
     if (!validIPAddress(ip)) {
       animate(() => setQueryError("请输入有效的 IPv4 或 IPv6 地址"), Animation.snappy({ duration: 0.24 }))
       return
@@ -523,10 +637,7 @@ export default function IPPage({ initialAddress }: { initialAddress?: string }) 
     // 用函数式更新，避免连点两下时闭包里的旧值把面板重新打开。
     animate(() => {
       setQueryError("")
-      setSearchOpen(open => {
-        if (!open) setQuery("")
-        return !open
-      })
+      setSearchOpen(open => !open)
     }, Animation.easeOut(0.28))
   }
 
@@ -567,16 +678,22 @@ export default function IPPage({ initialAddress }: { initialAddress?: string }) 
   const info = state.result?.info
   const flags = state.result?.reputation
   const pure = state.pure
-  const identity = networkIdentity(info, pure, state.result?.connection)
+  // 派生数据只依赖查询结果与 pure；检测期间页面会被反复重渲，
+  // 不缓存的话每帧几百次 find / 字段拼装。
+  const identity = useMemo(
+    () => networkIdentity(info, pure, state.result?.connection),
+    [info, pure, state.result?.connection],
+  )
   const asn = identity.asn || "—"
   const network = identity.organization || "—"
   const hosting = pure?.networkType === "hosting" ? true : flags?.hosting ?? info?.hosting
   const proxy = flags?.proxy ?? info?.proxy
-  const attribute = accessTypeLabel(info, flags, pure)
-  const geoRows = GEO_SOURCES.map(source => pure?.locations.find(row => row.source === source)
+  const attribute = useMemo(() => accessTypeLabel(info, flags, pure), [info, flags, pure])
+  const geoRows = useMemo(() => GEO_SOURCES.map(source => pure?.locations.find(row => row.source === source)
     || state.geo?.rows.find(row => row.source === source)
     || { source, ip: null, location: "", status: "unavailable" as const,
-      note: state.loading ? "查询中…" : "暂不可用" })
+      note: state.loading ? "查询中…" : "暂不可用" }),
+  [pure, state.geo, state.loading])
   const risk = flags?.risk ?? null
   const detecting = state.loading || state.pureLoading || state.networkLoading || state.rtcLoading
   const refresh = () => detect(state.manual ? state.ip : undefined)
@@ -616,24 +733,15 @@ export default function IPPage({ initialAddress }: { initialAddress?: string }) 
               <IconButton icon="arrow.clockwise" label="重新检测" action={refresh} disabled={state.loading} />
             </HStack>
             <HStack spacing={10} alignment="center" padding={{ bottom: 9 }}>
-              <Text font={16} fontWeight="bold" foregroundStyle={CODE.value} frame={{ width: LABEL_WIDTH, alignment: "leading" }}>IP</Text>
+              <HStack frame={{ width: LABEL_WIDTH, alignment: "leading" }}><GradientTitle title="IP" /></HStack>
               <ZStack alignment="leading" frame={{ maxWidth: "infinity", minHeight: 34 }}>
-                {searchOpen ? <TextField key="ip-query" title="IP 地址" prompt="输入 IPv4 / IPv6"
-                  value={query} onChanged={value => { setQuery(value); if (queryError) setQueryError("") }}
-                  autofocus textFieldStyle="plain" font={17} fontDesign="monospaced"
-                  foregroundStyle={CODE.input}
-                  keyboardType="asciiCapable" textInputAutocapitalization="never" autocorrectionDisabled
-                  submitLabel="search" onSubmit={search}
-                  frame={{ maxWidth: "infinity", minHeight: 34, alignment: "leading" }}
-                  transition={Transition.opacity().combined(Transition.offset({ x: 0, y: 7 }))} />
+                {searchOpen ? <SearchField key="ip-query"
+                  onCommit={(value: string) => search(value)}
+                  onDirty={() => { if (queryError) setQueryError("") }} />
                   : <HStack key="ip-display" spacing={3}
                     frame={{ maxWidth: "infinity", alignment: "leading" }}
                     transition={Transition.opacity().combined(Transition.offset({ x: 0, y: -7 }))}>
-                    <Text font={22} fontDesign="monospaced" fontWeight="medium" foregroundStyle={CODE.input}
-                      lineLimit={2} minScaleFactor={0.55} contentTransition="opacity"
-                      animation={{ animation: Animation.easeOut(0.3), value: state.ip }}
-                      frame={{ maxWidth: "infinity", alignment: "leading" }}>
-                      {state.ip ? formatIPAddress(state.ip, privacy) : state.loading ? "检测中…" : "—"}</Text>
+                    <IPScanValue ip={state.ip} scanning={state.loading} privacy={privacy} />
                     <IconButton icon={privacy ? "eye.slash" : "eye"} label={privacy ? "显示完整 IP" : "隐藏 IP"}
                       action={togglePrivacy} active={!privacy} />
                     <IconButton icon={copied ? "checkmark" : "doc.on.doc"} label={copied ? "已复制" : "复制完整 IP"}
@@ -644,7 +752,7 @@ export default function IPPage({ initialAddress }: { initialAddress?: string }) 
             {searchOpen && queryError ? <Text font={11} foregroundStyle={ACCENT.red}
               padding={{ leading: LABEL_WIDTH + 10, bottom: 9 }}
               transition={Transition.opacity()}>{queryError}</Text> : null}
-            {state.manual ? <Button action={() => { setQuery(""); void detect() }} buttonStyle="plain">
+            {state.manual ? <Button action={() => { void detect() }} buttonStyle="plain">
               <HStack spacing={5} padding={{ bottom: 8 }}
                 transition={Transition.opacity().combined(Transition.offset({ x: 0, y: -4 }))}>
                 <Image systemName="arrow.uturn.backward" font={10} />
@@ -668,7 +776,8 @@ export default function IPPage({ initialAddress }: { initialAddress?: string }) 
             {networkDetails(info, network).map(row => <Row key={row.label} label={row.label} value={row.value} />)}
             <Row label="AS 域名" value={clean(pure?.domain, state.result?.connection?.domain)} mono />
             {flags?.hostname ? <Row label="IP 主机名" value={privacy ? "已隐藏 · 顶部眼睛可显示" : flags.hostname} mono={!privacy} /> : null}
-            <Row label="IP 范围" value={clean(pure?.range, flags?.range)} mono />
+            <Row label="IP 范围" value={privacy && clean(pure?.range, flags?.range) !== "—"
+              ? "已隐藏 · 顶部眼睛可显示" : clean(pure?.range, flags?.range)} mono={!privacy} />
             <TrafficRatio value={pure?.traffic || null} loading={state.pureLoading} />
           </Band>,
 
@@ -687,7 +796,7 @@ export default function IPPage({ initialAddress }: { initialAddress?: string }) 
 
           ...scoreModules(pure, state.ip),
           proxycheck: <Band title="proxycheck 风险" hint="proxycheck.io" shaded order={5}>
-            {risk == null ? <ScorePending loading={state.pureLoading} />
+            {risk == null ? <ScorePending loading={state.lookupLoading} />
               : shouldShowRiskScale(risk) ? <Reveal key={`pc-${state.ip}`}>
                 <RiskScale value={risk} />
               </Reveal> : null}

@@ -119,7 +119,7 @@ export function parseSurgeSnapshot(raw: unknown, settings: NetworkSettings, cont
 
   return {
     version: 1, measuredAt: data.ts, contextIP: bound ? currentIP : null, source: "surge",
-    local: { ...EMPTY_LOCAL, interfaces: [], kind: label(local.net) || "未知", ipv4: localIP && !localIP.includes(":") ? localIP : "",
+    local: { ...EMPTY_LOCAL, interfaces: [], tunnelTypes: [], kind: label(local.net) || "未知", ipv4: localIP && !localIP.includes(":") ? localIP : "",
       ipv6: localIP?.includes(":") ? localIP : "", tunnel: typeof local.vpn === "boolean" ? local.vpn : null,
       gateway: label(local.gw), dns: label(local.dns) },
     latency: { domestic: positiveMs(lat.local), overseas: positiveMs(lat.proxy) },

@@ -159,13 +159,21 @@ async function run() {
     try { assembleLookupResult(ip, null, null, null); return false }
     catch (error) { return String(error).includes("归属查询失败") }
   })
-  check("补充源畸形国家码不损害主源", () => {
-    const info = parseIPInfo({ status: "success", query: ip, country: "美国" })!
-    const result = assembleLookupResult(ip, info, { success: true, ip, country_code: 42 as never,
+  check("优先使用 HTTPS 同址数据并忽略畸形字段", () => {
+    const fallback = parseIPInfo({ status: "success", query: ip, country: "美国" })!
+    const result = assembleLookupResult(ip, fallback, { success: true, ip, country: "日本", country_code: 42 as never,
       connection: { org: 88 as never, asn: 15169 } }, pc)
-    return result.info === info && result.alternateLocation?.countryCode === "" && result.connection?.organization === "—"
+    return result.infoSource === "ipwho.is" && result.info?.country === "日本"
+      && result.info.countryCode === "" && result.connection?.organization === "—"
   })
-  check("备选源单侧坐标缺失不画错地图", () => {
+  check("HTTPS 异址时只采信同址 HTTP 回退", () => {
+    const fallback = parseIPInfo({ status: "success", query: ip, country: "美国" })!
+    const wrong = { success: true, ip: "1.1.1.1" }
+    const result = assembleLookupResult(ip, fallback, wrong, pc)
+    return result.infoSource === "ip-api.com" && result.info === fallback && result.connection === null
+      && assembleLookupResult(ip, { ...fallback, query: wrong.ip }, wrong, pc).info === null
+  })
+  check("HTTPS 源单侧坐标缺失不画错地图", () => {
     const result = assembleLookupResult(ip, null, { success: true, ip, latitude: 0, country: "美国" }, null)
     return result.info !== null && !hasCoordinates(result.info)
   })

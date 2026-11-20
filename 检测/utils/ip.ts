@@ -1,14 +1,14 @@
 // File: utils/ip.ts
 // 获取 IP 信息并校验地址
-import { fetch } from "scripting"
-import type { AbortSignal } from "scripting"
+import { AbortController, AbortSignal, fetch } from "scripting"
 
 const API_URL = "http://ip-api.com/json/?lang=zh-CN"
-// 国内IP查询源（3322最快最稳定）
-const CHINA_IP_APIS = [
-  "https://ip.3322.net",           // 首选：国内服务器，纯文本
-  "https://api.ipify.org?format=json",  // 备用1：全球CDN
-  "https://checkip.amazonaws.com"       // 备用2：AWS
+// 出口查询源同时发起，避免某个地区不可达或证书异常拖住整轮检测。
+const EXIT_PROBE_APIS = [
+  "https://api.ipify.org?format=json",  // 全球 CDN，JSON
+  "https://checkip.amazonaws.com",       // AWS，纯文本
+  "https://ip.3322.net",                 // 国内，纯文本
+  "https://myip.ipip.net/json",          // 国内，JSON
 ]
 
 export interface IPInfo {
@@ -204,34 +204,51 @@ export async function fetchIPInfo(address?: string, signal?: AbortSignal): Promi
 }
 
 /**
- * 获取国内出口IP（用于对比检测分流代理/旁路由）
- * 优先3322.net，2秒超时快速返回
+ * 获取公网出口 IP（用于对比检测分流代理/旁路由）。
+ * 多个源并行竞速，首个返回合法公网地址的源获胜；获胜后立即取消其余请求。
  */
 export async function fetchExitProbe(signal?: AbortSignal): Promise<{ address: string; source: string } | null> {
-  for (const apiUrl of CHINA_IP_APIS) {
-    if (signal?.aborted) return null
-    try {
-      const response = await fetch(apiUrl, { timeout: 2, signal });
-
-      if (response.ok) {
-        const text = await response.text().catch(() => "");
-        // 尝试解析JSON或直接返回IP
-        let ip = text.trim();
-        try {
-          const data = JSON.parse(text);
-          ip = typeof data.ip === "string" ? data.ip : "";
-        } catch { /* 纯文本接口直接返回地址 */ }
-        if (signal?.aborted) return null
-        if (isPublicExitAddress(ip)) {
-          return { address: ip, source: new URL(apiUrl).hostname };
-        }
+  if (signal?.aborted) return null
+  const controllers = EXIT_PROBE_APIS.map(() => new AbortController())
+  let remaining = EXIT_PROBE_APIS.length
+  let settled = false
+  return new Promise<{ address: string; source: string } | null>(resolve => {
+    const finish = (value: { address: string; source: string } | null) => {
+      if (settled) return
+      settled = true
+      for (const controller of controllers) {
+        try { controller.abort() } catch { /* 已结束的请求 */ }
       }
-    } catch (error) {
-      continue;
+      resolve(value)
     }
-  }
-
-  if (!signal?.aborted) console.log("[IP检测] 出口探针暂不可用");
-  return null;
+    EXIT_PROBE_APIS.forEach((apiUrl, index) => {
+      const localSignal = signal ? AbortSignal.any([signal, controllers[index].signal]) : controllers[index].signal
+      void fetch(apiUrl, { timeout: 2, signal: localSignal })
+        .then(async response => {
+          if (!response.ok) return null
+          const raw = (await response.text().catch(() => "")).trim()
+          let ip = raw
+          try {
+            const data = JSON.parse(raw)
+            ip = typeof data.ip === "string" ? data.ip : ""
+          } catch {
+            // 纯文本地址
+          }
+          return isPublicExitAddress(ip)
+            ? { address: ip, source: new URL(apiUrl).hostname }
+            : null
+        })
+        .then(value => {
+          if (value) finish(value)
+          else if (--remaining === 0) finish(null)
+        })
+        .catch(() => {
+          if (--remaining === 0) finish(null)
+        })
+    })
+  }).then(value => {
+    if (!value && !signal?.aborted) console.log("[IP检测] 出口探针暂不可用")
+    return value
+  })
 }
 

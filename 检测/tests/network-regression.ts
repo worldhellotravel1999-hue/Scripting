@@ -41,7 +41,7 @@ function serviceFixture(patch: Partial<ServiceResult> = {}): ServiceResult {
 function reportFixture(patch: Partial<NetworkReport> = {}): NetworkReport {
   return {
     version: 1, measuredAt: Date.now() - 1000, contextIP: IP, source: "device",
-    local: { kind: "Wi-Fi 接口", ipv4: "192.168.1.2", ipv6: V6, tunnel: false,
+    local: { kind: "Wi-Fi 接口", ipv4: "192.168.1.2", ipv6: V6, tunnel: false, tunnelTypes: [],
       interfaces: ["en0"], gateway: "", dns: "" },
     latency: { domestic: 12, overseas: 86 }, quic: "other", httpProtocol: "HTTP/2",
     services: pendingServices().map(row => row.id === "netflix" ? serviceFixture() : row),
@@ -155,17 +155,32 @@ async function run() {
   })
   check("仅 IPv6 的 VPN 可识别但不冒充物理出口", () => {
     const local = localNetworkFromInterfaces({ utun4: [address("fd00::2", "IPv6")] })
-    return local.tunnel === true && local.kind === "未知" && local.ipv4 === "" && local.ipv6 === ""
+    return local.tunnel === true && equal(local.tunnelTypes, ["utun"])
+      && local.kind === "未知" && local.ipv4 === "" && local.ipv6 === ""
       && local.interfaces.length === 0
   })
   for (const name of ["ipsec0", "ppp0", "tun0", "tap0", "wg0"]) {
-    check(`${name} 仅 IPv6 仍计为 tunnel`, () => localNetworkFromInterfaces({
-      [name]: [address("fd00::2", "IPv6")],
-    }).tunnel === true)
+    check(`${name} 仅 IPv6 仍计为 tunnel`, () => {
+      const local = localNetworkFromInterfaces({ [name]: [address("fd00::2", "IPv6")] })
+      return local.tunnel === true && equal(local.tunnelTypes, [name.replace(/[0-9]+$/, "")])
+    })
   }
   check("Wi-Fi IPv6 与 VPN IPv6 不混合", () => {
     const local = localNetworkFromInterfaces({ utun2: [address("fd00::2", "IPv6")], en0: [address(V6, "IPv6")] })
-    return local.tunnel === true && local.ipv6 === V6 && equal(local.interfaces, ["en0"])
+    return local.tunnel === true && equal(local.tunnelTypes, ["utun"]) && local.ipv6 === V6
+      && equal(local.interfaces, ["en0"])
+  })
+  check("多个隧道类型去重并保留在快照中", () => {
+    const local = localNetworkFromInterfaces({ utun0: [address("fd00::1", "IPv6")],
+      utun1: [address("fd00::2", "IPv6")], ipsec0: [address("fd00::3", "IPv6")] })
+    const parsed = parseNetworkReport(reportFixture({ local }))
+    return equal(local.tunnelTypes, ["utun", "ipsec"]) && equal(parsed?.local.tunnelTypes, ["utun", "ipsec"])
+  })
+  check("旧快照缺少隧道类型仍可读取", () => {
+    const report = reportFixture()
+    const { tunnelTypes, ...oldLocal } = report.local
+    const parsed = parseNetworkReport({ ...report, local: { ...oldLocal, tunnel: true } })
+    return parsed?.local.tunnel === true && equal(parsed.local.tunnelTypes, [])
   })
   check("IPv6-only Wi-Fi 不借用蜂窝 IPv4", () => {
     const local = localNetworkFromInterfaces({ pdp_ip0: [address("10.0.0.2", "IPv4")], en0: [address(V6, "IPv6")] })
@@ -187,13 +202,13 @@ async function run() {
     return local.kind === "未知" && !local.ipv4 && !local.ipv6 && !local.gateway && !local.dns
   })
   for (const ip of ["10.0.0.1", "172.16.0.1", "172.31.255.254", "192.168.1.2"]) {
-    check(`${ip} 私网 hint 不宣称 Open NAT`, () => equal(localAddressHint(ip), "私网地址 · 未测试 NAT 类型"))
+    check(`${ip} 私网 hint 不宣称 Open NAT`, () => equal(localAddressHint(ip), "私网地址"))
   }
   for (const ip of ["100.64.0.1", "100.127.255.254"]) {
     check(`${ip} CGNAT 段只作可能性提示`, () => equal(localAddressHint(ip), "共享地址段 · 可能经过运营商 NAT"))
   }
   for (const ip of ["100.63.255.254", "100.128.0.1", "172.15.0.1", "172.32.0.1", IP]) {
-    check(`${ip} 不越界套用私网或 CGNAT hint`, () => equal(localAddressHint(ip), "公网接口地址 · 未测试 NAT 类型"))
+    check(`${ip} 不越界套用私网或 CGNAT hint`, () => equal(localAddressHint(ip), "公网接口地址"))
   }
   check("全局 IPv6 hint", () => equal(localAddressHint(V6), "全局 IPv6 接口地址"))
   for (const ip of ["fe80::1", "fd00::2", "2001:db8::1"]) {

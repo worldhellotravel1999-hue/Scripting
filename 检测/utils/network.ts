@@ -9,12 +9,17 @@ import { enrichWithSurge, readRemoteNetwork, readSurgeBaseline } from "./network
 type Address = { address: string; family: string; isInternal: boolean }
 /** 只检查接口，不把 tunnel 存在等同于目标请求走代理。 */
 export function localNetworkFromInterfaces(interfaces: Record<string, Address[]>): LocalNetwork {
-  const result: LocalNetwork = { ...EMPTY_LOCAL, interfaces: [], tunnel: false }
+  const result: LocalNetwork = { ...EMPTY_LOCAL, interfaces: [], tunnel: false, tunnelTypes: [] }
   const candidates: { name: string; ipv4: string; ipv6: string; priority: number }[] = []
   for (const [name, addresses] of Object.entries(interfaces)) {
     const rows = addresses.filter(item => !item.isInternal && !!canonicalAddress(item.address.split("%")[0]))
     if (!rows.length) continue
-    if (/^(utun|ipsec|ppp|tun|tap|wg)/i.test(name)) { result.tunnel = true; continue }
+    const tunnelType = /^(utun|ipsec|ppp|tun|tap|wg)/i.exec(name)?.[1].toLowerCase()
+    if (tunnelType) {
+      result.tunnel = true
+      if (!result.tunnelTypes.includes(tunnelType)) result.tunnelTypes.push(tunnelType)
+      continue
+    }
     if (/^(lo|awdl|llw)/i.test(name)) continue
     const ipv4 = rows.find(item => item.family === "IPv4")?.address || ""
     const ipv6 = rows.filter(item => item.family === "IPv6").sort((a, b) =>
@@ -38,8 +43,8 @@ export function localAddressHint(ip: string): string {
   if (value.includes(":")) return isPublicExitAddress(value) ? "全局 IPv6 接口地址" : "本地 IPv6 接口地址"
   const [a, b] = value.split(".").map(Number)
   if (a === 100 && b >= 64 && b <= 127) return "共享地址段 · 可能经过运营商 NAT"
-  if (a === 10 || a === 172 && b >= 16 && b <= 31 || a === 192 && b === 168) return "私网地址 · 未测试 NAT 类型"
-  return isPublicExitAddress(value) ? "公网接口地址 · 未测试 NAT 类型" : "特殊用途接口地址"
+  if (a === 10 || a === 172 && b >= 16 && b <= 31 || a === 192 && b === 168) return "私网地址"
+  return isPublicExitAddress(value) ? "公网接口地址" : "特殊用途接口地址"
 }
 
 export function parseDomesticExit(text: string): NetworkReport["domesticExit"] {
@@ -70,7 +75,7 @@ export async function diagnoseNetwork(contextIP: string | null, signal: AbortSig
   const started = Date.now()
   const settings = getNetworkSettings()
   let report: NetworkReport = { version: 1, measuredAt: started, contextIP, source: "device",
-    local: { ...EMPTY_LOCAL, interfaces: [] }, latency: { domestic: null, overseas: null },
+    local: { ...EMPTY_LOCAL, interfaces: [], tunnelTypes: [] }, latency: { domestic: null, overseas: null },
     quic: "unknown", httpProtocol: "", services: pendingServices(), surge: null, note: "", durationMs: 0 }
   const publish = (patch: Partial<NetworkReport>) => {
     report = { ...report, ...patch }
@@ -102,31 +107,28 @@ export async function diagnoseNetwork(contextIP: string | null, signal: AbortSig
       if (result.status != null && result.status >= 200 && result.status < 300) publish(parseHTTPProtocol(result.text))
     }),
   ])
-  let cursor = 0
-  const worker = async () => {
-    while (!signal.aborted && cursor < SERVICES.length) {
-      const index = cursor++
-      const definition = SERVICES[index]
-      const result = await probe(definition.url, signal, true, definition.id)
-      if (signal.aborted) return
-      const services = report.services.slice()
-      services[index] = { id: definition.id, name: definition.name, group: definition.group,
-        ...classifyService(result.status, result.text, result.bodyReadOK), status: result.status, ms: result.ms,
-        regionCode: result.regionCode, regionSource: result.regionSource, policy: "" }
-      publish({ services })
-      if (!result.regionCode && definition.regionURL) {
-        const regionProbe = await probe(definition.regionURL, signal, true, definition.id, definition.regionKind || "trace")
-        if (signal.aborted) return
-        if (regionProbe.regionCode) {
+  // 全部服务一次并发：每项都在等网络，串行只会把最长的那次请求叠加起来。
+  const serviceTask = Promise.all(SERVICES.map(async (definition, index) => {
+    const result = await probe(definition.url, signal, true, definition.id)
+    if (signal.aborted) return null
+    const services = report.services.slice()
+    services[index] = { id: definition.id, name: definition.name, group: definition.group,
+      ...classifyService(result.status, result.text, result.bodyReadOK, result), status: result.status, ms: result.ms,
+      regionCode: result.regionCode, regionSource: result.regionSource, policy: "" }
+    publish({ services })
+    return !result.regionCode && definition.regionURL
+      ? probe(definition.regionURL, signal, true, definition.id, definition.regionKind || "trace")
+        .then(regionProbe => {
           // 只补地区；trace 的 200 不能覆盖首页 403/429 的受限状态。
+          if (signal.aborted || !regionProbe.regionCode) return null
           const updated = report.services.slice()
           updated[index] = { ...updated[index], regionCode: regionProbe.regionCode, regionSource: regionProbe.regionSource }
           publish({ services: updated })
-        }
-      }
-    }
-  }
-  await Promise.all([pathTask, ...Array.from({ length: 6 }, worker)])
+          return null
+        })
+      : null
+  }))
+  await Promise.all([pathTask, serviceTask])
   if (signal.aborted) return report
   const enriched = await enrichWithSurge(report, settings, baseline, signal).catch(() => report)
   if (signal.aborted) return report

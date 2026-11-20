@@ -1,5 +1,30 @@
 # 更新日志
 
+## 1.3.1 — 渲染优化
+
+行为、动画与判定口径都不变，只改“怎么画”和“提交多少次”。
+
+- 页面：网络诊断会并发落地十几项服务，原来每条结果都单独 `setState`，整棵分区树被反复重建（滚动时尤其明显）。现在按 ~48 ms 窗口合并补丁，一次提交叠完所有变更，数据一条不丢；收尾还有一次立即提交，最后一帧不会多等。
+- 页面：查询输入框改为自带状态，每敲一个字只重渲染那一格，不再牵动仪表与曲线。
+- 页面：地图相机、地图外观、网络身份、位置行等派生数据按依赖缓存，不再每次渲染重算或重建。
+- 逐字标题（顶栏与分区标题）：整行共用一次可见性切换，逐字错峰交给 `Animation.delay`，不再为每个字各起一个定时器；模糊、位移、缩放与延时节奏全部保留。
+- Canvas 仪表：55 根刻度合并成一条路径一次描边；外发光改用两层加宽弧线堆叠，替掉每帧的 `shadowBlur` 离屏模糊。
+- Canvas 曲线：低通结果按采样序列缓存（每 150 ms 采一次样，画布却每帧重绘），窗口筛选用游标跳过而非重建数组，末点用长度参数控制；线条外光同样改为加宽描边。网格线也合并成一条路径。
+- 测速：状态推送从 130 ms 放宽到 200 ms 一档；峰值、最新采样值按数组身份缓存。时间轴调度对象提到模块级，避免每次渲染重新订阅。
+- `tinted`：按「色值 + 透明度」缓存解析结果，逐帧绘制不再反复走正则与 parseInt。
+- 校验：重新打包后全部离线套件通过（regression 115、network 160、service-region 41、surge 92、module-order 20、animation 3、cancellation 4、surge-stream 5、widget-reload 5、speed 67），生产文件零类型诊断；小组件 `systemLarge` 渲染正常。
+
+## 1.3.0 — 检测提速
+
+本轮不改判定口径，只动“怎么等”。本机（Wi-Fi · 新加坡出口）实测：整轮从 4.8 s 降到 2.7–4.4 s。
+
+- 网络诊断：12 项服务从 6 路队列改为一次全并发。交替对照 4 轮，全并发 2.9 / 3.4 / 3.4 / 2.7 s，6 路队列 4.7 / 3.7 / 3.9 / 4.3 s。地区补探也不再占着队列位，而是与该项自身并行。
+- IPPure：页面改为提前预热。页面只是提供站点自带的安全客户端，具体地址一直由脚本入参 `target` 决定，不依赖 URL 的 `?ip=`，所以出口探测期间就能先加载，查询时直接复用同一个隐藏页面（实测 5.3 s → 3.1 s）。手动查询没有这段空档，不预热。
+- IPPure：风险、B 站归属与 Cloudflare 风险改为一次并发；ASN 级流量统计（第二跳，个别 ASN 能慢到 2.8 s）和 Cloudflare 风险各自带预算上限，超时按“本次未取得”处理，不再拖住其他分项。
+- 服务探针正文读取：响应头已经给出地区时，读到 200 KB（足以判定可达性）就停，不再白下最多 850 KB；分片改为收集后一次拼接，避免逐片复制整段已解码字符串。
+- 页面：`detect()` 的入口集中到一处；`pageData` 复用同一份 WebView 释放路径（原来预热与直接加载各写一遍）。
+- 校验：重新打包后 10 个离线套件全部通过（regression 115、network 160、service-region 41、surge 92、module-order 20、animation 3、cancellation 4、surge-stream 5、widget-reload 5、speed 67），生产文件零类型诊断；小组件 `systemLarge` 渲染正常，12 项服务全部有结果。
+
 ## 1.2.1 — 冗余代码清理
 
 - 收窄导出面：移除从未被外部引用的 `export`（`theme` 的 `riskColor` / `riskLabel`、`utils/ip` 的 `API_URL` / `PRIVACY_MODE_KEY`、`utils/ippure` 的 `ipPureURL`、`utils/map` 的 `regionSpanForFamily`、`utils/network_settings` 的 `DEFAULT_NETWORK_SETTINGS`、`utils/network_probe` 的 `validServiceTrace`、`utils/widget_sync` 的 `WIDGET_SNAPSHOT_KEY`，以及 `details` / `flags` / `network_model` / `webrtc` / `network_widget` / `widget` 的仅内部使用类型与 `page` 的四个内部组件、`widget` 的 `getWidgetProps`）。行为不变。

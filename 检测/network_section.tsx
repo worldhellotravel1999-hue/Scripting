@@ -1,4 +1,4 @@
-import { HStack, ProgressView, Text, VStack, useState } from "scripting"
+import { HStack, ProgressView, Text, VStack, useMemo, useState } from "scripting"
 import type { Color } from "scripting"
 import { ACCENT, Band, CODE, IconButton, Note, Row, Tag, animate, tinted, useEntrance } from "./theme"
 import { SpeedPanel } from "./speed_section"
@@ -61,12 +61,17 @@ function ServiceCell({ service, loading, index = 0 }: {
   </VStack>
 }
 export function ServiceSection({ report, group, loading }: { report: NetworkReport | null; group: ServiceGroup; loading: boolean }) {
-  const services = pendingServices().filter(row => row.group === group).map(base =>
-    report?.services.find(row => row.id === base.id && row.group === group) || base)
-  const count = serviceCounts(services, group)
+  // 服务列表与分页每轮检测会多次重渲，按报告与分组缓存，避免重逑分组与切数组。
+  const services = useMemo(() => pendingServices().filter(row => row.group === group).map(base =>
+    report?.services.find(row => row.id === base.id && row.group === group) || base),
+  [report, group])
+  const count = useMemo(() => serviceCounts(services, group), [services, group])
   // 两列布局按组内实际数量分页，新增服务不会因为写死 6 而漏掉。
-  const rows: ServiceResult[][] = []
-  for (let index = 0; index < services.length; index += 2) rows.push(services.slice(index, index + 2))
+  const rows = useMemo(() => {
+    const pages: ServiceResult[][] = []
+    for (let index = 0; index < services.length; index += 2) pages.push(services.slice(index, index + 2))
+    return pages
+  }, [services])
   return <Band title={group === "media" ? "流媒体连通性" : "AI 服务连通性"}
     icon={group === "media" ? "play.rectangle" : "sparkles"}
     hint={`${count.reachable}/${count.total} 可用${loading ? " · 检测中" : ""}`}
@@ -87,7 +92,19 @@ export function NetworkSection({ report, loading, manual, privacy }: {
   const [panel, setPanel] = useState<"diagnose" | "speed">("diagnose")
   const [running, setRunning] = useState(false)
   const local = report?.local
-  const measured = report ? new Date(report.measuredAt).toLocaleTimeString("zh-CN", { hour12: false }) : ""
+  // 时间格式化要过 ICU，检测期间页面会反复重渲，按实测时间缓存一次。
+  const measuredAt = report?.measuredAt ?? 0
+  const measured = useMemo(
+    () => measuredAt ? new Date(measuredAt).toLocaleTimeString("zh-CN", { hour12: false }) : "",
+    [measuredAt],
+  )
+  const surgeRows = useMemo(() => report?.surge ? [
+    <Row key="mode" label="出站模式" value={report.surge.mode} />,
+    report.surge.node ? <Row key="node" label="活跃节点" value={report.surge.node} /> : null,
+    report.surge.policy ? <Row key="policy" label="策略组" value={report.surge.policy} /> : null,
+    report.surge.protocol ? <Row key="protocol" label="协议" value={report.surge.protocol} /> : null,
+    report.surge.note ? <Note key="note" text={report.surge.note} /> : null,
+  ] : null, [report?.surge])
   const measuring = panel === "speed"
   const toggle = () => {
     // 测速进行中不允许切走，避免卸载时被中止却看不到原因。
@@ -110,9 +127,10 @@ export function NetworkSection({ report, loading, manual, privacy }: {
           : <VStack spacing={0} frame={{ maxWidth: "infinity", alignment: "leading" }}>
           <Row label="本机接口" value={local?.kind || (loading ? "读取中…" : "未知")} />
           {local?.ipv4 ? <Row label="本地 IPv4" value={formatIPAddress(local.ipv4, privacy)} mono /> : null}
+          {local?.ipv4 ? <Row label="地址类型" value={localAddressHint(local.ipv4)} /> : null}
           {local?.ipv6 ? <Row label="本地 IPv6" value={formatIPAddress(local.ipv6, privacy)} mono /> : null}
-          <Row label="隧道接口" value={local?.tunnel == null ? "未知" : local.tunnel ? "检测到" : "未检测到"} />
-          {local?.ipv4 ? <Note text={localAddressHint(local.ipv4)} /> : null}
+          <Row label="隧道接口" value={local?.tunnel == null ? "未知" : local.tunnel
+            ? (local.tunnelTypes?.join(" · ") || "类型未知") : "未检测到"} />
           {local?.gateway ? <Row label="网关" value={privacy ? "已隐藏" : local.gateway} mono /> : null}
           {local?.dns ? <Row label="DNS" value={privacy ? "已隐藏" : local.dns} mono /> : null}
           <Row label="国内响应" value={latencyLabel(report?.latency.domestic)} mono />
@@ -120,13 +138,7 @@ export function NetworkSection({ report, loading, manual, privacy }: {
           <Row label="HTTP/3"><Tag text={quicLabel(report)}
             color={report?.quic === "h3" ? ACCENT.green : ACCENT.violet} /></Row>
           <Note text="响应为国内／国际站点的 HTTP 请求耗时，取本轮成功请求最小值，包含建连等开销；请求遵循当前分流。接口存在不代表实际出站，未观测到 H3 也不等于 UDP 被禁用。" />
-          {report?.surge ? <>
-            <Row label="出站模式" value={report.surge.mode} />
-            {report.surge.node ? <Row label="活跃节点" value={report.surge.node} /> : null}
-            {report.surge.policy ? <Row label="策略组" value={report.surge.policy} /> : null}
-            {report.surge.protocol ? <Row label="协议" value={report.surge.protocol} /> : null}
-            {report.surge.note ? <Note text={report.surge.note} /> : null}
-          </> : null}
+          {surgeRows}
           {report?.note ? <Note text={report.note} /> : null}
           {!loading && measured ? <Note text={`${measured} · ${report?.source === "surge" ? "来自 Surge 快照" : `本轮耗时 ${((report?.durationMs || 0) / 1000).toFixed(1)} 秒`}`} /> : null}
           </VStack>}

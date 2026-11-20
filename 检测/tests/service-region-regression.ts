@@ -35,7 +35,17 @@ async function run() {
   check("Gemini未知或无WIZ不能补猜", !extractServiceRegionCode(wiz("ZZ"), "gemini") && !extractServiceRegionCode('{"vXmutd":"US"}', "gemini"))
   const mobile = await readProbeResponse(new Response('{"INNERTUBE_CONTEXT_GL":"HK"}', { status: 200 }),
     { url: "https://m.youtube.com/", serviceID: "youtube", readBody: true, ms: 1 })
-  check("YouTube官方移动站地区不丢失", mobile.regionCode === "HK")
+  const stateOf = (result: typeof mobile) => classifyService(result.status, result.text, result.bodyReadOK, result).state
+  check("YouTube官方移动站仍可访问并保留地区", mobile.regionCode === "HK" && stateOf(mobile) === "reachable")
+  const landing = (url: string, body = "<title>Welcome</title>") =>
+    readProbeResponse(new Response(body, { status: 200 }), { url, serviceID: "gemini", readBody: true, ms: 1 })
+  check("官方登录跳转显示受限", stateOf(await landing("https://accounts.google.com/v3/signin/identifier")) === "restricted")
+  check("第三方跳转显示未知", stateOf(await landing("https://other.test/login", "<title>Sign in</title>")) === "unknown"
+    && stateOf(await landing("https://other.test/", "cf-chl-widget")) === "unknown")
+  check("同域登录路径或登录标题显示受限", stateOf(await landing("https://gemini.google.com/login")) === "restricted"
+    && stateOf(await landing("https://gemini.google.com/", "<title>Sign in</title>")) === "restricted")
+  check("主页的登录链接和查询参数不改变可用性", stateOf(await landing("https://gemini.google.com/?next=/login",
+    '<title>Welcome</title><a href="/login">Sign in</a>')) === "reachable")
   const config = (body: string, url = "https://spclient.wg.spotify.com/signup/public/v1/account?validate=1") =>
     readProbeResponse(new Response(body, { status: 200, headers: { "content-type": "application/json" } }),
       { url, serviceID: "spotify", config: true, readBody: true, ms: 1 })

@@ -33,6 +33,8 @@ export interface LocalNetwork {
   ipv4: string
   ipv6: string
   tunnel: boolean | null
+  /** 观察到的隧道接口类型（utun / ipsec / ppp / tun / tap / wg），界面直接显示类型。 */
+  tunnelTypes: string[]
   /** 地址只表示接口存在，不证明它是当前出站路径。 */
   interfaces: string[]
   gateway: string
@@ -77,21 +79,28 @@ export const SERVICES: ServiceDefinition[] = [
   { id: "perplexity", name: "Perplexity", group: "ai", url: "https://www.perplexity.ai/", regionURL: "https://www.perplexity.ai/cdn-cgi/trace" },
 ]
 export const EMPTY_LOCAL: LocalNetwork = {
-  kind: "未知", ipv4: "", ipv6: "", tunnel: null, interfaces: [], gateway: "", dns: "",
+  kind: "未知", ipv4: "", ipv6: "", tunnel: null, tunnelTypes: [], interfaces: [], gateway: "", dns: "",
 }
 export function pendingServices(): ServiceResult[] {
   return SERVICES.map(({ id, name, group }) => ({ id, name, group, state: "unknown", status: null, ms: null,
     detail: "未检测", regionCode: "", policy: "" }))
 }
 
-export function classifyService(status: number | null, body = "", bodyReadOK = true): { state: ServiceState; detail: string } {
+export function classifyService(status: number | null, body = "", bodyReadOK = true,
+  landing?: { trusted: boolean; loginPath: boolean }): { state: ServiceState; detail: string } {
   if (status == null) return { state: "unknown", detail: "连接失败或超时" }
   if ([401, 403, 407, 429, 451].includes(status)) return { state: "restricted", detail: `HTTP ${status} · 认证、限流或访问限制` }
   if (status >= 200 && status < 300) {
+    if (landing?.loginPath) return { state: "restricted", detail: `HTTP ${status} · 需要登录` }
+    if (landing && !landing.trusted) return { state: "unknown", detail: `HTTP ${status} · 跳转至非预期站点` }
     if (!bodyReadOK) return { state: "unknown", detail: `HTTP ${status} · 正文读取失败` }
     const sample = body.slice(0, 200_000)
     if (/cf-chl-|challenge-platform|<title>\s*(just a moment|attention required)|unusual traffic|verify (that )?you are human|(?:complete|solve|enter|verify) (?:the |this |a )?captcha|not available in your (country|region)|unsupported_country|access denied/i.test(sample)) {
       return { state: "restricted", detail: `HTTP ${status} · 验证或区域限制页面` }
+    }
+    if (/<title\b[^>]*>\s*(?:sign\s*in|log\s*in|登录)(?:\s|<|[-|:])/i.test(sample)
+      || /<input\b[^>]*\stype\s*=\s*(?:"password"|'password'|password(?=[\s/>]))/i.test(sample)) {
+      return { state: "restricted", detail: `HTTP ${status} · 需要登录` }
     }
     return { state: "reachable", detail: `HTTP ${status} · 页面可访问` }
   }
@@ -158,6 +167,8 @@ export function parseNetworkReport(raw: unknown): NetworkReport | null {
     version: 1, measuredAt: value.measuredAt, contextIP: canonicalAddress(text(value.contextIP)), source: value.source,
     local: { kind: text(local.kind) || "未知", ipv4: canonicalAddress(text(local.ipv4)) || "",
       ipv6: canonicalAddress(text(local.ipv6)) || "", tunnel: typeof local.tunnel === "boolean" ? local.tunnel : null,
+      tunnelTypes: Array.isArray(local.tunnelTypes) ? local.tunnelTypes.filter(item => typeof item === "string" && item.trim().length > 0)
+        .map(item => (item as string).trim().slice(0, 24)).slice(0, 12) : [],
       interfaces: Array.isArray(local.interfaces) ? local.interfaces.filter(item => typeof item === "string").slice(0, 12) as string[] : [],
       gateway: text(local.gateway), dns: text(local.dns) },
     domesticExit: domesticIP ? { ip: domesticIP, location: text(domestic.location), isp: text(domestic.isp) } : null,

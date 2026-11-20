@@ -1,6 +1,6 @@
 import {
   Button, Device, GeometryReader, HStack, Image, Rectangle, RoundedRectangle, Spacer, Text, VStack, ZStack,
-  gradient, modifiers, useEffect, useRef, useState,
+  gradient, modifiers, useEffect, useMemo, useRef, useState,
 } from "scripting"
 import type { Color, DynamicShapeStyle, VirtualNode } from "scripting"
 
@@ -33,16 +33,32 @@ export const LABEL_WIDTH = 91
 const SPECTRUM = gradient("linear", {
   colors: [ACCENT.teal, ACCENT.blue, ACCENT.violet], startPoint: "leading", endPoint: "trailing",
 })
-/** 强调色转半透明填充；传入非十六进制值时原样返回，避免拼出非法颜色。 */
+/**
+ * 强调色转半透明填充；传入非十六进制值时原样返回，避免拼出非法颜色。
+ * Canvas 逐帧绘制反复取同一组颜色，因结果按「色值 + 透明度」缓存，
+ * 省掉每帧的正则与解析。
+ */
+const TINT_CACHE = new Map<string, Color>()
+const TINT_CACHE_LIMIT = 512
 export function tinted(color: Color, alpha: number): Color {
   const hex = String(color).trim()
   if (!/^#[0-9a-fA-F]{3}$|^#[0-9a-fA-F]{6}$/.test(hex)) return color
+  const opacity = Math.max(0, Math.min(1, alpha)).toFixed(3)
+  const key = `${hex}|${opacity}`
+  const cached = TINT_CACHE.get(key)
+  if (cached !== undefined) return cached
   const body = hex.slice(1)
   const full = body.length === 3 ? body.split("").map(char => char + char).join("") : body
   const value = [full.slice(0, 2), full.slice(2, 4), full.slice(4, 6)]
     .map(part => parseInt(part, 16) || 0)
-  const opacity = Math.max(0, Math.min(1, alpha)).toFixed(3)
-  return `rgba(${value[0]}, ${value[1]}, ${value[2]}, ${opacity})` as Color
+  const result = `rgba(${value[0]}, ${value[1]}, ${value[2]}, ${opacity})` as Color
+  // 尺寸上限只当保险；溢出时淘次老条目，不整表清空（静态配色还要用）。
+  if (TINT_CACHE.size >= TINT_CACHE_LIMIT) {
+    const oldest = TINT_CACHE.keys().next()
+    if (!oldest.done) TINT_CACHE.delete(oldest.value)
+  }
+  TINT_CACHE.set(key, result)
+  return result
 }
 
 /** 标题图标的柔光底片：极浅的青蓝渐变，不影响正文对比度。 */
@@ -85,7 +101,45 @@ export function useEntrance(delay = 0) {
   return visible
 }
 
-/** 面板入场延时钩子：所有“挂载后延迟转为可见”的动画共用同一实现。 */
+const TITLE_COLORS: Color[] = [
+  "#16B8A6", "#1FAEC0", "#279FC5", "#3F93D9", "#5A86E2",
+  "#7278E8", "#8673E8", "#9A6DE0", "#C05FB5",
+]
+// 逐字入场与标签光环的动画参数提到模块级：每次渲染不再重建 Animation。
+const TITLE_LETTER = Animation.easeOut(0.5)
+const FLAG_SWEEP = Animation.easeOut(1.05).repeatForever(false)
+
+/**
+ * 逐字入场的单个字母。整行共用一个可见性状态（见 GradientTitle），
+ * 逐字错峰交给动画自身的 delay：观感不变，但不再为每个字各起一个定时器。
+ */
+function TitleLetter({ char, color, delay, size, visible }: {
+  char: string; color: Color; delay: number; size: number; visible: boolean
+}) {
+  return <Text font={size} fontWeight="bold" foregroundStyle={color}
+    opacity={visible ? 1 : 0} blur={visible ? 0 : 3}
+    offset={{ x: 0, y: visible ? 0 : 4 }} scaleEffect={visible ? 1 : 0.86}
+    animation={{ animation: delay > 0 ? TITLE_LETTER.delay(delay) : TITLE_LETTER, value: visible }}>{char}</Text>
+}
+
+/** 模块标题使用与顶部标题一致的渐变色与逐字入场。 */
+export function GradientTitle({ title, size = 16 }: { title: string; size?: number }) {
+  // 拆字与配色索引只依赖标题本身，同名的重复挂载（分区排序/重渲）不再重复计算。
+  const prepared = useMemo(() => {
+    const chars = Array.from(title)
+    const colors = chars.map((_char, index) =>
+      TITLE_COLORS[Math.round(index * (TITLE_COLORS.length - 1) / Math.max(1, chars.length - 1))] as Color)
+    return { chars, colors }
+  }, [title])
+  const visible = useEntrance()
+  return <HStack key={title} spacing={0} fixedSize={{ horizontal: true, vertical: false }}
+    accessibilityLabel={title}>
+    {prepared.chars.map((char, index) => char === " "
+      ? <ZStack key={`space-${index}`} frame={{ width: size * 0.28, height: size }} />
+      : <TitleLetter key={`${char}-${index}`} char={char} visible={visible} color={prepared.colors[index]}
+        delay={Math.min(index * 0.065, 0.65)} size={size} />)}
+  </HStack>
+}
 
 /** 连续面板中的色带分区，无独立圆角、阴影或外边距。iconEffect 让图标换形时额外弹一下。 */
 export function Band({ title, icon, hint, accessory, shaded = false, order = 0, iconEffect = false, children }: {
@@ -110,10 +164,7 @@ export function Band({ title, icon, hint, accessory, shaded = false, order = 0, 
               symbolEffect={iconEffect ? { effect: "bounce", value: icon, options: { speed: 1.4 } } : undefined}
               animation={{ animation: Animation.smooth({ duration: 0.24 }), value: icon }} />
           </ZStack> : null}
-          <Text font={16} fontWeight="bold" foregroundStyle={CODE.value} lineLimit={1}
-            minScaleFactor={0.8} fixedSize={{ horizontal: true, vertical: false }}
-            contentTransition="opacity"
-            animation={{ animation: Animation.smooth({ duration: 0.26 }), value: title || "" }}>{title}</Text>
+          <GradientTitle key={title} title={title} />
           <Spacer />
           {hint ? <Text font={9} fontWeight="medium" foregroundStyle="secondaryLabel"
             lineLimit={1} minScaleFactor={0.75} contentTransition="opacity"
@@ -218,7 +269,7 @@ export function FlagRow({ label, delay = 0, color = ACCENT.orange }: {
       overlay={<RoundedRectangle cornerRadius={6}
         stroke={{ shapeStyle: color, strokeStyle: { lineWidth: 1 } }}
         opacity={shown ? 0 : 0.55} scaleEffect={shown ? 1.55 : 1}
-        animation={{ animation: Animation.easeOut(1.05).repeatForever(false), value: shown }} />}
+        animation={{ animation: FLAG_SWEEP, value: shown }} />}
       opacity={shown ? 1 : 0} scaleEffect={shown ? 1 : 0.7}
       animation={{ animation: Animation.spring({ duration: 0.46, bounce: 0.24 }), value: shown }}>
       已标记
@@ -323,6 +374,8 @@ export function RiskScale({ value }: { value: number }) {
   const marks = RISK_MARKS
   const colors = RISK_COLORS
   const tint = riskColor(score)
+  const scoreText = `${Math.round(score)}%  ${riskLabel(score)}`
+  const accessibilityText = `风险分 ${Math.round(score)}，${riskLabel(score)}`
   // 三行各自占据真实高度；固定高度与弹性宽度分别约束，避免刻度溢出到下方 Note。
   return <VStack spacing={5}
     modifiers={modifiers().frame({ maxWidth: "infinity", alignment: "leading" }).padding({ top: 7, bottom: 8 })}
@@ -335,7 +388,7 @@ export function RiskScale({ value }: { value: number }) {
         }
       },
     } : undefined}
-    accessibilityLabel={`风险分 ${Math.round(score)}，${riskLabel(score)}`}>
+    accessibilityLabel={accessibilityText}>
     <HStack spacing={0} modifiers={modifiers().frame({ height: 36, alignment: "topLeading" }).frame({ maxWidth: "infinity", alignment: "leading" })}>
       <GeometryReader>{({ size }) => {
         const width = Math.max(1, size.width)
@@ -348,7 +401,7 @@ export function RiskScale({ value }: { value: number }) {
             background={{ style: tint, shape: { type: "rect", cornerRadius: 7 } }}
             shadow={{ color: "rgba(45,60,80,0.12)", radius: 5, y: 2 }}
             offset={{ x: bubbleX, y: 0 }}
-            animation={{ animation: RISK_MOVEMENT, value: position }}>{`${Math.round(score)}%  ${riskLabel(score)}`}</Text>
+            animation={{ animation: RISK_MOVEMENT, value: position }}>{scoreText}</Text>
           <ZStack frame={{ width: 7, height: 7 }} background={tint} rotationEffect={45}
             offset={{ x: Math.max(0, Math.min(width - 7, x - 3.5)), y: 27 }}
             animation={{ animation: RISK_MOVEMENT, value: position }} />

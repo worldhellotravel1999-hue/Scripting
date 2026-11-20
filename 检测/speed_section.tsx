@@ -1,6 +1,6 @@
 import {
   AbortController, Button, Canvas, GeometryReader, HStack, Image, RoundedRectangle,
-  Spacer, Text, TimelineCanvas, VStack, ZStack, gradient, modifiers, useEffect, useRef, useState,
+  Spacer, Text, TimelineCanvas, VStack, ZStack, gradient, modifiers, useEffect, useMemo, useRef, useState,
   useColorScheme,
 } from "scripting"
 import type { CanvasRenderingContext, Color } from "scripting"
@@ -16,6 +16,16 @@ const STAGE_HEIGHT = 274
 const DOWN_TINT: Color[] = ["#16B8A6", "#279FC5", "#6E8BE8"]
 const UP_TINT: Color[] = ["#8673E8", "#A868D8", "#F06591"]
 const ERROR_TINT: Color[] = ["#E64F67", "#F08335", "#D6A013"]
+// 帧节奏对象提到模块级：每次渲染传新对象会让时间轴重新订阅，白白重绘。
+const GAUGE_LIVE = { minimumInterval: 1 / 30 }
+const GAUGE_IDLE = { minimumInterval: 1 / 12 }
+const CHART_LIVE = { minimumInterval: 1 / 30 }
+const CHART_IDLE = { minimumInterval: 1 / 10 }
+// 曲线两条图例的配色固定，提到模块级后每帧不再重建。
+const CHART_SERIES: { phase: "download" | "upload"; tint: Color }[] = [
+  { phase: "download", tint: DOWN_TINT[1] },
+  { phase: "upload", tint: UP_TINT[0] },
+]
 
 function tintOf(phase: SpeedPhase): Color[] {
   if (phase === "upload") return UP_TINT
@@ -67,15 +77,16 @@ function drawGauge(ctx: CanvasRenderingContext, size: { width: number; height: n
   ctx.strokeStyle = tick
   ctx.lineWidth = 1.2
   ctx.lineCap = "round"
+  // 刻度合并成一条路径再一次描边：原来 55 次 stroke，现在 1 次，指令量降一个量级。
+  ctx.beginPath()
   for (let index = 0; index <= 54; index++) {
     const angle = START + SWEEP * index / 54
     const major = index % 9 === 0
     const inner = r + 9, outer = r + (major ? 16 : 12)
-    ctx.beginPath()
     ctx.moveTo(cx + Math.cos(angle) * inner, cy + Math.sin(angle) * inner)
     ctx.lineTo(cx + Math.cos(angle) * outer, cy + Math.sin(angle) * outer)
-    ctx.stroke()
   }
+  ctx.stroke()
 
   ctx.strokeStyle = track
   ctx.lineWidth = 9
@@ -90,21 +101,28 @@ function drawGauge(ctx: CanvasRenderingContext, size: { width: number; height: n
   ctx.stroke()
 
   if (ratio > 0.004) {
+    const end = START + SWEEP * ratio
+    // 外发光用两层加宽的低透明度弧线堆出来，替掉每帧的 shadowBlur（离屏模糊开销大）。
+    ctx.lineCap = "round"
+    ctx.strokeStyle = tinted(tint[1], dark ? 0.16 : 0.12)
+    ctx.lineWidth = 17
+    ctx.beginPath()
+    ctx.arc(cx, cy, r, START, end)
+    ctx.stroke()
+    ctx.strokeStyle = tinted(tint[1], dark ? 0.22 : 0.16)
+    ctx.lineWidth = 12
+    ctx.beginPath()
+    ctx.arc(cx, cy, r, START, end)
+    ctx.stroke()
     const grad = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r)
     grad.addColorStop(0, tint[0])
     grad.addColorStop(0.55, tint[1])
     grad.addColorStop(1, tint[2])
     ctx.strokeStyle = grad
     ctx.lineWidth = 9
-    ctx.lineCap = "round"
-    ctx.shadowColor = tinted(tint[1], 0.45)
-    ctx.shadowBlur = 14
     ctx.beginPath()
-    ctx.arc(cx, cy, r, START, START + SWEEP * ratio)
+    ctx.arc(cx, cy, r, START, end)
     ctx.stroke()
-    ctx.shadowBlur = 0
-
-    const end = START + SWEEP * ratio
     const px = cx + Math.cos(end) * r, py = cy + Math.sin(end) * r
     const pulse = 0.5 + 0.5 * Math.sin(time * 3.2)
     ctx.fillStyle = tinted(tint[1], dark ? 0.16 + 0.16 * pulse : 0.12 + 0.14 * pulse)
@@ -165,6 +183,8 @@ function drawGauge(ctx: CanvasRenderingContext, size: { width: number; height: n
 type ChartSmoother = {
   last: number | null; at: number; peak: number | null
   heads: Record<"download" | "upload", number | null>
+  /** 采样只在约 150 ms 一次，而画布每帧重绘：低通结果缓存起来，只在采样变化时重算。 */
+  key: string; filtered: Record<"download" | "upload", { t: number; mbps: number }[]>
 }
 function drawChart(ctx: CanvasRenderingContext, size: { width: number; height: number },
   samples: readonly SpeedSample[], dark: boolean, time: number, smoother: ChartSmoother) {
@@ -172,23 +192,26 @@ function drawChart(ctx: CanvasRenderingContext, size: { width: number; height: n
   ctx.clearRect(0, 0, width, height)
   ctx.strokeStyle = dark ? "rgba(150,198,228,0.12)" : "rgba(36,86,118,0.08)"
   ctx.lineWidth = 1
+  // 三条网格线合并成一条路径，少两次描边。
+  ctx.beginPath()
   for (let index = 1; index <= 3; index++) {
     const y = Math.round(height * index / 4) + 0.5
-    ctx.beginPath()
     ctx.moveTo(0, y)
     ctx.lineTo(width, y)
-    ctx.stroke()
   }
+  ctx.stroke()
   if (!samples.length) {
     smoother.last = null
     smoother.peak = null
     smoother.heads.download = null
     smoother.heads.upload = null
+    // 清空缓存：下一轮测速重新开始计时轴，不能拿上一轮的平滑结果。
+    smoother.key = ""
     return
   }
 
   const rawLast = samples.reduce((value, sample) => Math.max(value, sample.t), 0)
-  const rawPeak = Math.max(1, ...samples.map(sample => sample.mbps))
+  const rawPeak = samples.reduce((value, sample) => Number.isFinite(sample.mbps) ? Math.max(value, sample.mbps) : value, 1)
   // 右边界的时间按真实时间推进，新采样便从右侧滑入，而不是整条曲线瞬间跳位。
   if (smoother.last == null || smoother.at <= 0 || rawLast < smoother.last) {
     smoother.last = rawLast
@@ -209,37 +232,54 @@ function drawChart(ctx: CanvasRenderingContext, size: { width: number; height: n
   const xOf = (t: number) => Math.min(width - 2, width - 2 - ((last - t) / span) * (width - 4))
   const yOf = (value: number) => height - 3 - Math.max(0, value) / peak * (height - 11)
 
-  const series: { phase: "download" | "upload"; tint: Color }[] = [
-    { phase: "download", tint: DOWN_TINT[1] },
-    { phase: "upload", tint: UP_TINT[0] },
-  ]
+  // 低通与方向筛选不依赖窗口位置，按“采样序列版本”缓存，避免每帧重建数组。
+  // 首尾时间一起参与判定：新一轮测速长度可能恰好重合，只比长度会拿错缓存。
+  const cacheKey = `${samples.length}|${samples[0].t}|${samples[samples.length - 1].t}`
+  if (smoother.key !== cacheKey) {
+    smoother.key = cacheKey
+    for (const phase of ["download", "upload"] as const) {
+      let value = Number.NaN
+      const rows: { t: number; mbps: number }[] = []
+      for (const sample of samples) {
+        if (sample.phase !== phase) continue
+        // 采样间隔约 150 ms；先做一次低通，去掉单点尖峰造成的硬折角。
+        value = Number.isFinite(value) ? value + (sample.mbps - value) * 0.42 : sample.mbps
+        rows.push({ t: sample.t, mbps: value })
+      }
+      smoother.filtered[phase] = rows
+    }
+  }
+
+  const series = CHART_SERIES
   for (const row of series) {
-    const points = samplesOf(samples, row.phase).filter(sample => sample.t >= from)
-    if (!points.length) continue
-    // 采样间隔约 150 ms；先做一次低通，去掉单点尖峰造成的硬折角。
-    let value = points[0].mbps
-    const coords = points.map(sample => {
-      value += (sample.mbps - value) * 0.42
-      return { x: xOf(sample.t), y: yOf(value) }
-    })
-    const lastSample = points[points.length - 1]
+    const all = smoother.filtered[row.phase]
+    // 窗口左边界之外的点不参与绘制；直接跳过而非再过滤出一份数组。
+    let start = 0
+    while (start < all.length && all[start].t < from) start++
+    if (start >= all.length) continue
+    const coords: { x: number; y: number }[] = []
+    for (let index = start; index < all.length; index++) {
+      coords.push({ x: xOf(all[index].t), y: yOf(all[index].mbps) })
+    }
+    const lastSample = all[all.length - 1]
     const target = lastSample.mbps
     const previous = smoother.heads[row.phase]
     const live = approach(previous ?? target, target, delta, 8)
     smoother.heads[row.phase] = live
     const head = { x: xOf(lastSample.t), y: yOf(live) }
-    const body = coords.length > 1 ? coords.slice(0, -1) : []
+    // 末点由实时头部接管，折线只画到倒数第二个点；用长度参数控制，不再 slice 出新数组。
+    const bodyCount = coords.length > 1 ? coords.length - 1 : 0
 
     const trace = () => {
-      if (!body.length) { ctx.moveTo(head.x, head.y); return }
-      ctx.moveTo(body[0].x, body[0].y)
-      for (let index = 1; index < body.length - 1; index++) {
-        const current = body[index], next = body[index + 1]
+      if (!bodyCount) { ctx.moveTo(head.x, head.y); return }
+      ctx.moveTo(coords[0].x, coords[0].y)
+      for (let index = 1; index < bodyCount - 1; index++) {
+        const current = coords[index], next = coords[index + 1]
         ctx.quadraticCurveTo(current.x, current.y, (current.x + next.x) / 2, (current.y + next.y) / 2)
       }
       // 末段用三次曲线过渡到头部实时值，接点处切线连续。
-      const pivotPoint = body[body.length - 1]
-      const before = body.length > 1 ? body[body.length - 2] : { x: pivotPoint.x - 12, y: pivotPoint.y }
+      const pivotPoint = coords[bodyCount - 1]
+      const before = bodyCount > 1 ? coords[bodyCount - 2] : { x: pivotPoint.x - 12, y: pivotPoint.y }
       ctx.bezierCurveTo((before.x + pivotPoint.x) / 2, before.y, (pivotPoint.x + head.x) / 2, head.y, head.x, head.y)
     }
 
@@ -249,24 +289,27 @@ function drawChart(ctx: CanvasRenderingContext, size: { width: number; height: n
       area.addColorStop(1, tinted(row.tint, 0))
       ctx.fillStyle = area
       ctx.beginPath()
-      const startX = body.length ? body[0].x : head.x
+      const startX = bodyCount ? coords[0].x : head.x
       ctx.moveTo(startX, height)
-      ctx.lineTo(startX, body.length ? body[0].y : head.y)
+      ctx.lineTo(startX, bodyCount ? coords[0].y : head.y)
       trace()
       ctx.lineTo(head.x, height)
       ctx.closePath()
       ctx.fill()
 
-      ctx.strokeStyle = row.tint
-      ctx.lineWidth = 2
       ctx.lineCap = "round"
       ctx.lineJoin = "round"
-      ctx.shadowColor = tinted(row.tint, 0.45)
-      ctx.shadowBlur = 6
+      // 线条外光用一层加宽的半透明描边代替 shadowBlur：视觉接近，但没有离屏模糊。
+      ctx.strokeStyle = tinted(row.tint, 0.22)
+      ctx.lineWidth = 5
       ctx.beginPath()
       trace()
       ctx.stroke()
-      ctx.shadowBlur = 0
+      ctx.strokeStyle = row.tint
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      trace()
+      ctx.stroke()
     }
 
     // 头部光晕按帧呼吸，作为“正在采样”的锚点。
@@ -383,6 +426,7 @@ export function SpeedPanel({ kind, onRunningChange }: {
   const gaugeSmoother = useRef({ value: Number.NaN, at: 0 })
   const chartSmoother = useRef<ChartSmoother>({
     last: null, at: 0, peak: null, heads: { download: null, upload: null },
+    key: "", filtered: { download: [], upload: [] },
   })
 
   useEffect(() => () => {
@@ -402,13 +446,17 @@ export function SpeedPanel({ kind, onRunningChange }: {
     // 卸载时测速已被中止；不通知外层会留下永久“测速中”的锁定状态。
     try { runningNotify.current?.(false) } catch (error) { console.log("[IP检测] 测速状态复位", String(error)) }
   }, [])
-  const link = linkKind(kind)
   // 用 hook 读取，外观切换时 Canvas 的深浅配色会跟着重绘。
   const dark = useColorScheme() === "dark"
   const tint = tintOf(state.phase)
   const samples = state.samples
-  const downloadPeak = peakSpeed(samplesOf(samples, "download"))
-  const uploadPeak = peakSpeed(samplesOf(samples, "upload"))
+  // 采样数组每轮只追加/重建几次，峰值与最新值按数组身份缓存，避免每次重渲都双向扫描。
+  const peaks = useMemo(() => ({
+    download: peakSpeed(samplesOf(samples, "download")),
+    upload: peakSpeed(samplesOf(samples, "upload")),
+  }), [samples])
+  const downloadPeak = peaks.download
+  const uploadPeak = peaks.upload
   const download = state.download ?? (idle ? last?.download ?? null : null)
   const upload = state.upload ?? (idle ? last?.upload ?? null : null)
   const ping = state.ping ?? (idle ? last?.ping ?? null : null)
@@ -416,15 +464,22 @@ export function SpeedPanel({ kind, onRunningChange }: {
   const loss = state.loss ?? (idle ? last?.loss ?? null : null)
   const bytes = state.bytes || (idle ? last?.bytes ?? 0 : 0)
   const showingLast = idle && last != null
+  const displayKind = showingLast ? last.kind : kind
+  const link = linkKind(displayKind)
   // 反向扫描避免每次渲染复制整个采样数组。
-  const latest = (phase: "download" | "upload") => {
+  const latest = useMemo(() => {
+    let down = 0, up = 0
+    let hasDown = false, hasUp = false
     for (let index = samples.length - 1; index >= 0; index--) {
-      if (samples[index].phase === phase) return samples[index].mbps
+      const sample = samples[index]
+      if (!hasDown && sample.phase === "download") { down = sample.mbps; hasDown = true }
+      if (!hasUp && sample.phase === "upload") { up = sample.mbps; hasUp = true }
+      if (hasDown && hasUp) break
     }
-    return 0
-  }
-  const gaugeValue = state.phase === "download" ? latest("download")
-    : state.phase === "upload" ? latest("upload")
+    return { download: down, upload: up }
+  }, [samples])
+  const gaugeValue = state.phase === "download" ? latest.download
+    : state.phase === "upload" ? latest.upload
       : state.phase === "latency" ? 0 : download ?? 0
   const gaugePeak = state.phase === "upload" ? Math.max(uploadPeak, upload ?? 0) : Math.max(downloadPeak, gaugeValue)
   const gaugeMax = niceMax(gaugePeak)
@@ -439,8 +494,9 @@ export function SpeedPanel({ kind, onRunningChange }: {
   const traffic = trafficParts(bytes)
   const downloadMax = niceMax(Math.max(downloadPeak, download ?? 0))
   const uploadMax = niceMax(Math.max(uploadPeak, upload ?? 0))
-  const pingNote = ping == null ? (running ? "测量中" : "尚未取得")
-    : `抖动 ${jitter == null ? "—" : `${Math.round(jitter)} ms`}${loss != null ? ` · 丢包 ${Math.round(loss * 100)}%` : ""}`
+  const pingNote = (ping == null ? (running ? "测量中" : "尚未取得")
+    : `抖动 ${jitter == null ? "—" : `${Math.round(jitter)} ms`}`)
+    + (loss != null ? ` · HTTP 失败 ${Math.round(loss * 100)}%` : "")
 
   async function start() {
     if (running) {
@@ -493,7 +549,7 @@ export function SpeedPanel({ kind, onRunningChange }: {
 
   return <VStack alignment="leading" spacing={10} frame={{ maxWidth: "infinity", alignment: "leading" }}>
     <HStack spacing={8} alignment="center" frame={{ maxWidth: "infinity" }}>
-      <LinkChip kind={kind} tint={tint[1]} />
+      <LinkChip kind={displayKind} tint={tint[1]} />
       <VStack alignment="leading" spacing={1} frame={{ maxWidth: "infinity", alignment: "leading" }}>
         <Text font={12} fontWeight="semibold" foregroundStyle={CODE.value} lineLimit={1}
           contentTransition="opacity">{phaseLabel(state.phase)}</Text>
@@ -517,7 +573,7 @@ export function SpeedPanel({ kind, onRunningChange }: {
         const radius = Math.max(56, Math.min(size.width * 0.355, 98))
         const centerY = size.height * 0.505
         return <ZStack alignment="topLeading" frame={{ width: size.width, height: size.height }}>
-          <TimelineCanvas opaque={false} schedule={{ minimumInterval: running ? 1 / 30 : 1 / 12 }}
+          <TimelineCanvas opaque={false} schedule={running ? GAUGE_LIVE : GAUGE_IDLE}
             modifiers={modifiers().frame({ width: size.width, height: size.height })}
             draw={(ctx, canvasSize, time) => drawGauge(ctx, canvasSize, time, {
               value: gaugeValue, max: gaugeMax, tint, dark, running, phase: state.phase,
@@ -563,7 +619,7 @@ export function SpeedPanel({ kind, onRunningChange }: {
         <Text font={9} foregroundStyle="secondaryLabel">{`${samples.length} 采样`}</Text>
       </HStack>
       <ZStack alignment="leading" modifiers={modifiers().frame({ height: 48 }).frame({ maxWidth: "infinity" })}>
-        <TimelineCanvas opaque={false} schedule={{ minimumInterval: running ? 1 / 30 : 1 / 10 }}
+        <TimelineCanvas opaque={false} schedule={running ? CHART_LIVE : CHART_IDLE}
           modifiers={modifiers().frame({ height: 48 }).frame({ maxWidth: "infinity" })}
           draw={(ctx, size, time) => drawChart(ctx, size, samples, dark, time, chartSmoother.current)} />
         {samples.length === 0 ? <Text font={9} foregroundStyle="secondaryLabel" padding={{ horizontal: 2 }}>
